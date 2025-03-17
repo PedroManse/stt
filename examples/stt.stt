@@ -1,0 +1,3 @@
+(fn) [a b] flip {b a}
+(fn) [a] dup {a a}
+(fn) [a b c] rot {c a b}

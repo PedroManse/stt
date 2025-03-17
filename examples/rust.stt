@@ -1,0 +1,36 @@
+argv-init
+argv-pop trash
+
+argv-pop
+	dup "cargo new --bin %s%" % sh ok!
+	"cd %s%" % sh ok!
+
+"
+target
+shell.nix
+.envrc
+" trim ".gitignore" write-to
+
+
+# ["crateA", "-featA", "-featB", "crateB", "-featC", "crateC", "createD"]
+argv-rest "" rot-all
+
+"crate_name" maybe-set
+mk-array "feats" set
+(while) { stack-has } {
+	3 (ifs)
+		{ dup "-" has-prefix } {
+			dup "-" remove-prefix
+			"feats" get
+				arr-append
+			"feats" set
+		}
+		{ dup "feats" get arr-empty } {
+			"cargo add %s%" % sh ok!
+		}
+		{ true } {
+			"feats" get " " arr-join flip "cargo add %s% --features %s%" % sh ok!
+		}
+		trash
+}
+
