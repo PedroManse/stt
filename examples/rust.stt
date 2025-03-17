@@ -13,7 +13,7 @@ shell.nix
 
 
 # ["crateA", "-featA", "-featB", "crateB", "-featC", "crateC", "createD"]
-argv-rest "" rot-all
+"" argv-rest
 
 "crate_name" maybe-set
 mk-array "feats" set
