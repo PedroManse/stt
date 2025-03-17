@@ -15,7 +15,7 @@ shell.nix
 # ["crateA", "-featA", "-featB", "crateB", "-featC", "crateC", "createD"]
 "" argv-rest
 
-"crate_name" maybe-set
+"crate_name" set
 mk-array "feats" set
 (while) { stack-has } {
 	3 (ifs)
