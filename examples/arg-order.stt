@@ -1,0 +1,9 @@
+# operator in the middle
+(fn) [a b] "-" { a b (-) }
+
+# static on the right
+(fn) [dynamic static] "smth" {}
+
+# address on the right
+(fn) [cont arr] "append" { flip array-singleton array-merge }
+
