@@ -19,18 +19,24 @@ shell.nix
 mk-array "feats" set
 (while) { stack-has } {
 	3 (ifs)
-		{ dup "-" has-prefix } {
-			dup "-" remove-prefix
+		{ "-" peek-has-prefix } {
+			"-" remove-prefix
 			"feats" get
 				arr-append
-			"feats" set
+				"feats" set
 		}
-		{ dup "feats" get arr-empty } {
-			"cargo add %s%" % sh ok!
+		{ "feats" get arr-empty } {
+			"crate_name" get
+				"cargo add %s%" % sh ok!
+			"crate_name" set
 		}
 		{ true } {
-			"feats" get " " arr-join flip "cargo add %s% --features %s%" % sh ok!
+			"crate_name" get
+			"feats" get
+				" " arr-join
+			"cargo add %s% --features %s%" %
+				sh ok!
+			"crate_name" set
 		}
-		trash
 }
 
