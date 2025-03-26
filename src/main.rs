@@ -1,5 +1,7 @@
 use stt::*;
 
+use self::token::Context;
+
 macro_rules! e {
     (call $fn_name:expr) => {
         FnCall(FnName($fn_name.to_owned()))
@@ -15,7 +17,7 @@ macro_rules! e {
     };
 }
 
-fn main() {
+fn _main() {
     use Expr::*;
 
     let print_twice_code = vec![
@@ -69,3 +71,11 @@ fn main() {
     println!("{:?}", ctx.vars);
     println!("{:?}", ctx.stack.into_vec());
 }
+
+fn main() {
+    let cont = include_str!("../examples/rust.stt");
+    let mut tokenizer = Context::new(cont);
+    let root_block = tokenizer.tokenize_block();
+    println!("{root_block:?}");
+}
+

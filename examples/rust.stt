@@ -1,8 +1,8 @@
 argv-init
 argv-pop trash
 
-argv-pop
-	dup "cargo new --bin %s%" % sh ok!
+argv-pop dup
+	"cargo new --bin %s%" % sh ok!
 	"cd %s%" % sh ok!
 
 "
@@ -11,21 +11,13 @@ shell.nix
 .envrc
 " trim ".gitignore" write-to
 
-
-# ["crateA", "-featA", "-featB", "crateB", "-featC", "crateC", "createD"]
+# ["crateA", "-featA", "-featB", "crateB", "-featC", "crateC", "createD", ""]
 "" argv-rest
 
 "crate_name" set
 mk-array "feats" set
 (while) { stack-has } {
-	(if) {check} {
-		code
-	} (elseif) {check 2} {
-		code 2
-	} (else) {
-		code
-	}
-	(ifs) 3
+	(ifs)
 		{ "-" peek-has-prefix } {
 			"-" remove-prefix
 			"feats" get

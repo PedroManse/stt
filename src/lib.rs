@@ -1,4 +1,5 @@
 pub mod execute;
+pub mod token;
 
 use std::collections::HashMap;
 
@@ -105,14 +106,6 @@ pub enum Value {
 pub struct CondBranch {
     pub check: Code,
     pub code: Code,
-}
-
-pub enum RawKeyword {
-    Ifs,
-    If,
-    Elseif,
-    Else,
-    While,
 }
 
 #[derive(Clone)]
