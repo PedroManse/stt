@@ -39,7 +39,7 @@ macro_rules! matches {
     (ident) => {
         ('a'..='z' | 'A'..='Z' | '-' | '_' | '%' | '!')
     };
-    (word-edge) => {
+    (word_edge) => {
         '(' | ')' | '{' | '}' | '[' | ']'
     };
     (space) => {
@@ -70,7 +70,7 @@ impl Context {
                 }
                 (Nothing, c @ matches!(ident)) => MakeIdent(String::from(*c)),
                 (Nothing, '"') => MakeString(String::new()),
-                (Nothing, c @ ('0'..='9')) => MakeNumber(String::from(*c)),
+                (Nothing, c @ matches!(digit)) => MakeNumber(String::from(*c)),
                 (Nothing, '(') => MakeKeyword(String::new()),
                 (Nothing, '[') => MakeFnArgs(Vec::new(), String::new()),
 
@@ -82,7 +82,7 @@ impl Context {
                     out.push(Ident(buf));
                     Nothing
                 }
-                (MakeIdent(buf), matches!(word - edge)) => {
+                (MakeIdent(buf), matches!(word_edge)) => {
                     out.push(Ident(buf));
                     self.unget(); // re-read char with Nothing State
                     Nothing
@@ -114,7 +114,7 @@ impl Context {
                     out.push(Number(buf.parse().unwrap()));
                     Nothing
                 }
-                (MakeNumber(buf), matches!(word - edge)) => {
+                (MakeNumber(buf), matches!(word_edge)) => {
                     out.push(Number(buf.parse().unwrap()));
                     self.unget(); // re-read char with Nothing State
                     Nothing
