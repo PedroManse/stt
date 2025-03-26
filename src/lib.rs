@@ -4,6 +4,13 @@ use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Code(pub Vec<Expr>);
+
+impl Code {
+    pub fn as_slice(&self) -> &[Expr] {
+        &self.0
+    }
+}
+
 #[derive(Clone)]
 pub struct FnArgs(pub Vec<String>);
 pub struct Stack(Vec<Value>);
@@ -12,6 +19,9 @@ pub struct FnArg(pub Value);
 impl FnArgs {
     fn into_vec(self) -> Vec<String> {
         self.0
+    }
+    fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -47,6 +57,9 @@ impl Stack {
     pub fn into_vec(self) -> Vec<Value> {
         self.0
     }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 #[repr(transparent)]
@@ -74,8 +87,8 @@ pub struct FnDef {
 }
 
 impl FnDef {
-    pub fn new(global: bool, code: Code, args: FnArgs) -> Self {
-        FnDef { global, code, args }
+    pub fn new(scope: FnScope, code: Code, args: FnArgs) -> Self {
+        FnDef { scope, code, args }
     }
 }
 
@@ -105,16 +118,21 @@ pub enum RawKeyword {
 #[derive(Clone)]
 pub enum KeywordKind {
     Ifs {
-        count: i64,
         branches: Vec<CondBranch>,
     },
     If {
-        ifs: Vec<CondBranch>,
-        else_branch: Option<Code>,
+        if_branch: CondBranch,
+        else_code: Code,
     },
     While {
         check: Code,
         code: Code,
+    },
+    FnDef{
+        name: FnName,
+        scope: FnScope,
+        code: Code,
+        args: FnArgs,
     },
 }
 
@@ -123,6 +141,5 @@ pub enum Expr {
     Immediate(Value),
     FnCall(FnName),
     Keyword(KeywordKind),
-    FnDef(bool, FnArgs, FnName, Code),
 }
 

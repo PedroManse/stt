@@ -1,40 +1,69 @@
 use stt::*;
 
+macro_rules! e {
+    (call $fn_name:expr) => {
+        FnCall(FnName($fn_name.to_owned()))
+    };
+    (imm str $v:expr) => {
+        Immediate(Value::Str($v.to_owned()))
+    };
+    (imm bool $v:expr) => {
+        Immediate(Value::Bool($v))
+    };
+    (imm num $v:expr) => {
+        Immediate(Value::Num($v))
+    };
+}
+
 fn main() {
     use Expr::*;
 
     let print_twice_code = vec![
-        FnCall(FnName("to-print".to_string())),
-        FnCall(FnName("print".to_string())),
-        FnCall(FnName("to-print".to_string())),
-        FnCall(FnName("print".to_string())),
-        Immediate(Value::Str("var-name".to_string())),
-        FnCall(FnName("get".to_string())),
-        FnCall(FnName("print".to_string())),
+        e!(call "to-print"),
+        e!(call "print"),
+        e!(call "to-print"),
+        e!(call "print"),
+        e!(imm str "var-name"),
+        e!(call "get"),
+        e!(call "print"),
     ];
 
     let code = vec![
-        Immediate(Value::Str("Hello".to_string())),
-        FnCall(FnName("print".to_string())),
-
-
-        FnDef(
-            true,
-            FnArgs(vec!["to-print".to_string()]),
-            FnName("print-twice".to_string()),
-            Code(print_twice_code),
-        ),
-
-        Immediate(Value::Str("uwu".to_string())),
-        Immediate(Value::Str("var-name".to_string())),
-        FnCall(FnName("set".to_string())),
-
-        Immediate(Value::Str("var-name".to_string())),
-        FnCall(FnName("get".to_string())),
-        FnCall(FnName("print-twice".to_string())),
+        e!(imm str "Hello"),
+        e!(call "print"),
+    
+        Keyword(KeywordKind::FnDef{
+            scope: FnScope::Global,
+            args: FnArgs(vec!["to-print".to_string()]),
+            name: FnName("print-twice".to_string()),
+            code: Code(print_twice_code),
+        }),
+    
+        e!(imm str "uwu"),
+        e!(imm str "var-name"),
+        e!(call "set"),
+    
+        e!(imm str "var-name"),
+        e!(call "get"),
+        e!(call "print-twice"),
     ];
+
+    //let code_true = vec![e!(imm str "false path"), e!(call "print")];
+
+    //let code_false = vec![e!(imm str "false path"), e!(call "print")];
+
+    //let code_check = vec![ e!(imm bool true) ];
+
+    //let code = vec![Keyword(KeywordKind::If {
+    //    if_branch: CondBranch {
+    //        check: Code(code_check),
+    //        code: Code(code_true),
+    //    },
+    //    else_code: Code(code_false),
+    //})];
+
     let mut ctx = execute::Context::new();
-    for c in code {
+    for c in &code {
         ctx.execute(c);
     }
     println!("{:?}", ctx.vars);

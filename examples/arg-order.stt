@@ -5,5 +5,9 @@
 (fn) [dynamic static] "smth" {}
 
 # address on the right
-(fn) [cont arr] "append" { flip array-singleton array-merge }
+(fn) [cont arr] "append" { arr cont array-singleton array-merge }
 
+(fn) [to-print] "print-twice" {
+	to-print print
+	to-print print
+}
