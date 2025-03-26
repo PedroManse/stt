@@ -7,7 +7,13 @@ pub struct Code(pub Vec<Expr>);
 #[derive(Clone)]
 pub struct FnArgs(pub Vec<String>);
 pub struct Stack(Vec<Value>);
-pub struct FnArg(Value);
+pub struct FnArg(pub Value);
+
+impl FnArgs {
+    fn into_vec(self) -> Vec<String> {
+        self.0
+    }
+}
 
 impl Stack {
     pub fn new_with(v: Vec<Value>) -> Self {
@@ -38,6 +44,9 @@ impl Stack {
     pub fn merge(&mut self, other: Self) {
         self.pushn(other.0);
     }
+    pub fn into_vec(self) -> Vec<Value> {
+        self.0
+    }
 }
 
 #[repr(transparent)]
@@ -51,8 +60,15 @@ impl FnName {
 }
 
 #[derive(Clone)]
+pub enum FnScope {
+    Global, // read and writes to upper-scoped variables
+    Local, // reads upper-scoped variables
+    Isolated, // fully isolated
+}
+
+#[derive(Clone)]
 pub struct FnDef {
-    pub global: bool,
+    pub scope: FnScope,
     pub code: Code,
     pub args: FnArgs,
 }

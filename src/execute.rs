@@ -16,28 +16,25 @@ impl Context {
             args: HashMap::new(),
         }
     }
-    //pub fn proc_execute_code(mut self, code: Code, parent: &Context) {
-    //    for expr in code.0 {
-    //        self.proc_execute(expr);
-    //    }
-    //}
-    pub fn execute_code(mut self, code: Code) {
+
+    pub fn frame(
+        fns: HashMap<FnName, FnDef>,
+        vars: HashMap<String, Value>,
+        args: HashMap<FnName, FnArg>,
+    ) -> Self {
+        Self {
+            fns,
+            vars,
+            args,
+            stack: Stack::new(),
+        }
+    }
+
+    pub fn execute_code(&mut self, code: Code) {
         for expr in code.0 {
             self.execute(expr);
         }
     }
-    //fn frame(parent: ) -> Self {
-    //    Self {
-    //        vars: HashMap::new(),
-    //        stack: Stack::new_with(stack_args),
-    //        parent: Some(Box::new(self)),
-    //    }
-    //}
-    //fn deframe(self) -> Option<Self> {
-    //    let mut this = self.parent?;
-    //    this.stack.merge(self.stack);
-    //    Some(*this)
-    //}
 
     pub fn execute(&mut self, expr: Expr) {
         match expr {
@@ -58,19 +55,44 @@ impl Context {
 
     fn execute_fn(&mut self, name: FnName) {
         if let Some(()) = self.try_execute_builtin(name.as_str()) {
-            return;
+            // builtin fn should handle stack pop and push
+        } else if let Some(arg) = self.try_get_arg(&name) {
+            // try_get_arg should handle stack pop
+            self.stack.push(arg);
+        } else if let Ok(rets) = self.try_execute_user_fn(name) {
+            // try_execute_user_fn should handle stack pop
+            self.stack.pushn(rets);
+        } else {
+            panic!()
         }
-        todo!();
-        //if let Some(()) = self.try_execute_user_fn(name) {
-        //    return;
-        //}
     }
 
-    fn try_execute_user_fn(&mut self, name: FnName) -> Option<()> {
-        let user_fn = self.fns.get(&name)?.clone();
-        let new_scope = Context::new();
-        new_scope.execute_code(user_fn.code);
-        Some(())
+    fn try_execute_user_fn(&mut self, name: FnName) -> Result<Vec<Value>, ()> {
+        let user_fn = self.fns.get(&name).ok_or(())?.clone();
+
+        let vars = match user_fn.scope {
+            FnScope::Local | FnScope::Global => self.vars.clone(),
+            FnScope::Isolated => HashMap::new(),
+        };
+
+        let args_req = user_fn.args.into_vec();
+        let args_stack = self.stack.popn(args_req.len()).ok().ok_or(())?;
+        let args = args_req
+            .into_iter()
+            .zip(args_stack)
+            .map(|(name, vl)| (FnName(name), FnArg(vl)))
+            .collect();
+        let mut fn_ctx = Context::frame(self.fns.clone(), vars, args);
+        fn_ctx.execute_code(user_fn.code);
+
+        if let FnScope::Global = user_fn.scope {
+            self.vars.extend(fn_ctx.vars);
+        }
+        Ok(fn_ctx.stack.into_vec())
+    }
+
+    fn try_get_arg(&mut self, name: &FnName) -> Option<Value> {
+        self.args.get(&name).map(|arg| arg.0.clone())
     }
 
     fn try_execute_builtin(&mut self, name: &str) -> Option<()> {
@@ -78,6 +100,28 @@ impl Context {
             "print" => {
                 let st = self.stack.pop().expect("`print` needs one argument");
                 print!("{:?}", st);
+            }
+            "set" => {
+                let name = self.stack.pop().expect("`set` needs [name, value]");
+                let value = self.stack.pop().expect("`set` needs [name, value]");
+                let name = match name {
+                    Value::Str(name) => name,
+                    _ => panic!("`set`'s [name] needs to be a string"),
+                };
+                self.vars.insert(name, value);
+            }
+            "get" => {
+                let name = self.stack.pop().expect("`get` needs [name]");
+                let name = match name {
+                    Value::Str(name) => name,
+                    _ => panic!("`get`'s [name] needs to be a string"),
+                };
+                match self.vars.get(&name) {
+                    None => panic!("`get`: variable {name} doesn't exist"),
+                    Some(v) => {
+                        self.stack.push(v.clone());
+                    }
+                }
             }
             _ => return None,
         };
