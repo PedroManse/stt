@@ -18,7 +18,14 @@ shell.nix
 "crate_name" set
 mk-array "feats" set
 (while) { stack-has } {
-	3 (ifs)
+	(if) {check} {
+		code
+	} (elseif) {check 2} {
+		code 2
+	} (else) {
+		code
+	}
+	(ifs) 3
 		{ "-" peek-has-prefix } {
 			"-" remove-prefix
 			"feats" get
