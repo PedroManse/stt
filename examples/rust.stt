@@ -3,7 +3,17 @@
 (fn) [a b] flip {b a}
 (fn) [a] dup {a a}
 (fn) [a b c] rot3 { c a b }
-(fn) [t f q] ? { (ifs) {q} {t} {q not} {f} }
+(fn) [t f q] ? { f t (ifs) {q} {flip} drop }
+(fn) [a] arr$len {
+	a arr$unpack
+	dup
+		"len" set
+		arr$pack-n
+	drop
+	"len" get
+}
+(fn) [a] arr$is-empty { a arr$len 0 = }
+(fn) [result] ok!! {result ok! drop}
 
 (fn*) [ ] argv-init {
 	sys-argv "_argv" set
@@ -26,39 +36,38 @@ argv-init
 argv-pop drop
 
 argv-pop dup
-	"cargo new --bin %s%" debug-stack % sh ok!
-	"cd %s%" % sh ok!
+	"cargo new --bin %s" % sh!
+	"cd %s" % sh!
 
 "
 target
 shell.nix
 .envrc
-" trim ".gitignore" write-to
+" str$trim ".gitignore" write-to ok!!
 
-# ["crateA", "-featA", "-featB", "crateB", "-featC", "crateC", "createD", ""]
-"" argv-rest
-
+"" argv-rest drop
 "crate_name" set
-mk-array "feats" set
+arr$new "feats" set
 (while) { stack-has } {
 	(ifs)
-		{ "-" peek-has-prefix } {
-			"-" remove-prefix
+		{ "-" str-peek$has-prefix } {
+			"-" str$remove-prefix
 			"feats" get
-				arr-append
+				arr$append
 				"feats" set
 		}
-		{ "feats" get arr-empty } {
+		{ "feats" get arr$is-empty } {
 			"crate_name" get
-				"cargo add %s%" % sh ok!
+				"cargo add %s" % sh!
 			"crate_name" set
 		}
 		{ true } {
-			"crate_name" get
 			"feats" get
-				" " arr-join
-			"cargo add %s% --features %s%" %
-				sh ok!
+				" " arr$join
+			"crate_name" get
+			"cargo add %s --features %s" %
+				sh!
+			arr$new "feats" set
 			"crate_name" set
 		}
 }

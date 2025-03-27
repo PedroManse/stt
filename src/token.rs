@@ -40,7 +40,7 @@ macro_rules! matches {
         (matches!(*ident) | matches!(digit) | '.' | ':')
     };
     (*ident) => {
-        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-'
+        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '='
     };
     (start_ident) => {
         (matches!(*ident))
