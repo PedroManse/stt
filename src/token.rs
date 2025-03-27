@@ -4,7 +4,7 @@ use crate::FnScope;
 pub enum Token {
     Ident(String),
     Str(String),
-    Number(i64),
+    Number(isize),
     Keyword(RawKeyword),
     FnArgs(Vec<String>),
     Block(Vec<Token>),

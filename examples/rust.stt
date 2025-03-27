@@ -6,15 +6,14 @@
 (fn) [t f q] ? { (ifs) {q} {t} {q not} {f} }
 
 (fn*) [ ] argv-init {
-	sys-argv arr$reverse "_argv" set
+	sys-argv "_argv" set
 }
 
 (fn*) [] argv-pop {
 	"_argv" get
-	arr-peek$len
 	arr$unpack
 	1 - dup "_argv_len" set
-	array-pack-n "_argv" set
+	arr$pack-n "_argv" set
 }
 
 (fn*) [] argv-rest {
@@ -27,7 +26,7 @@ argv-init
 argv-pop drop
 
 argv-pop dup
-	"cargo new --bin %s%" % sh ok!
+	"cargo new --bin %s%" debug-stack % sh ok!
 	"cd %s%" % sh ok!
 
 "

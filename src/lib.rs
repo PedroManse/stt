@@ -45,6 +45,9 @@ impl Stack {
     pub fn pop(&mut self) -> Option<Value> {
         self.0.pop()
     }
+    pub fn peek(&mut self) -> Option<&Value> {
+        self.0.get(self.len()-1)
+    }
     pub fn popn(&mut self, n: usize) -> Result<Vec<Value>, Vec<Value>> {
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
@@ -65,6 +68,11 @@ impl Stack {
     }
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+    pub fn pop_this<T, F>(&mut self, get_fn: F) -> Option<Result<T, Value>>
+        where F: Fn(Value) -> Result<T, Value>
+    {
+        self.pop().map(get_fn)
     }
 }
 
@@ -101,10 +109,43 @@ impl FnDef {
 #[derive(Clone, Debug)]
 pub enum Value {
     Str(String),
-    Num(i64),
+    Num(isize),
     Bool(bool),
     Array(Vec<Value>),
     Map(HashMap<String, Value>),
+}
+
+impl Value {
+    pub fn get_str(self) -> Result<String, Value> {
+        match self {
+            Value::Str(x)=>Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_num(self) -> Result<isize, Value> {
+        match self {
+            Value::Num(x)=>Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_bool(self) -> Result<bool, Value> {
+        match self {
+            Value::Bool(x)=>Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_arr(self) -> Result<Vec<Value>, Value> {
+        match self {
+            Value::Array(x)=>Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_map(self) -> Result<HashMap<String, Value>, Value> {
+        match self {
+            Value::Map(x)=>Ok(x),
+            o => Err(o),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

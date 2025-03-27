@@ -24,7 +24,4 @@ fn main() {
     for c in &code {
         executioner.execute(c);
     }
-
-    println!("{:?}", executioner.stack);
-    println!("{:?}", executioner.fns);
 }

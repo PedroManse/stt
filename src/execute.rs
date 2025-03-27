@@ -194,25 +194,13 @@ impl Context {
                 self.stack.push(Value::Bool(false));
             }
             "-" => {
-                let lhs = self.stack.pop().expect("`-` needs [lhs, rhg]");
                 let rhs = self.stack.pop().expect("`-` needs [lhs, rhg]");
+                let lhs = self.stack.pop().expect("`-` needs [lhs, rhg]");
                 let res = match (lhs, rhs) {
                     (Value::Num(l), Value::Num(r)) => l - r,
                     _ => panic!("`-`'s [lhs] and [rhs] need to be numbers"),
                 };
                 self.stack.push(Value::Num(res));
-            }
-            "arr-peek$len" => {
-                //TODO self.stask.peek() to get Option<&Value>
-            }
-            "arr$reverse" => {
-                let arr = self.stack.pop().expect("`arr$reverse` needs [arr]");
-                let mut arr = match arr {
-                    Value::Array(arr)=>arr,
-                    _=>panic!("`arr$reverse`'s [arr] must be an array")
-                };
-                arr.reverse();
-                self.stack.push(Value::Array(arr));
             }
             "sys-argv" => {
                 self.stack.push(Value::Array(vec![
@@ -227,8 +215,54 @@ impl Context {
                 ]));
             }
 
+            "arr-peek$len" => {
+                let arr = self.stack.peek().expect("`arr-peek$len` needs [arr]");
+                let arr_len = match arr {
+                    Value::Array(arr)=>arr,
+                    _=>panic!("`arr-peek$len`'s [arr] must be an array")
+                }.len();
+                self.stack.push(Value::Num(arr_len as isize));
+            }
+            "arr$reverse" => {
+                let arr = self.stack.pop().expect("`arr$reverse` needs [arr]");
+                let mut arr = match arr {
+                    Value::Array(arr)=>arr,
+                    _=>panic!("`arr$reverse`'s [arr] must be an array")
+                };
+                arr.reverse();
+                self.stack.push(Value::Array(arr));
+            }
+            "arr$unpack" => {
+                let arr = self.stack.pop_this(Value::get_arr)
+                    .expect("arr$unpack` needs [arr]")
+                    .expect("arr$unpack` [arr] must be an array");
+                let len = arr.len();
+                self.stack.pushn(arr);
+                self.stack.push(Value::Num(len as isize));
+            }
+            "arr$pack-n" => {
+                let count = self.stack.pop_this(Value::get_num)
+                    .expect("arr$pack-n` needs [count]")
+                    .expect("arr$pack-n` [count] must be a number");
+                let xs = self.stack.popn(count as usize)
+                    .expect(&format!("arr$pack-n failed to pop {count} items"));
+                self.stack.push(Value::Array(xs));
+            }
+
+            "debug-stack" => println!("{:?}", self.stack),
+            "debug-vars" => println!("{:?}", self.vars),
+            "debug-args" => println!("{:?}", self.args),
+            
+
             _ => return None,
         };
         Some(())
     }
 }
+
+
+// sop!("arr$unpack" pop arr:Array, abc:Num, x:Str  )
+// sop!("arr$unpack" push arr)
+//macro_rules! sop {
+//    (pop )
+//}
