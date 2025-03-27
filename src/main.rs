@@ -11,6 +11,8 @@ use stt::*;
 
 // TODO * mode for Ifs to non-exclusive execution
 
+//TODO (include) other files
+
 fn main() {
     let cont = include_str!("../examples/rust.stt");
 
