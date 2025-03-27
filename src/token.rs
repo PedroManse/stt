@@ -37,10 +37,13 @@ pub struct Context {
 
 macro_rules! matches {
     (ident) => {
-        ('a'..='z' | 'A'..='Z' | '-' | '_' | '%' | '!' | '?' | '0'..='9' | '.' | ':')
+        (matches!(*ident) | matches!(digit) | '.' | ':')
+    };
+    (*ident) => {
+        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-'
     };
     (start_ident) => {
-        ('a'..='z' | 'A'..='Z' | '_' | '%' | '!' | '?')
+        (matches!(*ident))
     };
     (word_edge) => {
         '(' | ')' | '{' | '}' | '[' | ']'
@@ -132,6 +135,7 @@ impl Context {
                         "while" => RawKeyword::While,
                         "ifs" => RawKeyword::Ifs,
                         _ => {
+                            eprintln!("unknown keyword {buf}");
                             return Err(());
                         }
                     };
@@ -144,7 +148,9 @@ impl Context {
                 }
 
                 (MakeFnArgs(mut xs, buf), matches!(space)) => {
-                    xs.push(buf);
+                    if !buf.is_empty() {
+                        xs.push(buf);
+                    }
                     MakeFnArgs(xs, String::new())
                 }
                 (MakeFnArgs(xs, mut buf), c @ matches!(ident)) => {
@@ -152,7 +158,9 @@ impl Context {
                     MakeFnArgs(xs, buf)
                 }
                 (MakeFnArgs(mut xs, buf), ']') => {
-                    xs.push(buf);
+                    if !buf.is_empty() {
+                        xs.push(buf);
+                    }
                     out.push(FnArgs(xs));
                     Nothing
                 }

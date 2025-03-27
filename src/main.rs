@@ -12,7 +12,7 @@ use stt::*;
 // TODO * mode for Ifs to non-exclusive execution
 
 fn main() {
-    let cont = include_str!("../examples/stt.stt");
+    let cont = include_str!("../examples/rust.stt");
 
     let mut tokenizer = token::Context::new(cont);
     let root_block = tokenizer.tokenize_block().unwrap();
@@ -24,8 +24,7 @@ fn main() {
     for c in &code {
         executioner.execute(c);
     }
-    
+
     println!("{:?}", executioner.stack);
     println!("{:?}", executioner.fns);
 }
-

@@ -46,8 +46,13 @@ impl Context {
         match check {
             Some(Value::Bool(b)) if stack_size + 1 == new_stack_size => b,
             v => {
-                if stack_size+1 != new_stack_size {
-                    eprintln!("stack size was {} now it's {} when it should be {}", stack_size, new_stack_size, stack_size+1);
+                if stack_size + 1 != new_stack_size {
+                    eprintln!(
+                        "stack size was {} now it's {} when it should be {}",
+                        stack_size,
+                        new_stack_size,
+                        stack_size + 1
+                    );
                 } else {
                     eprintln!("check blocks must recieve one boolean, recieved {:?}", v);
                 }
@@ -68,18 +73,23 @@ impl Context {
         match kw {
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
-                    if self.execute_check( &branch.check ) {
-                        self.execute_code( &branch.code );
+                    if self.execute_check(&branch.check) {
+                        self.execute_code(&branch.code);
                         break;
                     }
                 }
             }
             KeywordKind::While { check, code } => {
-                while self.execute_check( &check ) {
+                while self.execute_check(&check) {
                     self.execute_code(code);
                 }
             }
-            KeywordKind::FnDef { name, scope, code, args } => {
+            KeywordKind::FnDef {
+                name,
+                scope,
+                code,
+                args,
+            } => {
                 self.fns.insert(
                     name.clone(),
                     FnDef::new(scope.clone(), code.clone(), args.clone()),
@@ -121,10 +131,10 @@ impl Context {
             let args_stack = match self.stack.popn(user_fn.args.len()) {
                 Ok(xs) => xs,
                 Err(rest) => panic!(
-                    "`Not enough arguments to execute {}, got {:?} needs {}`",
+                    "`Not enough arguments to execute {}, got {:?} needs {:?}`",
                     name.as_str(),
                     rest,
-                    user_fn.args.len()
+                    user_fn.args,
                 ),
             };
             user_fn
@@ -183,6 +193,40 @@ impl Context {
             "false" => {
                 self.stack.push(Value::Bool(false));
             }
+            "-" => {
+                let lhs = self.stack.pop().expect("`-` needs [lhs, rhg]");
+                let rhs = self.stack.pop().expect("`-` needs [lhs, rhg]");
+                let res = match (lhs, rhs) {
+                    (Value::Num(l), Value::Num(r)) => l - r,
+                    _ => panic!("`-`'s [lhs] and [rhs] need to be numbers"),
+                };
+                self.stack.push(Value::Num(res));
+            }
+            "arr-peek$len" => {
+                //TODO self.stask.peek() to get Option<&Value>
+            }
+            "arr$reverse" => {
+                let arr = self.stack.pop().expect("`arr$reverse` needs [arr]");
+                let mut arr = match arr {
+                    Value::Array(arr)=>arr,
+                    _=>panic!("`arr$reverse`'s [arr] must be an array")
+                };
+                arr.reverse();
+                self.stack.push(Value::Array(arr));
+            }
+            "sys-argv" => {
+                self.stack.push(Value::Array(vec![
+                    Value::Str("proj".to_owned()),
+                    Value::Str("crateA".to_owned()),
+                    Value::Str("-featA".to_owned()),
+                    Value::Str("-featB".to_owned()),
+                    Value::Str("crateB".to_owned()),
+                    Value::Str("-featC".to_owned()),
+                    Value::Str("crateC".to_owned()),
+                    Value::Str("crateD".to_owned()),
+                ]));
+            }
+
             _ => return None,
         };
         Some(())
