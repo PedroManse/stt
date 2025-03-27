@@ -1,9 +1,10 @@
 pub mod execute;
+pub mod parse;
 pub mod token;
 
 use std::collections::HashMap;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Code(pub Vec<Expr>);
 
 impl Code {
@@ -12,9 +13,11 @@ impl Code {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FnArgs(pub Vec<String>);
+#[derive(Debug)]
 pub struct Stack(Vec<Value>);
+#[derive(Debug)]
 pub struct FnArg(pub Value);
 
 impl FnArgs {
@@ -46,10 +49,12 @@ impl Stack {
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
             match self.pop() {
-                Some(v)=>out.push(v),
-                None=>return Err(out),
+                Some(v) => out.push(v),
+                None => return Err(out),
             }
         }
+        //TODO figure out better way to make this
+        out.reverse();
         Ok(out)
     }
     pub fn merge(&mut self, other: Self) {
@@ -64,7 +69,7 @@ impl Stack {
 }
 
 #[repr(transparent)]
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct FnName(pub String);
 
 impl FnName {
@@ -73,14 +78,14 @@ impl FnName {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FnScope {
-    Global, // read and writes to upper-scoped variables
-    Local, // reads upper-scoped variables
+    Global,   // read and writes to upper-scoped variables
+    Local,    // reads upper-scoped variables
     Isolated, // fully isolated
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FnDef {
     pub scope: FnScope,
     pub code: Code,
@@ -102,26 +107,22 @@ pub enum Value {
     Map(HashMap<String, Value>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CondBranch {
     pub check: Code,
     pub code: Code,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum KeywordKind {
     Ifs {
         branches: Vec<CondBranch>,
-    },
-    If {
-        if_branch: CondBranch,
-        else_code: Code,
     },
     While {
         check: Code,
         code: Code,
     },
-    FnDef{
+    FnDef {
         name: FnName,
         scope: FnScope,
         code: Code,
@@ -129,10 +130,9 @@ pub enum KeywordKind {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Expr {
     Immediate(Value),
     FnCall(FnName),
     Keyword(KeywordKind),
 }
-

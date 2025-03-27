@@ -1,3 +1,25 @@
+(fn) [a] drop {}
+(fn) [a] not { true false (ifs) {a} {flip} drop  }
 (fn) [a b] flip {b a}
 (fn) [a] dup {a a}
-(fn) [a b c] rot {c a b}
+(fn) [a b c] rot3 { c a b }
+(fn) [t f q] ? { (ifs) {q} {t} {q not} {f} }
+
+# ideia for rotn ; needs full stack access functions
+#                [...]
+# get n          [..., n]
+# 1 (-)          [..., n-1]
+# arr$new        [..., n, []]
+# while (n 0 !=)
+#>  rot3         [..., n, ?, []] <---+
+#>  arr$push     [..., n, [?]]       |
+#>  flip         [..., [?], n]       |
+#>  1 (-)        [..., [?], n-1]     |
+#  \---------------------------------/
+# drop           [..., [?], 0]
+# flip           [..., [?], ?*]
+# "_" set        [..., [?]]
+# arr$unpack     [...]
+# "_" get        [..., ?*]
+
+

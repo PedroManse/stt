@@ -1,15 +1,10 @@
 use crate::*;
 
-//TODO execution mode
-// : normal
-// : debug
-// : syntax
-
 pub struct Context {
     pub vars: HashMap<String, Value>,
-    fns: HashMap<FnName, FnDef>,
+    pub fns: HashMap<FnName, FnDef>,
     pub stack: Stack,
-    args: HashMap<FnName, FnArg>,
+    pub args: HashMap<FnName, FnArg>,
 }
 
 impl Context {
@@ -50,7 +45,12 @@ impl Context {
         let check = self.stack.pop();
         match check {
             Some(Value::Bool(b)) if stack_size + 1 == new_stack_size => b,
-            _ => {
+            v => {
+                if stack_size+1 != new_stack_size {
+                    eprintln!("stack size was {} now it's {} when it should be {}", stack_size, new_stack_size, stack_size+1);
+                } else {
+                    eprintln!("check blocks must recieve one boolean, recieved {:?}", v);
+                }
                 panic!("Any control flow code must push one, and only one, boolean to the stack")
             }
         }
@@ -58,7 +58,6 @@ impl Context {
 
     pub fn execute(&mut self, expr: &Expr) {
         match expr {
-            //Expr::FnDef(scope, args, name, code) => self.define_fn(scope, args, name, code),
             Expr::FnCall(name) => self.execute_fn(name),
             Expr::Keyword(kw) => self.execute_kw(kw),
             Expr::Immediate(v) => self.stack.push(v.clone()),
@@ -67,18 +66,11 @@ impl Context {
 
     fn execute_kw(&mut self, kw: &KeywordKind) {
         match kw {
-            KeywordKind::If { if_branch, else_code } => {
-                let to_exec = if self.execute_check( &if_branch.check ) {
-                    &if_branch.code
-                } else {
-                    else_code
-                };
-                self.execute_code(to_exec);
-            }
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
                     if self.execute_check( &branch.check ) {
                         self.execute_code( &branch.code );
+                        break;
                     }
                 }
             }
@@ -129,7 +121,7 @@ impl Context {
             let args_stack = match self.stack.popn(user_fn.args.len()) {
                 Ok(xs) => xs,
                 Err(rest) => panic!(
-                    "`Not enough arguments to execute {}, got [{:?}] needs {}`",
+                    "`Not enough arguments to execute {}, got {:?} needs {}`",
                     name.as_str(),
                     rest,
                     user_fn.args.len()
@@ -184,6 +176,12 @@ impl Context {
                         self.stack.push(v.clone());
                     }
                 }
+            }
+            "true" => {
+                self.stack.push(Value::Bool(true));
+            }
+            "false" => {
+                self.stack.push(Value::Bool(false));
             }
             _ => return None,
         };

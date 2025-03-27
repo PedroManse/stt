@@ -1,3 +1,5 @@
+use crate::FnScope;
+
 #[derive(Debug)]
 pub enum Token {
     Ident(String),
@@ -6,14 +8,12 @@ pub enum Token {
     Keyword(RawKeyword),
     FnArgs(Vec<String>),
     Block(Vec<Token>),
+    EndOfBlock,
 }
 
 #[derive(Debug)]
 pub enum RawKeyword {
-    FnNormal,
-    FnGlobal,
-    FnIsolated,
-    If,
+    Fn(FnScope),
     Ifs,
     While,
 }
@@ -37,7 +37,10 @@ pub struct Context {
 
 macro_rules! matches {
     (ident) => {
-        ('a'..='z' | 'A'..='Z' | '-' | '_' | '%' | '!')
+        ('a'..='z' | 'A'..='Z' | '-' | '_' | '%' | '!' | '?' | '0'..='9' | '.' | ':')
+    };
+    (start_ident) => {
+        ('a'..='z' | 'A'..='Z' | '_' | '%' | '!' | '?')
     };
     (word_edge) => {
         '(' | ')' | '{' | '}' | '[' | ']'
@@ -61,6 +64,7 @@ impl Context {
             let ch = self.next().ok_or(())?;
             state = match (state, ch) {
                 (Nothing, '}') => {
+                    out.push(EndOfBlock);
                     return Ok(out);
                 }
                 (Nothing, '{') => {
@@ -68,7 +72,7 @@ impl Context {
                     out.push(Block(block));
                     Nothing
                 }
-                (Nothing, c @ matches!(ident)) => MakeIdent(String::from(*c)),
+                (Nothing, c @ matches!(start_ident)) => MakeIdent(String::from(*c)),
                 (Nothing, '"') => MakeString(String::new()),
                 (Nothing, c @ matches!(digit)) => MakeNumber(String::from(*c)),
                 (Nothing, '(') => MakeKeyword(String::new()),
@@ -122,11 +126,10 @@ impl Context {
 
                 (MakeKeyword(buf), ')') => {
                     let kw = match buf.as_str() {
-                        "fn" => RawKeyword::FnNormal,
-                        "fn*" => RawKeyword::FnGlobal,
-                        "fn-" => RawKeyword::FnIsolated,
+                        "fn" => RawKeyword::Fn(FnScope::Local),
+                        "fn*" => RawKeyword::Fn(FnScope::Global),
+                        "fn-" => RawKeyword::Fn(FnScope::Isolated),
                         "while" => RawKeyword::While,
-                        "if" => RawKeyword::If,
                         "ifs" => RawKeyword::Ifs,
                         _ => {
                             return Err(());
@@ -161,7 +164,7 @@ impl Context {
                 (Nothing, matches!(space)) => Nothing,
 
                 (s, c) => {
-                    panic!("No impl for {s:?} with {c:?}");
+                    panic!("Tokenizer: No impl for {s:?} with {c:?}");
                 }
             }
         }
