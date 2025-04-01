@@ -1,20 +1,20 @@
 use stt::*;
 
-//TODO execution mode
+// TODO execution mode
 // : normal
 // : debug
 // : syntax
 
-// TODO make (if) kw for common case of (if) {check} {if-code} Option<{else-code}>
+// TODO error reporting
 
-// TODO * mode for FnArgs, allow access to entire stack
+// TODO make (if) kw for common case of (if) {check} {if-code} Option<{else-code}>
 
 // TODO * mode for Ifs to non-exclusive execution
 
-//TODO (include) other files
+// TODO (include) other files
 
 fn main() {
-    let cont = include_str!("../examples/rust.stt");
+    let cont = include_str!("../examples/stt.stt");
 
     let mut tokenizer = token::Context::new(cont);
     let root_block = tokenizer.tokenize_block().unwrap();

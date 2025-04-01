@@ -5,21 +5,54 @@
 (fn) [a b c] rot3 { c a b }
 (fn) [t f q] ? { (ifs) {q} {t} {q not} {f} }
 
-# ideia for rotn ; needs full stack access functions
-#                [...]
-# get n          [..., n]
+(fn) * stack$has {
+	stack$len 0 = not
+}
+
+(fn) * arr$pack {
+	arr$new
+	(while) { stack$len 1 - 0 = not } {
+	arr$append
+	}
+}
+
+
+(fn) * rotn {
+	arr$new
+	(while) { debug$stack flip dup 0  = not } {
+		rot3
+		arr$append
+		flip
+		1 -
+		flip
+	}
+	drop
+	flip
+	debug$stack
+	"_" set
+	arr$reverse
+	arr$unpack drop
+	"_" get
+}
+
+# plan for rotn
+# with n         [..., n]
 # 1 (-)          [..., n-1]
 # arr$new        [..., n, []]
-# while (n 0 !=)
+#<  flip         [..., [], n]
+#<  dup          [..., [], n, n]
+#<  0 = not      [..., [], n] {n!=0}
+# while (flip dup 0 = not)
 #>  rot3         [..., n, ?, []] <---+
-#>  arr$push     [..., n, [?]]       |
+#>  arr$append   [..., n, [?]]       |
 #>  flip         [..., [?], n]       |
 #>  1 (-)        [..., [?], n-1]     |
 #  \---------------------------------/
 # drop           [..., [?], 0]
 # flip           [..., [?], ?*]
 # "_" set        [..., [?]]
-# arr$unpack     [...]
+# arr$unpack     [..., [n], n]
+# drop           [..., [n]]
 # "_" get        [..., ?*]
 
 

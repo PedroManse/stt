@@ -14,20 +14,20 @@ impl Code {
 }
 
 #[derive(Clone, Debug)]
-pub struct FnArgs(pub Vec<String>);
+pub enum FnArgs {
+    Args(Vec<String>),
+    AllStack,
+}
+#[derive(Clone, Debug)]
+pub enum FnArgsIns {
+    Args(HashMap<FnName, FnArg>),
+    AllStack(Vec<Value>)
+}
+//pub struct FnArgs(pub Vec<String>);
 #[derive(Debug)]
 pub struct Stack(Vec<Value>);
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnArg(pub Value);
-
-impl FnArgs {
-    fn into_vec(self) -> Vec<String> {
-        self.0
-    }
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-}
 
 impl Stack {
     pub fn new_with(v: Vec<Value>) -> Self {
@@ -71,6 +71,9 @@ impl Stack {
     }
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+    pub fn take(&mut self) -> Vec<Value> {
+        std::mem::replace(&mut self.0, Vec::new())
     }
     //TODO Stack.pop_mut
     //pub fn pop_mut<T, F, 'a>(&'a mut self, get_fn: F) -> Option<Result<&mut T, &mut Value>>

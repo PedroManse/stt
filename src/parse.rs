@@ -75,7 +75,13 @@ impl Context {
                 }
 
                 (Nothing, Keyword(RawKeyword::Fn(scope))) => MakeFnArgs(scope),
-                (MakeFnArgs(scope), FnArgs(args)) => MakeFnName(scope, crate::FnArgs(args)),
+                (MakeFnArgs(scope), FnArgs(args)) => MakeFnName(scope, crate::FnArgs::Args(args)),
+                (MakeFnArgs(scope), Ident(i)) => {
+                    match i.as_str() {
+                        "*" => MakeFnName(scope, crate::FnArgs::AllStack),
+                        x => panic!("Can only user param list or '*' as function arguments, not {x}")
+                    }
+                }
                 (MakeFnName(scope, args), Ident(name)) => MakeFnBlock(scope, args, FnName(name)),
                 (MakeFnBlock(scope, args, name), Block(code)) => {
                     let mut inner_ctx = Context::new(code);

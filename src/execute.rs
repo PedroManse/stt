@@ -4,7 +4,7 @@ pub struct Context {
     pub vars: HashMap<String, Value>,
     pub fns: HashMap<FnName, FnDef>,
     pub stack: Stack,
-    pub args: HashMap<FnName, FnArg>,
+    pub args: Option<HashMap<FnName, FnArg>>,
 }
 
 impl Context {
@@ -13,20 +13,32 @@ impl Context {
             fns: HashMap::new(),
             vars: HashMap::new(),
             stack: Stack::new(),
-            args: HashMap::new(),
+            args: None,
         }
     }
 
     pub fn frame(
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
-        args: HashMap<FnName, FnArg>,
+        args_ins: FnArgsIns,
     ) -> Self {
+        let stack;
+        let args;
+        match args_ins {
+            FnArgsIns::AllStack(xs)=>{
+                stack = Stack::new_with(xs);
+                args = None;
+            }
+            FnArgsIns::Args(ars) =>{
+                args = Some(ars);
+                stack = Stack::new();
+            }
+        };
         Self {
             fns,
             vars,
             args,
-            stack: Stack::new(),
+            stack,
         }
     }
 
@@ -127,24 +139,26 @@ impl Context {
             _ => self.vars.clone(),
         };
 
-        let args = {
-            let args_stack = match self.stack.popn(user_fn.args.len()) {
-                Ok(xs) => xs,
-                Err(rest) => panic!(
-                    "`Not enough arguments to execute {}, got {:?} needs {:?}`",
-                    name.as_str(),
-                    rest,
-                    user_fn.args,
-                ),
-            };
-            user_fn
-                .args
-                .clone()
-                .into_vec()
-                .into_iter()
-                .map(FnName)
-                .zip(args_stack.into_iter().map(FnArg))
-                .collect()
+        let args = match &user_fn.args {
+            FnArgs::Args(args) => {
+                let args_stack = match self.stack.popn(args.len()) {
+                    Ok(xs) => xs,
+                    Err(rest) => panic!(
+                        "`Not enough arguments to execute {}, got {:?} needs {:?}`",
+                        name.as_str(),
+                        rest,
+                        user_fn.args,
+                    ),
+                };
+                let arg_map = args
+                    .clone()
+                    .into_iter()
+                    .map(FnName)
+                    .zip(args_stack.into_iter().map(FnArg))
+                    .collect();
+                FnArgsIns::Args(arg_map)
+            }
+            FnArgs::AllStack => FnArgsIns::AllStack(self.stack.take()),
         };
         let mut fn_ctx = Context::frame(self.fns.clone(), vars, args);
         fn_ctx.execute_code(&user_fn.code);
@@ -156,7 +170,11 @@ impl Context {
     }
 
     fn try_get_arg(&mut self, name: &FnName) -> Option<Value> {
-        self.args.get(&name).map(|arg| arg.0.clone())
+        if let Some(args) = &self.args {
+            args.get(&name).map(|arg| arg.0.clone())
+        } else {
+            None
+        }
     }
 
     fn try_execute_builtin(&mut self, name: &str) -> Option<()> {
@@ -170,7 +188,7 @@ impl Context {
                     .expect("`print`'s [string] needs to be a string");
                 print!("{}", cont);
             }
-            "sys-argv" => {
+            "sys$argv" => {
                 self.stack.push_this(vec![
                     Value::Str("rust.stt".to_owned()),
                     Value::Str("proj".to_owned()),
@@ -244,8 +262,11 @@ impl Context {
             }
 
             // mod variables
-            "stack-has" => {
-                self.stack.push_this(self.stack.len() != 0);
+            //"stack$has" => {
+            //    self.stack.push_this(self.stack.len() != 0);
+            //} // can be just stack$len 0 = not
+            "stack$len" => {
+                self.stack.push_this(self.stack.len() as isize);
             }
             "set" => {
                 let name = self
@@ -410,19 +431,21 @@ impl Context {
                     .expect("arr$append` needs [value array]")
                     .expect("arr$append` [array] must be an array")
                     .into_iter()
-                    .map(|i|i.get_str())
+                    .map(|i| i.get_str())
                     .collect();
                 let joint = match arr {
                     Ok(xs) => xs.join(&joiner),
-                    Err(v) => panic!("`arr$join`: join's array can only have strings, found: {v:?}"),
+                    Err(v) => {
+                        panic!("`arr$join`: join's array can only have strings, found: {v:?}")
+                    }
                 };
                 self.stack.push_this(joint);
             }
 
             // mod debug
-            "debug-stack" => println!("{:?}", self.stack),
-            "debug-vars" => println!("{:?}", self.vars),
-            "debug-args" => println!("{:?}", self.args),
+            "debug$stack" => println!("{:?}", self.stack),
+            "debug$vars" => println!("{:?}", self.vars),
+            "debug$args" => println!("{:?}", self.args),
 
             _ => return None,
         };
@@ -483,6 +506,14 @@ mod builtin {
                         ))
                         .expect(&format!("`%` format string {cont:?} needed a number"));
                     out.push_str(&add_num.to_string());
+                    State::Nothing
+                }
+                (State::OnFmt, 'v') => {
+                    let fmt = match stack.pop() {
+                        Some(x)=>format!("{x:?}"),
+                        None => format!("<Nothing in stack>")
+                    };
+                    out.push_str(&fmt);
                     State::Nothing
                 }
                 (State::OnFmt, 'b') => {

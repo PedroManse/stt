@@ -48,7 +48,7 @@ shell.nix
 "" argv-rest drop
 "crate_name" set
 arr$new "feats" set
-(while) { stack-has } {
+(while) { stack$has } {
 	(ifs)
 		{ "-" str-peek$has-prefix } {
 			"-" str$remove-prefix
