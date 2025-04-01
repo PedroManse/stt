@@ -1,17 +1,33 @@
-(fn*) [ ] argv-init {
-	sys$argv "_argv" set
+(fn*) [ ] argv$init {
+	sys$argv
+	arr$reverse
+	arr$unpack
+	drop drop drop
+	arr$pack
+	"_argv" set
 }
 
-(fn*) [] argv-pop {
+(fn*) [] argv$pop {
 	"_argv" get
 	arr$unpack
-	1 - dup "_argv_len" set
-	arr$pack-n "_argv" set
+	1 - arr$pack-n
+	"_argv" set
 }
 
-(fn*) [] argv-rest {
+(fn*) [] argv$rest {
 	"_argv" get
+	arr$reverse
 	arr$unpack
 }
 
-argv-init
+(fn*) [] argv$is-empty {
+	"_argv" get
+	arr$is-empty
+}
+
+(fn*) [] argv$try_pop {
+	"_argv" get
+	(ifs) { dup arr$is-empty } {
+		err
+	}
+}

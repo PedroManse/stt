@@ -1,5 +1,6 @@
 (fn) [a] arr$is-empty { a arr$len 0 = }
 
+# TODO make this peek
 (fn) [a] arr$len {
 	a arr$unpack
 	dup

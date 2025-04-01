@@ -189,17 +189,8 @@ impl Context {
                 print!("{}", cont);
             }
             "sys$argv" => {
-                self.stack.push_this(vec![
-                    Value::Str("rust.stt".to_owned()),
-                    Value::Str("proj".to_owned()),
-                    Value::Str("crateA".to_owned()),
-                    Value::Str("-featA".to_owned()),
-                    Value::Str("-featB".to_owned()),
-                    Value::Str("crateB".to_owned()),
-                    Value::Str("-featC".to_owned()),
-                    Value::Str("crateC".to_owned()),
-                    Value::Str("crateD".to_owned()),
-                ]);
+                let args: Vec<_> = std::env::args().into_iter().map(Value::Str).collect();
+                self.stack.push_this(args);
             }
             "sh" => {
                 let shell_cmd = self
@@ -304,6 +295,14 @@ impl Context {
             "err" => {
                 let v = self.stack.pop().expect("`err` needs [value]");
                 self.stack.push_this(Err(v));
+            }
+            "ok$is" => {
+                let is_ok = match self.stack.peek() {
+                    Some(Value::Result(x)) => x.is_ok(),
+                    Some(r) => panic!("Called ok$is on non-result value {r:?}"),
+                    _ => panic!("Called ok$is with nothing on stack")
+                };
+                self.stack.push_this(is_ok);
             }
             "ok!" => {
                 let v = self

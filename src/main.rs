@@ -21,8 +21,9 @@ pub enum SttMode {
 }
 
 fn main() {
+    let mut args = std::env::args().skip(1);
+    let file_path = args.next().unwrap();
     let mode = SttMode::Normal;
-    let file_path = "examples/rust.stt";
     use SttMode as M;
     match mode {
         M::Normal => {

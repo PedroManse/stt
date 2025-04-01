@@ -1,2 +1,3 @@
 (fn) [t f q] ? { (ifs) {q} {t} {q not} {f} }
+(fn) [result] is$err { result is$ok not }
 
