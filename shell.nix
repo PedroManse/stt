@@ -2,5 +2,5 @@
   pkgs ? import <nixpkgs> { },
 }:
 pkgs.mkShellNoCC {
-  nativeBuildInputs = with pkgs.buildPackages; [ ];
+  nativeBuildInputs = with pkgs.buildPackages; [ cargo ];
 }
