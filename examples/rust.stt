@@ -1,38 +1,5 @@
-(fn) [a] drop {}
-(fn) [a] not { true false (ifs) {a} {flip} drop  }
-(fn) [a b] flip {b a}
-(fn) [a] dup {a a}
-(fn) [a b c] rot3 { c a b }
-(fn) [t f q] ? { f t (ifs) {q} {flip} drop }
-(fn) [a] arr$len {
-	a arr$unpack
-	dup
-		"len" set
-		arr$pack-n
-	drop
-	"len" get
-}
-(fn) [a] arr$is-empty { a arr$len 0 = }
-(fn) [result] ok!! {result ok! drop}
+(include stdlib)
 
-(fn*) [ ] argv-init {
-	sys-argv "_argv" set
-}
-
-(fn*) [] argv-pop {
-	"_argv" get
-	arr$unpack
-	1 - dup "_argv_len" set
-	arr$pack-n "_argv" set
-}
-
-(fn*) [] argv-rest {
-	"_argv" get
-	arr$unpack
-}
-
-
-argv-init
 argv-pop drop
 
 argv-pop dup

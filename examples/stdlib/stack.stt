@@ -3,19 +3,10 @@
 (fn) [a b] flip {b a}
 (fn) [a] dup {a a}
 (fn) [a b c] rot3 { c a b }
-(fn) [t f q] ? { (ifs) {q} {t} {q not} {f} }
 
 (fn) * stack$has {
 	stack$len 0 = not
 }
-
-(fn) * arr$pack {
-	arr$new
-	(while) { stack$len 1 - 0 = not } {
-	arr$append
-	}
-}
-
 
 (fn) * rotn {
 	arr$new
@@ -54,5 +45,4 @@
 # arr$unpack     [..., [n], n]
 # drop           [..., [n]]
 # "_" get        [..., ?*]
-
 

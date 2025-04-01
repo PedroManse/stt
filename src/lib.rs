@@ -1,8 +1,12 @@
 pub mod execute;
 pub mod parse;
+pub mod preproc;
 pub mod token;
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use self::token::Token;
 
 #[derive(Clone, Debug)]
 pub struct Code(pub Vec<Expr>);
@@ -13,6 +17,48 @@ impl Code {
     }
 }
 
+// step token.rs
+pub fn get_raw_tokens(file_path: &PathBuf) -> Result<Vec<Token>, ()> {
+    let cont = std::fs::read_to_string(file_path).unwrap();
+    token::Context::new(&cont).tokenize_block()
+}
+
+// step preproc.rs
+pub fn preproc_tokens(tokens: Vec<Token>, file_path: &PathBuf) -> Result<Vec<Token>, ()> {
+    let preprocessor = preproc::Context::new(file_path.parent().unwrap());
+    preprocessor.parse(tokens)
+}
+
+// step parse.rs
+pub fn parse_tokens(tokens: Vec<Token>) -> Result<Vec<Expr>, ()> {
+    let mut parser = parse::Context::new(tokens);
+    parser.parse_block()
+}
+
+pub fn execute_code(code: Code) -> Result<(), ()> {
+    let mut executioner = execute::Context::new();
+    executioner.execute_code(&code);
+    Ok(())
+}
+
+// abstract
+pub fn get_tokens(path: impl AsRef<Path>) -> Result<Vec<Token>, ()> {
+    let file_path = PathBuf::from(path.as_ref());
+    let tokens = get_raw_tokens(&file_path)?;
+    preproc_tokens(tokens, &file_path)
+}
+
+pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code, ()> {
+    let procced_block = get_tokens(path)?;
+    let mut parser = parse::Context::new(procced_block);
+    parser.parse_block().map(Code)
+}
+
+pub fn execute_file(path: impl AsRef<Path>) -> Result<(), ()> {
+    let code = get_project_code(path)?;
+    execute_code(code)
+}
+
 #[derive(Clone, Debug)]
 pub enum FnArgs {
     Args(Vec<String>),
@@ -21,7 +67,7 @@ pub enum FnArgs {
 #[derive(Clone, Debug)]
 pub enum FnArgsIns {
     Args(HashMap<FnName, FnArg>),
-    AllStack(Vec<Value>)
+    AllStack(Vec<Value>),
 }
 //pub struct FnArgs(pub Vec<String>);
 #[derive(Debug)]
@@ -207,7 +253,6 @@ impl From<Result<Value, Value>> for Value {
     }
 }
 
-
 #[derive(Clone, Debug)]
 pub struct CondBranch {
     pub check: Code,
@@ -229,6 +274,9 @@ pub enum KeywordKind {
         code: Code,
         args: FnArgs,
     },
+    //Include {
+    //    path: PathBuf,
+    //},
 }
 
 #[derive(Clone, Debug)]

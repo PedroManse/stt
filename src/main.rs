@@ -4,6 +4,7 @@ use stt::*;
 // : normal
 // : debug
 // : syntax
+// : preproc
 
 // TODO error reporting
 
@@ -11,19 +12,27 @@ use stt::*;
 
 // TODO * mode for Ifs to non-exclusive execution
 
-// TODO (include) other files
+// TODO (pragma <command>) // once -> only execute file once // store in execution context
+
+pub enum SttMode {
+    Normal,
+    Debug,
+    Syntax,
+}
 
 fn main() {
-    let cont = include_str!("../examples/stt.stt");
-
-    let mut tokenizer = token::Context::new(cont);
-    let root_block = tokenizer.tokenize_block().unwrap();
-
-    let mut parser = parse::Context::new(root_block);
-    let code = parser.parse_block().unwrap();
-
-    let mut executioner = execute::Context::new();
-    for c in &code {
-        executioner.execute(c);
+    let mode = SttMode::Normal;
+    let file_path = "examples/rust.stt";
+    use SttMode as M;
+    match mode {
+        M::Normal => {
+            execute_file(file_path).unwrap();
+        }
+        M::Debug => {
+            todo!()
+        }
+        M::Syntax => {
+            get_project_code(file_path).unwrap();
+        }
     }
 }

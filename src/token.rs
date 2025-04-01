@@ -1,4 +1,5 @@
 use crate::FnScope;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum Token {
@@ -16,7 +17,27 @@ pub enum RawKeyword {
     Fn(FnScope),
     Ifs,
     While,
+    Include { path: PathBuf },
+    // Pragma(PragmaCommand)
 }
+
+
+/*
+pub enum PragmaCommand {
+    Once
+}
+*/
+
+/*
+**** main.stt ****
+(include ./)
+...
+
+**** arg.stt ****
+(pragma once)
+...
+
+*/
 
 #[derive(Debug)]
 pub enum State {
@@ -134,6 +155,9 @@ impl Context {
                         "fn-" => RawKeyword::Fn(FnScope::Isolated),
                         "while" => RawKeyword::While,
                         "ifs" => RawKeyword::Ifs,
+                        _ if buf.starts_with("include ") => {
+                            RawKeyword::Include { path: buf.split_once(" ").unwrap().1.into() }
+                        }
                         _ => {
                             eprintln!("unknown keyword {buf}");
                             return Err(());

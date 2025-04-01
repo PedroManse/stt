@@ -1,0 +1,17 @@
+(fn*) [ ] argv-init {
+	sys$argv "_argv" set
+}
+
+(fn*) [] argv-pop {
+	"_argv" get
+	arr$unpack
+	1 - dup "_argv_len" set
+	arr$pack-n "_argv" set
+}
+
+(fn*) [] argv-rest {
+	"_argv" get
+	arr$unpack
+}
+
+argv-init
