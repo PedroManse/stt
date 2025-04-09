@@ -18,26 +18,8 @@ pub enum RawKeyword {
     Ifs,
     While,
     Include { path: PathBuf },
-    // Pragma(PragmaCommand)
 }
 
-
-/*
-pub enum PragmaCommand {
-    Once
-}
-*/
-
-/*
-**** main.stt ****
-(include ./)
-...
-
-**** arg.stt ****
-(pragma once)
-...
-
-*/
 
 #[derive(Debug)]
 pub enum State {

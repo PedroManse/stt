@@ -1,14 +1,15 @@
 use stt::*;
 
-// TODO execution mode
-// : normal
-// : debug
-// : syntax
-// : preproc
-
 // TODO error reporting
 
-// TODO make (if) kw for common case of (if) {check} {if-code} Option<{else-code}>
+// TODO execution mode
+// : normal
+// : debug --debug
+// : syntax --raw-syncheck
+// : preproc --syncheck
+
+
+// TODO make (if) kw for common case of (if) {check} {if-code} {true} {else-code}
 
 // TODO * mode for Ifs to non-exclusive execution
 
