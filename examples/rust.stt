@@ -2,6 +2,11 @@
 (include stdlib)
 argv$init
 
+(ifs) {argv$is-empty} {
+	"usage: <proj_name> [crate [-feat]]\n" print
+	1 sys$exit
+}
+
 argv$pop dup
 	"cargo new --bin %s" % sh!
 	"cd %s" % sh!

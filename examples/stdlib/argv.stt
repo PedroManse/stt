@@ -1,4 +1,4 @@
-(fn*) [ ] argv$init {
+(fn*) [] argv$init {
 	sys$argv
 	arr$reverse
 	arr$unpack
