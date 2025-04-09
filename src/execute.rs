@@ -448,9 +448,9 @@ impl Context {
             }
 
             // mod debug
-            "debug$stack" => println!("{:?}", self.stack),
-            "debug$vars" => println!("{:?}", self.vars),
-            "debug$args" => println!("{:?}", self.args),
+            "debug$stack" => eprintln!("{:?}", self.stack),
+            "debug$vars" => eprintln!("{:?}", self.vars),
+            "debug$args" => eprintln!("{:?}", self.args),
 
             _ => return None,
         };
@@ -462,7 +462,7 @@ mod builtin {
     use super::*;
     //use std::process::Command;
     pub fn sh(shell_cmd: &str) -> Result<isize, String> {
-        println!("[CMD] {shell_cmd}");
+        eprintln!("[CMD] {shell_cmd}");
         Ok(0)
         //Command::new("bash")
         //    .arg("-c")
@@ -472,7 +472,7 @@ mod builtin {
         //    .map_err(|e| e.to_string())
     }
     pub fn write_to(cont: &str, file: &str) -> Result<isize, String> {
-        println!("Write {} bytes to {file}", cont.bytes().len());
+        eprintln!("Write {} bytes to {file}", cont.bytes().len());
         Ok(cont.bytes().len() as isize)
     }
     pub fn fmt(cont: &str, stack: &mut Stack) -> String {
