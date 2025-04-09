@@ -28,6 +28,8 @@
 (fn*) [] argv$try_pop {
 	"_argv" get
 	(ifs) { dup arr$is-empty } {
-		err
+		"empty array" err
+	} { true } {
+		argv$pop ok
 	}
 }
