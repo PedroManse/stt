@@ -188,6 +188,12 @@ impl Context {
                     .expect("`print`'s [string] needs to be a string");
                 print!("{}", cont);
             }
+            "sys$exit" => {
+                let code = self.stack.pop_this(Value::get_num)
+                    .expect("`sys$exit` needs [exit_code]")
+                    .expect("`sys$exit`'s [exit_code] needs to be a number");
+                std::process::exit(code as i32);
+            }
             "sys$argv" => {
                 let args: Vec<_> = std::env::args().into_iter().map(Value::Str).collect();
                 self.stack.push_this(args);
