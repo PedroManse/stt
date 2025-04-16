@@ -25,7 +25,7 @@ enum State {
 }
 
 impl Context {
-    pub fn parse_block(&mut self) -> Result<Vec<Expr>, ()> {
+    pub fn parse_block(&mut self) -> Result<Vec<Expr>> {
         use Expr as E;
         use State::*;
         use Token::*;
@@ -67,7 +67,7 @@ impl Context {
                 }
                 (MakeIfs(branches), t) => {
                     match t {
-                        EndOfBlock=>{},
+                        EndOfBlock => {}
                         t => self.unget(t),
                     };
                     out.push(E::Keyword(KeywordKind::Ifs { branches }));
@@ -76,12 +76,10 @@ impl Context {
 
                 (Nothing, Keyword(RawKeyword::Fn(scope))) => MakeFnArgs(scope),
                 (MakeFnArgs(scope), FnArgs(args)) => MakeFnName(scope, crate::FnArgs::Args(args)),
-                (MakeFnArgs(scope), Ident(i)) => {
-                    match i.as_str() {
-                        "*" => MakeFnName(scope, crate::FnArgs::AllStack),
-                        x => panic!("Can only user param list or '*' as function arguments, not {x}")
-                    }
-                }
+                (MakeFnArgs(scope), Ident(i)) => match i.as_str() {
+                    "*" => MakeFnName(scope, crate::FnArgs::AllStack),
+                    x => panic!("Can only user param list or '*' as function arguments, not {x}"),
+                },
                 (MakeFnName(scope, args), Ident(name)) => MakeFnBlock(scope, args, FnName(name)),
                 (MakeFnBlock(scope, args, name), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
@@ -96,9 +94,7 @@ impl Context {
                     Nothing
                 }
 
-                (Nothing, Keyword(RawKeyword::While)) => {
-                    MakeWhile
-                }
+                (Nothing, Keyword(RawKeyword::While)) => MakeWhile,
                 (MakeWhile, Block(check)) => {
                     let mut inner_ctx = Context::new(check);
                     let check = Code(inner_ctx.parse_block()?);

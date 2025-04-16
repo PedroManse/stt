@@ -4,6 +4,7 @@
 	arr$unpack
 	drop drop drop
 	arr$pack
+	arr$reverse
 	"_argv" set
 }
 
@@ -29,7 +30,7 @@
 	"_argv" get
 	(ifs) { dup arr$is-empty } {
 		"empty array" err
-	} { true } {
+	} { 0 0 = } {
 		argv$pop ok
 	}
 }

@@ -13,13 +13,13 @@ impl<'p> Context<'p> {
 }
 
 impl<'p> Context<'p> {
-    pub fn parse(&'p self, code: Vec<token::Token>) -> Result<Vec<token::Token>, ()> {
+    pub fn parse(&'p self, code: Vec<token::Token>) -> Result<Vec<token::Token>> {
         let mut out = Vec::with_capacity(code.len());
         for c in code {
             match c {
                 Token::Keyword(RawKeyword::Include { path }) => {
                     let include_path = self.dir.join(path);
-                    let metadata = include_path.metadata().ok().ok_or(())?;
+                    let metadata = include_path.metadata().ok().ok_or(SttError::CantReadFile(include_path.clone()))?;
                     let mut included_tokens = if metadata.is_dir() {
                         get_tokens(include_path.join("stt.stt"))
                     } else {

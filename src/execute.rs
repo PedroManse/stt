@@ -1,12 +1,98 @@
 use crate::*;
 
+macro_rules! sget {
+    (num) => {
+        (Value::get_num, "Number")
+    };
+    (str) => {
+        (Value::get_str, "String")
+    }
+}
+
+macro_rules! stack_pop {
+    (($stack:expr) -> $type:ident as $this_arg:literal for $fn_name:expr) => {
+        $stack
+            .pop_this(sget!($type).0)
+            .ok_or(SttError::MissingValueForBuiltin{
+                for_fn: $fn_name.to_owned(),
+                args: stringify!( [ $this_arg: $ty ] ),
+                this_arg: $this_arg,
+            })
+            .map(|got_v|{
+                got_v.map_err(|got|{
+                    SttError::WrongTypeForBuiltin {
+                        for_fn: $fn_name.to_owned(),
+                        args: stringify!( [ $this_arg: $ty ] ),
+                        this_arg: $this_arg,
+                        got,
+                        expected: sget!($type).1
+                    }
+                })
+            })
+    };
+    (($stack:expr) -> $type:ident? as $this_arg:literal for $fn_name:expr) => {
+        $stack
+            .pop_this(sget!($type).0)
+            .map(|got_v|{
+                got_v.map_err(|got|{
+                    SttError::WrongTypeForBuiltin {
+                        for_fn: $fn_name.to_owned(),
+                        args: stringify!( [ $this_arg: $ty ] ),
+                        this_arg: $this_arg,
+                        got,
+                        expected: sget!($type).1
+                    }
+                })
+            }).transpose()
+    };
+    (($stack:expr) -> * as $this_arg:literal for $fn_name:expr) => {
+        $stack
+            .pop()
+            .ok_or(SttError::MissingValueForBuiltin{
+                for_fn: $fn_name.to_owned(),
+                args: stringify!( [ $this_arg: $ty ] ),
+                this_arg: $this_arg,
+            })
+    };
+    (($stack:expr) -> &$type:ident as $this_arg:literal for $fn_name:expr) => {
+        $stack
+            .peek()
+            .ok_or(SttError::MissingValueForBuiltin{
+                for_fn: $fn_name.to_owned(),
+                args: stringify!( [ $this_arg: $ty ] ),
+                this_arg: $this_arg,
+            })
+            .map(|got_v|{
+                got_v.map_err(|got|{
+                    SttError::WrongTypeForBuiltin {
+                        for_fn: $fn_name.to_owned(),
+                        args: stringify!( [ $this_arg: $ty ] ),
+                        this_arg: $this_arg,
+                        got,
+                        expected: sget!($type).1
+                    }
+                })
+            })
+    };
+}
+
+//use std::marker::PhantomData;
+//pub struct DebugMode;
+//pub struct NormalMode;
+//trait ExecMode {}
+//impl ExecMode for DebugMode {}
+//impl ExecMode for NormalMode {}
+
+//pub struct Context<Mode: ExecMode> {
 pub struct Context {
     pub vars: HashMap<String, Value>,
     pub fns: HashMap<FnName, FnDef>,
     pub stack: Stack,
     pub args: Option<HashMap<FnName, FnArg>>,
+    //pub _mode: PhantomData<Mode>,
 }
 
+//impl<M: ExecMode> Context<M> {
 impl Context {
     pub fn new() -> Self {
         Self {
@@ -14,6 +100,7 @@ impl Context {
             vars: HashMap::new(),
             stack: Stack::new(),
             args: None,
+            //_mode: PhantomData,
         }
     }
 
@@ -25,11 +112,11 @@ impl Context {
         let stack;
         let args;
         match args_ins {
-            FnArgsIns::AllStack(xs)=>{
+            FnArgsIns::AllStack(xs) => {
                 stack = Stack::new_with(xs);
                 args = None;
             }
-            FnArgsIns::Args(ars) =>{
+            FnArgsIns::Args(ars) => {
                 args = Some(ars);
                 stack = Stack::new();
             }
@@ -42,58 +129,68 @@ impl Context {
         }
     }
 
-    pub fn execute_code(&mut self, code: &Code) {
-        for expr in code.as_slice() {
-            self.execute(expr);
+    pub fn debug_code(&mut self, code: &Code) {
+        for _expr in code.as_slice() {
+            todo!();
+            //self.debug(expr);
         }
     }
 
-    pub fn execute_check(&mut self, code: &Code) -> bool {
-        let stack_size = self.stack.len();
+    //TODO fn to change in debug mode
+    pub fn execute_code(&mut self, code: &Code) -> Result<()> {
         for expr in code.as_slice() {
-            self.execute(expr);
+            self.execute(expr)?;
+        }
+        Ok(())
+    }
+
+    pub fn execute_check(&mut self, code: &Code) -> Result<bool> {
+        let old_stack_size = self.stack.len();
+        for expr in code.as_slice() {
+            self.execute(expr)?;
         }
         let new_stack_size = self.stack.len();
+        let new_should_stack_size = old_stack_size + 1;
+        let correct_size = new_should_stack_size == new_stack_size;
         let check = self.stack.pop();
         match check {
-            Some(Value::Bool(b)) if stack_size + 1 == new_stack_size => b,
-            v => {
-                if stack_size + 1 != new_stack_size {
-                    eprintln!(
-                        "stack size was {} now it's {} when it should be {}",
-                        stack_size,
-                        new_stack_size,
-                        stack_size + 1
-                    );
-                } else {
-                    eprintln!("check blocks must recieve one boolean, recieved {:?}", v);
-                }
-                panic!("Any control flow code must push one, and only one, boolean to the stack")
-            }
+            Some(Value::Bool(b)) if correct_size => Ok(b),
+            None => Err(SttError::WrongStackSizeDiffOnCheck {
+                old_stack_size,
+                new_stack_size,
+                new_should_stack_size,
+            }),
+            Some(_) if correct_size => Err(SttError::WrongStackSizeDiffOnCheck {
+                old_stack_size,
+                new_stack_size,
+                new_should_stack_size,
+            }),
+            Some(got) => Err(SttError::WrongTypeOnCheck { got }),
         }
     }
 
-    pub fn execute(&mut self, expr: &Expr) {
+    pub fn execute(&mut self, expr: &Expr) -> Result<()> {
         match expr {
-            Expr::FnCall(name) => self.execute_fn(name),
-            Expr::Keyword(kw) => self.execute_kw(kw),
+            Expr::FnCall(name) => return self.execute_fn(name),
+            Expr::Keyword(kw) => return self.execute_kw(kw),
             Expr::Immediate(v) => self.stack.push(v.clone()),
         };
+        Ok(())
     }
 
-    fn execute_kw(&mut self, kw: &KeywordKind) {
+    fn execute_kw(&mut self, kw: &KeywordKind) -> Result<()> {
         match kw {
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
-                    if self.execute_check(&branch.check) {
-                        self.execute_code(&branch.code);
+                    if self.execute_check(&branch.check)? {
+                        self.execute_code(&branch.code)?;
                         break;
                     }
                 }
             }
             KeywordKind::While { check, code } => {
-                while self.execute_check(&check) {
-                    self.execute_code(code);
+                while self.execute_check(&check)? {
+                    self.execute_code(code)?;
                 }
             }
             KeywordKind::FnDef {
@@ -108,31 +205,34 @@ impl Context {
                 );
             }
         };
+        Ok(())
     }
 
-    fn execute_fn(&mut self, name: &FnName) {
-        if let Some(()) = self.try_execute_builtin(name.as_str()) {
-            // builtin fn should handle stack pop and push
-            // and are always given precedence
-        } else if let Some(arg) = self.try_get_arg(&name) {
-            // try_get_arg should handle stack pop
-            // and have higher precedence than user-defined funcs (this was done to avoid confusion
-            // if an upper-scoped function was used instead of an argument)
+    fn execute_fn(&mut self, name: &FnName) -> Result<()> {
+        // builtin fn should handle stack pop and push
+        // and are always given precedence
+        match self.try_execute_builtin(name.as_str()) {
+            Ok(()) => return Ok(()),
+            Err(SttError::NoSuchBuiltin) => {}
+            Err(e) => return Err(e),
+        };
+
+        if let Some(arg) = self.try_get_arg(&name) {
+            // try_get_arg should not pop from the stack and has higher precedence than user-defined funcs.
+            // this was done to avoid confusion if an outer-scoped function was used instead of an argument
             self.stack.push(arg);
-        } else if let Ok(rets) = self.try_execute_user_fn(name) {
+        } else if let Some(rets) = self.try_execute_user_fn(name) {
             // try_execute_user_fn should handle stack pop
             // and have the lowest precedence, since the traverse the scopes
-            self.stack.pushn(rets);
+            self.stack.pushn(rets?);
         } else {
-            panic!(
-                "No such builtin, argument or function called {}",
-                name.as_str()
-            );
+            return Err(SttError::MissingIdent(name.0.clone()));
         }
+        Ok(())
     }
 
-    fn try_execute_user_fn(&mut self, name: &FnName) -> Result<Vec<Value>, ()> {
-        let user_fn = self.fns.get(&name).ok_or(())?;
+    fn try_execute_user_fn(&mut self, name: &FnName) -> Option<Result<Vec<Value>>> {
+        let user_fn = self.fns.get(&name)?;
 
         let vars = match user_fn.scope {
             FnScope::Isolated => HashMap::new(),
@@ -161,12 +261,14 @@ impl Context {
             FnArgs::AllStack => FnArgsIns::AllStack(self.stack.take()),
         };
         let mut fn_ctx = Context::frame(self.fns.clone(), vars, args);
-        fn_ctx.execute_code(&user_fn.code);
+        if let Err(e) = fn_ctx.execute_code(&user_fn.code) {
+            return Some(Err(e));
+        };
 
         if let FnScope::Global = user_fn.scope {
             self.vars.extend(fn_ctx.vars);
         }
-        Ok(fn_ctx.stack.into_vec())
+        Some(Ok(fn_ctx.stack.into_vec()))
     }
 
     fn try_get_arg(&mut self, name: &FnName) -> Option<Value> {
@@ -177,8 +279,8 @@ impl Context {
         }
     }
 
-    fn try_execute_builtin(&mut self, name: &str) -> Option<()> {
-        match name {
+    fn try_execute_builtin(&mut self, fn_name: &str) -> Result<()> {
+        match fn_name {
             // mod system
             "print" => {
                 let cont = self
@@ -189,9 +291,9 @@ impl Context {
                 print!("{}", cont);
             }
             "sys$exit" => {
-                let code = self.stack.pop_this(Value::get_num)
-                    .expect("`sys$exit` needs [exit_code]")
-                    .expect("`sys$exit`'s [exit_code] needs to be a number");
+                let code = stack_pop!(
+                    (self.stack) -> num as "exit_code" for fn_name
+                )??;
                 std::process::exit(code as i32);
             }
             "sys$argv" => {
@@ -199,36 +301,28 @@ impl Context {
                 self.stack.push_this(args);
             }
             "sh" => {
-                let shell_cmd = self
-                    .stack
-                    .pop_this(Value::get_str)
-                    .expect("`sh` needs [command]")
-                    .expect("`sh` [command] must be a string");
+                let shell_cmd = stack_pop!(
+                    (self.stack) -> str as "command" for fn_name
+                )??;
                 let out = builtin::sh(&shell_cmd).map(Value::Num).map_err(Value::Str);
                 self.stack.push_this(out);
             }
             "sh!" => {
-                let shell_cmd = self
-                    .stack
-                    .pop_this(Value::get_str)
-                    .expect("`sh` needs [command]")
-                    .expect("`sh` [command] must be a string");
+                let shell_cmd = stack_pop!(
+                    (self.stack) -> str as "command" for fn_name
+                )??;
                 let out = builtin::sh(&shell_cmd);
                 if let Err(e) = out {
                     panic!("`sh!` {e}")
                 }
             }
             "write-to" => {
-                let file = self
-                    .stack
-                    .pop_this(Value::get_str)
-                    .expect("`trim` needs [content, file]")
-                    .expect("`trim` [file] must be a string");
-                let cont = self
-                    .stack
-                    .pop_this(Value::get_str)
-                    .expect("`trim` needs [content, file]")
-                    .expect("`trim` [content] must be a string");
+                let file = stack_pop!(
+                    (self.stack) -> str as "file" for fn_name
+                )??;
+                let cont = stack_pop!(
+                    (self.stack) -> str as "content" for fn_name
+                )??;
                 let out = builtin::write_to(&cont, &file)
                     .map(Value::Num)
                     .map_err(Value::Str);
@@ -237,18 +331,18 @@ impl Context {
 
             // mod math mod logic
             "-" => {
-                let rhs = self.stack.pop().expect("`-` needs [lhs, rhg]");
-                let lhs = self.stack.pop().expect("`-` needs [lhs, rhg]");
-                let res = match (lhs, rhs) {
-                    (Value::Num(l), Value::Num(r)) => l - r,
-                    _ => panic!("`-`'s [lhs] and [rhs] need to be numbers"),
-                };
-                self.stack.push_this(res);
+                let rhs = stack_pop!(
+                    (self.stack) -> num as "rhs" for fn_name
+                )??;
+                let lhs = stack_pop!(
+                    (self.stack) -> num as "lhs" for fn_name
+                )??;
+                self.stack.push_this(lhs - rhs);
             }
             "=" => {
                 use Value::*;
-                let rhs = self.stack.pop().expect("`=` needs [lhs, rhg]");
-                let lhs = self.stack.pop().expect("`=` needs [lhs, rhg]");
+                let rhs = stack_pop!((self.stack) -> * as "rhs" for fn_name)?;
+                let lhs = stack_pop!((self.stack) -> * as "rhs" for fn_name)?;
                 let eq = match (rhs, lhs) {
                     (Num(l), Num(r)) => l == r,
                     (Str(l), Str(r)) => l == r,
@@ -259,41 +353,33 @@ impl Context {
             }
 
             // mod variables
-            //"stack$has" => {
-            //    self.stack.push_this(self.stack.len() != 0);
-            //} // can be just stack$len 0 = not
             "stack$len" => {
                 self.stack.push_this(self.stack.len() as isize);
             }
             "set" => {
-                let name = self
-                    .stack
-                    .pop_this(Value::get_str)
-                    .expect("`set` needs [name, value]")
-                    .expect("`set`'s [name] needs to be a string");
-                let value = self.stack.pop().expect("`set` needs [name, value]");
+                let name = stack_pop!(
+                    (self.stack) -> str as "name" for fn_name
+                )??;
+                let value = stack_pop!(
+                    (self.stack) -> * as "value" for fn_name
+                )?;
                 self.vars.insert(name, value);
             }
             "get" => {
-                let name = self
-                    .stack
-                    .pop_this(Value::get_str)
-                    .expect("`get` needs [name]")
-                    .expect("`get`'s [name] needs to be a string");
+                let name = stack_pop!(
+                    (self.stack) -> str as "name" for fn_name
+                )??;
                 match self.vars.get(&name) {
-                    None => panic!("`get`: variable {name} doesn't exist"),
+                    None => {
+                        return Err(SttError::NoSuchVariable(name));
+                    },
                     Some(v) => {
                         self.stack.push(v.clone());
                     }
-                }
+                };
             }
-            // maybe add this to args
-            "true" => {
-                self.stack.push_this(true);
-            }
-            "false" => {
-                self.stack.push_this(false);
-            }
+
+            // mod error handeling
             "ok" => {
                 let v = self.stack.pop().expect("`ok` needs [value]");
                 self.stack.push_this(Ok(v));
@@ -306,7 +392,7 @@ impl Context {
                 let is_ok = match self.stack.peek() {
                     Some(Value::Result(x)) => x.is_ok(),
                     Some(r) => panic!("Called ok$is on non-result value {r:?}"),
-                    _ => panic!("Called ok$is with nothing on stack")
+                    _ => panic!("Called ok$is with nothing on stack"),
                 };
                 self.stack.push_this(is_ok);
             }
@@ -334,11 +420,10 @@ impl Context {
                 self.stack.push_this(out);
             }
             "str-peek$has-prefix" => {
-                let prefix = self
-                    .stack
-                    .pop_this(Value::get_str)
-                    .expect("`str-peek$has-prefix` needs [string, prefix]")
-                    .expect("`str-peek$has-prefix` [prefix] must be a string");
+                let prefix = stack_pop!(
+                    (self.stack) -> str as "prefix" for fn_name
+                )??;
+                //TODO peek in stack_pop! as &<type>
                 let s = self.stack.peek();
                 let s = match s {
                     Some(Value::Str(x)) => x,
@@ -348,11 +433,9 @@ impl Context {
                 self.stack.push_this(has);
             }
             "str$trim" => {
-                let v = self
-                    .stack
-                    .pop_this(Value::get_str)
-                    .expect("`str$trim` needs [string]")
-                    .expect("`str$trim` [string] must be a string");
+                let v = stack_pop!(
+                    (self.stack) -> str as "string" for fn_name
+                )??;
                 self.stack.push_this(v.trim().to_owned());
             }
             "str$remove-prefix" => {
@@ -430,7 +513,7 @@ impl Context {
                     .pop_this(Value::get_str)
                     .expect("arr$join` needs [array joiner]")
                     .expect("arr$join` [joiner] must be a string");
-                let arr: Result<Vec<String>, Value> = self
+                let arr: OResult<Vec<String>, Value> = self
                     .stack
                     .pop_this(Value::get_arr)
                     .expect("arr$append` needs [value array]")
@@ -452,16 +535,18 @@ impl Context {
             "debug$vars" => eprintln!("{:?}", self.vars),
             "debug$args" => eprintln!("{:?}", self.args),
 
-            _ => return None,
+            _ => {
+                return Err(SttError::NoSuchBuiltin);
+            }
         };
-        Some(())
+        Ok(())
     }
 }
 
 mod builtin {
     use super::*;
     //use std::process::Command;
-    pub fn sh(shell_cmd: &str) -> Result<isize, String> {
+    pub fn sh(shell_cmd: &str) -> OResult<isize, String> {
         eprintln!("[CMD] {shell_cmd}");
         Ok(0)
         //Command::new("bash")
@@ -471,7 +556,7 @@ mod builtin {
         //    .map(|s| s.code().unwrap_or(256) as isize)
         //    .map_err(|e| e.to_string())
     }
-    pub fn write_to(cont: &str, file: &str) -> Result<isize, String> {
+    pub fn write_to(cont: &str, file: &str) -> OResult<isize, String> {
         eprintln!("Write {} bytes to {file}", cont.bytes().len());
         Ok(cont.bytes().len() as isize)
     }
@@ -515,8 +600,8 @@ mod builtin {
                 }
                 (State::OnFmt, 'v') => {
                     let fmt = match stack.pop() {
-                        Some(x)=>format!("{x:?}"),
-                        None => format!("<Nothing in stack>")
+                        Some(x) => format!("{x:?}"),
+                        None => format!("<Nothing in stack>"),
                     };
                     out.push_str(&fmt);
                     State::Nothing

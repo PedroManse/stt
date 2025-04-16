@@ -1,4 +1,4 @@
-use crate::FnScope;
+use crate::{FnScope, Result};
 use std::path::PathBuf;
 
 #[derive(Debug)]
@@ -19,7 +19,6 @@ pub enum RawKeyword {
     While,
     Include { path: PathBuf },
 }
-
 
 #[derive(Debug)]
 pub enum State {
@@ -43,7 +42,7 @@ macro_rules! matches {
         (matches!(*ident) | matches!(digit) | '.' | ':')
     };
     (*ident) => {
-        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '=' | '*'
+        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '=' | '*' | '&'
     };
     (start_ident) => {
         (matches!(*ident))
@@ -61,13 +60,13 @@ macro_rules! matches {
 
 impl Context {
     // just read a '{'
-    pub fn tokenize_block(&mut self) -> Result<Vec<Token>, ()> {
+    pub fn tokenize_block(&mut self) -> Result<Vec<Token>> {
         use State::*;
         use Token::*;
         let mut state = Nothing;
         let mut out = Vec::new();
         loop {
-            let ch = self.next().ok_or(())?;
+            let ch = self.next().ok_or(crate::SttError::MissingChar)?;
             state = match (state, ch) {
                 (Nothing, '}') => {
                     out.push(EndOfBlock);
@@ -137,12 +136,12 @@ impl Context {
                         "fn-" => RawKeyword::Fn(FnScope::Isolated),
                         "while" => RawKeyword::While,
                         "ifs" => RawKeyword::Ifs,
-                        _ if buf.starts_with("include ") => {
-                            RawKeyword::Include { path: buf.split_once(" ").unwrap().1.into() }
-                        }
+                        _ if buf.starts_with("include ") => RawKeyword::Include {
+                            path: buf.split_once(" ").unwrap().1.into(),
+                        },
                         _ => {
                             eprintln!("unknown keyword {buf}");
-                            return Err(());
+                            return Err(crate::SttError::TodoErr);
                         }
                     };
                     out.push(Keyword(kw));

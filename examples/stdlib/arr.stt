@@ -11,9 +11,7 @@
 }
 
 (fn) * arr$pack {
-	arr$new
-	(while) { stack$len 1 - 0 = not } {
-		arr$append
-	}
+	stack$len
+	arr$pack-n
 }
 

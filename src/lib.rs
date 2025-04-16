@@ -8,6 +8,47 @@ use std::path::{Path, PathBuf};
 
 use self::token::Token;
 
+pub type OResult<T, E> = std::result::Result<T, E>;
+pub type Result<T> = std::result::Result<T, SttError>;
+
+#[derive(thiserror::Error, Debug)]
+pub enum SttError {
+    #[error("Can't read file {0:?}")]
+    CantReadFile(PathBuf),
+    #[error("No such function or function argument called `{0}`")]
+    MissingIdent(String),
+    #[error("")]
+    WrongStackSizeDiffOnCheck {
+        old_stack_size: usize,
+        new_stack_size: usize,
+        new_should_stack_size: usize,
+    },
+    #[error("check blocks must recieve one boolean, recieved {got:?}")]
+    WrongTypeOnCheck { got: Value },
+    #[error("Function {for_fn} accepts [{args}]. But {this_arg} is missing")]
+    MissingValueForBuiltin{
+        for_fn: String,
+        args: &'static str,
+        this_arg: &'static str,
+    },
+    #[error("Function {for_fn} accepts {args}. But [{this_arg}] must be a {expected} but got {got:?}")]
+    WrongTypeForBuiltin{
+        for_fn: String,
+        args: &'static str,
+        this_arg: &'static str,
+        got: Value,
+        expected: &'static str,
+    },
+    #[error("This error should never be elevated to users, if this happens to you, please report it")]
+    NoSuchBuiltin,
+    #[error("The variable {0} is not defined")]
+    NoSuchVariable(String),
+    #[error("TODO")]
+    TodoErr,
+    #[error("Missing char")]
+    MissingChar,
+}
+
 #[derive(Clone, Debug)]
 pub struct Code(pub Vec<Expr>);
 
@@ -18,43 +59,46 @@ impl Code {
 }
 
 // step token.rs
-pub fn get_raw_tokens(file_path: &PathBuf) -> Result<Vec<Token>, ()> {
-    let cont = std::fs::read_to_string(file_path).unwrap();
+pub fn get_raw_tokens(file_path: &PathBuf) -> Result<Vec<Token>> {
+    let Ok(cont) = std::fs::read_to_string(file_path) else {
+        return Err(SttError::CantReadFile(file_path.clone()));
+    };
     token::Context::new(&cont).tokenize_block()
 }
 
 // step preproc.rs
-pub fn preproc_tokens(tokens: Vec<Token>, file_path: &PathBuf) -> Result<Vec<Token>, ()> {
-    let preprocessor = preproc::Context::new(file_path.parent().unwrap());
+pub fn preproc_tokens(tokens: Vec<Token>, file_path: &PathBuf) -> Result<Vec<Token>> {
+    let cwd = PathBuf::from(".");
+    let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     preprocessor.parse(tokens)
 }
 
 // step parse.rs
-pub fn parse_tokens(tokens: Vec<Token>) -> Result<Vec<Expr>, ()> {
+pub fn parse_tokens(tokens: Vec<Token>) -> Result<Vec<Expr>> {
     let mut parser = parse::Context::new(tokens);
     parser.parse_block()
 }
 
-pub fn execute_code(code: Code) -> Result<(), ()> {
+pub fn execute_code(code: Code) -> Result<()> {
     let mut executioner = execute::Context::new();
-    executioner.execute_code(&code);
+    executioner.execute_code(&code)?;
     Ok(())
 }
 
 // abstract
-pub fn get_tokens(path: impl AsRef<Path>) -> Result<Vec<Token>, ()> {
+pub fn get_tokens(path: impl AsRef<Path>) -> Result<Vec<Token>> {
     let file_path = PathBuf::from(path.as_ref());
     let tokens = get_raw_tokens(&file_path)?;
     preproc_tokens(tokens, &file_path)
 }
 
-pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code, ()> {
+pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
     let procced_block = get_tokens(path)?;
     let mut parser = parse::Context::new(procced_block);
     parser.parse_block().map(Code)
 }
 
-pub fn execute_file(path: impl AsRef<Path>) -> Result<(), ()> {
+pub fn execute_file(path: impl AsRef<Path>) -> Result<()> {
     let code = get_project_code(path)?;
     execute_code(code)
 }
@@ -97,7 +141,7 @@ impl Stack {
     pub fn peek(&mut self) -> Option<&Value> {
         self.0.get(self.len() - 1)
     }
-    pub fn popn(&mut self, n: usize) -> Result<Vec<Value>, Vec<Value>> {
+    pub fn popn(&mut self, n: usize) -> OResult<Vec<Value>, Vec<Value>> {
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
             match self.pop() {
@@ -121,16 +165,9 @@ impl Stack {
     pub fn take(&mut self) -> Vec<Value> {
         std::mem::replace(&mut self.0, Vec::new())
     }
-    //TODO Stack.pop_mut
-    //pub fn pop_mut<T, F, 'a>(&'a mut self, get_fn: F) -> Option<Result<&mut T, &mut Value>>
-    //where
-    //    F: Fn(&'a mut Value) -> Result<&'a mut T, &'a mut Value>,
-    //{
-    //    self.0.get_mut(self.len() - 1).map(get_fn)
-    //}
-    pub fn pop_this<T, F>(&mut self, get_fn: F) -> Option<Result<T, Value>>
+    pub fn pop_this<T, F>(&mut self, get_fn: F) -> Option<OResult<T, Value>>
     where
-        F: Fn(Value) -> Result<T, Value>,
+        F: Fn(Value) -> OResult<T, Value>,
     {
         self.pop().map(get_fn)
     }
@@ -173,48 +210,51 @@ pub enum Value {
     Bool(bool),
     Array(Vec<Value>),
     Map(HashMap<String, Value>),
-    Result(Box<Result<Value, Value>>),
-    Null,
+    Result(Box<OResult<Value, Value>>),
+}
+
+#[derive(Clone, Debug)]
+pub enum ValueDef {
+    Str,
+    Num,
+    Bool,
+    Array,
+    Map,
+    Result,
 }
 
 impl Value {
-    pub fn get_result(self) -> Result<Result<Value, Value>, Value> {
+    pub fn get_result(self) -> OResult<OResult<Value, Value>, Value> {
         match self {
             Value::Result(x) => Ok(*x),
             o => Err(o),
         }
     }
-    pub fn get_null(self) -> Result<(), Value> {
-        match self {
-            Value::Null => Ok(()),
-            o => Err(o),
-        }
-    }
-    pub fn get_str(self) -> Result<String, Value> {
+    pub fn get_str(self) -> OResult<String, Value> {
         match self {
             Value::Str(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_num(self) -> Result<isize, Value> {
+    pub fn get_num(self) -> OResult<isize, Value> {
         match self {
             Value::Num(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_bool(self) -> Result<bool, Value> {
+    pub fn get_bool(self) -> OResult<bool, Value> {
         match self {
             Value::Bool(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_arr(self) -> Result<Vec<Value>, Value> {
+    pub fn get_arr(self) -> OResult<Vec<Value>, Value> {
         match self {
             Value::Array(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_map(self) -> Result<HashMap<String, Value>, Value> {
+    pub fn get_map(self) -> OResult<HashMap<String, Value>, Value> {
         match self {
             Value::Map(x) => Ok(x),
             o => Err(o),
@@ -247,8 +287,8 @@ impl From<HashMap<String, Value>> for Value {
         Value::Map(value)
     }
 }
-impl From<Result<Value, Value>> for Value {
-    fn from(value: Result<Value, Value>) -> Self {
+impl From<OResult<Value, Value>> for Value {
+    fn from(value: OResult<Value, Value>) -> Self {
         Value::Result(Box::new(value))
     }
 }
@@ -274,9 +314,6 @@ pub enum KeywordKind {
         code: Code,
         args: FnArgs,
     },
-    //Include {
-    //    path: PathBuf,
-    //},
 }
 
 #[derive(Clone, Debug)]
@@ -285,3 +322,4 @@ pub enum Expr {
     FnCall(FnName),
     Keyword(KeywordKind),
 }
+

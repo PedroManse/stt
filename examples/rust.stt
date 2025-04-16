@@ -1,5 +1,6 @@
 #! stt
 (include stdlib)
+(include stdlib/bool.stt)
 argv$init
 
 (ifs) {argv$is-empty} {
@@ -7,9 +8,10 @@ argv$init
 	1 sys$exit
 }
 
-argv$pop dup
+argv$pop _ dup
 	"cargo new --bin %s" % sh!
 	"cd %s" % sh!
+
 
 "
 target

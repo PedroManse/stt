@@ -1,5 +1,4 @@
 (fn) [a] drop {}
-(fn) [a] not { true false (ifs) {a} {flip} drop  }
 (fn) [a b] flip {b a}
 (fn) [a] dup {a a}
 (fn) [a b c] rot3 { c a b }

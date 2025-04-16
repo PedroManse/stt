@@ -1,0 +1,3 @@
+(fn) [result] is$err { result is$ok not }
+(fn) [result] ok!! { result ok! drop }
+

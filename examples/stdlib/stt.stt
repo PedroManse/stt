@@ -1,7 +1,7 @@
 (include argv.stt)
-(include bool.stt)
 (include stack.stt)
 (include arr.stt)
-
-(fn) [result] ok!! {result ok! drop}
+(include math.stt)
+(include bool.stt)
+(include error.stt)
 

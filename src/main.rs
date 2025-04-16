@@ -6,11 +6,17 @@ use stt::*;
 
 // TODO * mode for Ifs to non-exclusive execution
 
-// TODO (pragma <command>) // once -> only execute file once // store in execution context
-
-//TODO type checking (fn) [a:num b:string x:array] { ... }
+// TODO type checking (fn) [a:num b:string x:array] { ... }
 // : would llow for (fn) [x:string] assert$is-string { x }
 // : would allow for (fn) [arr:array] assert$arr$of-string { (while) ... { assert$is-string } }
+
+// TODO (pragma)
+// : (pragma once) // execute file only once
+// : (pramga set <VAR>)
+// : (pramga unset <VAR>)
+// : (pramga if <VAR> [<IFID>])
+// : (pramga endif <VAR> [<IFID>])
+//// IFID: string, VAR: string
 
 pub enum SttMode {
     Normal,
@@ -23,18 +29,20 @@ fn main() {
     let mut args = std::env::args().skip(1).peekable();
     let file_path = args.next().unwrap();
     let mode = args.peek();
-    let mode = match mode.map(|s|s.as_str()) {
+    let mode = match mode.map(|s| s.as_str()) {
         None => SttMode::Normal,
         Some("--debug") => SttMode::Debug,
         Some("--token") => SttMode::TokenCheck,
         Some("--syntax") => SttMode::SyntaxCheck,
-        Some(x) => panic!("No suck execution mode {x}"),
+        Some(_) => SttMode::Normal,
     };
 
     use SttMode as M;
     match mode {
         M::Normal => {
-            execute_file(file_path).unwrap();
+            if let Err(x) = execute_file(file_path) {
+                eprintln!("{x}");
+            };
         }
         M::Debug => {
             todo!()
