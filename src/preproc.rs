@@ -3,11 +3,23 @@ use crate::*;
 use std::collections::HashSet;
 use std::path::Path;
 
-#[derive(PartialEq)]
-enum ProcStatus {
-    Reading,
-    IgnoringIf,   // ignoring code because of mistaken if
-    IgnoringElse, // ignoring code because of else on correct if
+enum ProcChange {
+    Keep,
+    Pop,
+    PushIf { reading: bool },
+    PushElse,
+}
+
+#[derive(Debug)]
+struct ProcStatus {
+    status: ProcCommand,
+    reading: bool,
+}
+
+#[derive(Debug, PartialEq)]
+enum ProcCommand {
+    If,
+    IfElse,
 }
 
 pub struct Context<'p> {
@@ -31,7 +43,7 @@ impl<'p> Context<'p> {
         code: Vec<token::Token>,
         proc_vars: &mut HashSet<String>,
     ) -> Result<Vec<token::Token>> {
-        let mut status = ProcStatus::Reading;
+        let mut if_stack: Vec<ProcStatus> = vec![];
         let mut out = Vec::with_capacity(code.len());
         for c in code {
             match c {
@@ -49,9 +61,30 @@ impl<'p> Context<'p> {
                     out.append(&mut included_tokens);
                 }
                 Token::Keyword(RawKeyword::Pragma { command }) => {
-                    status = execute_command(command, proc_vars, status)?;
+                    let is_reading = if_stack.last().map(|s| s.reading).unwrap_or(true);
+                    let proc_cmd = execute_command(command, proc_vars)?;
+                    match proc_cmd {
+                        ProcChange::Keep => {}
+                        ProcChange::Pop => {
+                            if_stack.pop().ok_or(SttError::TodoErr)?;
+                        }
+                        ProcChange::PushIf { reading } => {
+                            if_stack.push(ProcStatus {
+                                status: ProcCommand::If,
+                                reading: reading && is_reading,
+                            });
+                        }
+                        ProcChange::PushElse => {
+                            //TODO remove assert
+                            assert_eq!(if_stack.pop().unwrap().status, ProcCommand::If);
+                            if_stack.push(ProcStatus {
+                                status: ProcCommand::IfElse,
+                                reading: !is_reading,
+                            });
+                        }
+                    }
                 }
-                x if status == ProcStatus::Reading => {
+                x if if_stack.last().map(|s| s.reading).unwrap_or(true) => {
                     out.push(x);
                 }
                 _ => {} // ignore code in IgnoringIf or IgnoringElse status
@@ -61,42 +94,26 @@ impl<'p> Context<'p> {
     }
 }
 
-fn execute_command(
-    command: String,
-    proc_vars: &mut HashSet<String>,
-    status: ProcStatus,
-) -> Result<ProcStatus> {
+fn execute_command(command: String, proc_vars: &mut HashSet<String>) -> Result<ProcChange> {
     let cmd_parts: Vec<&str> = command.split(" ").collect();
     Ok(match cmd_parts.as_slice() {
         ["if", v] => {
-            if !proc_vars.contains(*v) {
-                ProcStatus::IgnoringIf
-            } else {
-                ProcStatus::Reading
-            }
+            ProcChange::PushIf { reading: proc_vars.contains(*v) }
         }
         ["if", "not", v] => {
-            if proc_vars.contains(*v) {
-                ProcStatus::IgnoringIf
-            } else {
-                ProcStatus::Reading
-            }
+            ProcChange::PushIf { reading: !proc_vars.contains(*v) }
         }
         ["else"] => {
-            if status == ProcStatus::IgnoringIf {
-                ProcStatus::Reading
-            } else {
-                ProcStatus::IgnoringElse
-            }
+            ProcChange::PushElse
         }
-        ["end", "if"] => ProcStatus::Reading,
+        ["end", "if"] => ProcChange::Pop,
         ["set", v] => {
             proc_vars.insert(v.to_string());
-            status
+            ProcChange::Keep
         }
         ["unset", v] => {
             proc_vars.remove(*v);
-            status
+            ProcChange::Keep
         }
         e => {
             println!("{e:?}");
