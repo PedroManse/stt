@@ -6,7 +6,7 @@ macro_rules! sget {
     };
     (str) => {
         (Value::get_str, "String")
-    }
+    };
 }
 
 macro_rules! stack_pop {
@@ -372,7 +372,7 @@ impl Context {
                 match self.vars.get(&name) {
                     None => {
                         return Err(SttError::NoSuchVariable(name));
-                    },
+                    }
                     Some(v) => {
                         self.stack.push(v.clone());
                     }

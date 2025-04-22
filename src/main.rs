@@ -4,13 +4,11 @@ use stt::*;
 
 // TODO make (if) kw for common case of (if) {check} {if-code} {true} {else-code}
 
-// TODO * mode for Ifs to non-exclusive execution
-
 // TODO type checking (fn) [a:num b:string x:array] { ... }
 // : would llow for (fn) [x:string] assert$is-string { x }
 // : would allow for (fn) [arr:array] assert$arr$of-string { (while) ... { assert$is-string } }
 
-// TODO count (pragma if)s and (pragma endif)s for nestes cases
+// TODO array of status for each if
 
 #[derive(PartialEq)]
 pub enum SttMode {
@@ -66,4 +64,3 @@ fn main() {
         eprintln!("[ERROR] executing {file_path}:\n  {e}")
     }
 }
-

@@ -100,7 +100,7 @@ fn execute_command(
         }
         e => {
             println!("{e:?}");
-            return Err(SttError::TodoErr)
-        },
+            return Err(SttError::TodoErr);
+        }
     })
 }
