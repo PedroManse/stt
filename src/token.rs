@@ -18,6 +18,7 @@ pub enum RawKeyword {
     Ifs,
     While,
     Include { path: PathBuf },
+    Pragma { command: String },
 }
 
 #[derive(Debug)]
@@ -137,7 +138,10 @@ impl Context {
                         "while" => RawKeyword::While,
                         "ifs" => RawKeyword::Ifs,
                         _ if buf.starts_with("include ") => RawKeyword::Include {
-                            path: buf.split_once(" ").unwrap().1.into(),
+                            path: buf.split_once(" ").unwrap().1.trim().into(),
+                        },
+                        _ if buf.starts_with("pragma ") => RawKeyword::Pragma {
+                            command: buf.split_once(" ").unwrap().1.trim().into(),
                         },
                         _ => {
                             eprintln!("unknown keyword {buf}");

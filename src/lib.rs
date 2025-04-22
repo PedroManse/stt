@@ -3,7 +3,7 @@ pub mod parse;
 pub mod preproc;
 pub mod token;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use self::token::Token;
@@ -26,20 +26,24 @@ pub enum SttError {
     #[error("check blocks must recieve one boolean, recieved {got:?}")]
     WrongTypeOnCheck { got: Value },
     #[error("Function {for_fn} accepts [{args}]. But {this_arg} is missing")]
-    MissingValueForBuiltin{
+    MissingValueForBuiltin {
         for_fn: String,
         args: &'static str,
         this_arg: &'static str,
     },
-    #[error("Function {for_fn} accepts {args}. But [{this_arg}] must be a {expected} but got {got:?}")]
-    WrongTypeForBuiltin{
+    #[error(
+        "Function {for_fn} accepts {args}. But [{this_arg}] must be a {expected} but got {got:?}"
+    )]
+    WrongTypeForBuiltin {
         for_fn: String,
         args: &'static str,
         this_arg: &'static str,
         got: Value,
         expected: &'static str,
     },
-    #[error("This error should never be elevated to users, if this happens to you, please report it")]
+    #[error(
+        "This error should never be elevated to users, if this happens to you, please report it"
+    )]
     NoSuchBuiltin,
     #[error("The variable {0} is not defined")]
     NoSuchVariable(String),
@@ -70,7 +74,17 @@ pub fn get_raw_tokens(file_path: &PathBuf) -> Result<Vec<Token>> {
 pub fn preproc_tokens(tokens: Vec<Token>, file_path: &PathBuf) -> Result<Vec<Token>> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
-    preprocessor.parse(tokens)
+    preprocessor.parse_clean(tokens)
+}
+
+pub fn preproc_tokens_with_vars(
+    tokens: Vec<Token>,
+    file_path: &PathBuf,
+    vars: &mut HashSet<String>,
+) -> Result<Vec<Token>> {
+    let cwd = PathBuf::from(".");
+    let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
+    preprocessor.parse(tokens, vars)
 }
 
 // step parse.rs
@@ -90,6 +104,15 @@ pub fn get_tokens(path: impl AsRef<Path>) -> Result<Vec<Token>> {
     let file_path = PathBuf::from(path.as_ref());
     let tokens = get_raw_tokens(&file_path)?;
     preproc_tokens(tokens, &file_path)
+}
+
+pub fn get_tokens_with_procvars(
+    path: impl AsRef<Path>,
+    proc_vars: &mut HashSet<String>,
+) -> Result<Vec<Token>> {
+    let file_path = PathBuf::from(path.as_ref());
+    let tokens = get_raw_tokens(&file_path)?;
+    preproc_tokens_with_vars(tokens, &file_path, proc_vars)
 }
 
 pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
@@ -322,4 +345,3 @@ pub enum Expr {
     FnCall(FnName),
     Keyword(KeywordKind),
 }
-

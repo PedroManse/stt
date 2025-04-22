@@ -1,3 +1,9 @@
-(include lambda)
+(include stdlib)
 
-_ _ false 1 2 if "%d" % print
+(pragma set x)
+(pragma if x)
+	(pragma unset x)
+	"yes x\n"
+	print
+(pragma end if)
+

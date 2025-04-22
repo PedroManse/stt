@@ -1,7 +1,9 @@
+(pragma if not STDLIB_STT)
+(pragma set STDLIB_STT)
 (include argv.stt)
 (include stack.stt)
 (include arr.stt)
 (include math.stt)
 (include bool.stt)
 (include error.stt)
-
+(pragma end if)

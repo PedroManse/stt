@@ -10,48 +10,60 @@ use stt::*;
 // : would llow for (fn) [x:string] assert$is-string { x }
 // : would allow for (fn) [arr:array] assert$arr$of-string { (while) ... { assert$is-string } }
 
-// TODO (pragma)
-// : (pragma once) // execute file only once
-// : (pramga set <VAR>)
-// : (pramga unset <VAR>)
-// : (pramga if <VAR> [<IFID>])
-// : (pramga endif <VAR> [<IFID>])
-//// IFID: string, VAR: string
+// TODO count (pragma if)s and (pragma endif)s for nestes cases
 
+#[derive(PartialEq)]
 pub enum SttMode {
     Normal,
     Debug,
     SyntaxCheck,
     TokenCheck,
+    PrintProccCode,
 }
 
-fn main() {
-    let mut args = std::env::args().skip(1).peekable();
-    let file_path = args.next().unwrap();
-    let mode = args.peek();
-    let mode = match mode.map(|s| s.as_str()) {
-        None => SttMode::Normal,
-        Some("--debug") => SttMode::Debug,
-        Some("--token") => SttMode::TokenCheck,
-        Some("--syntax") => SttMode::SyntaxCheck,
-        Some(_) => SttMode::Normal,
-    };
-
+fn execute(mode: SttMode, file_path: String) -> Result<()> {
     use SttMode as M;
     match mode {
         M::Normal => {
-            if let Err(x) = execute_file(file_path) {
-                eprintln!("{x}");
-            };
+            execute_file(file_path)?;
         }
         M::Debug => {
             todo!()
         }
         M::SyntaxCheck => {
-            get_project_code(file_path).unwrap();
+            get_project_code(file_path)?;
+        }
+        M::PrintProccCode => {
+            let code = get_project_code(file_path)?;
+            println!("{code:?}");
         }
         M::TokenCheck => {
-            get_tokens(file_path).unwrap();
+            get_tokens(file_path)?;
         }
     }
+    Ok(())
 }
+
+fn main() {
+    let mut args = std::env::args().skip(1).peekable();
+    let file_path = args.next().unwrap();
+    let mode = if let Some(arg) = args.peek() {
+        let m = match arg.as_str() {
+            "--debug" => SttMode::Debug,
+            "--token" => SttMode::TokenCheck,
+            "--syntax" => SttMode::SyntaxCheck,
+            "--proc" => SttMode::PrintProccCode,
+            _ => SttMode::Normal,
+        };
+        if m != SttMode::Normal {
+            args.next();
+        }
+        m
+    } else {
+        SttMode::Normal
+    };
+    if let Err(e) = execute(mode, file_path.clone()) {
+        eprintln!("[ERROR] executing {file_path}:\n  {e}")
+    }
+}
+
