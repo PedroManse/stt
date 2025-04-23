@@ -84,6 +84,7 @@ macro_rules! stack_pop {
 //impl ExecMode for NormalMode {}
 
 //pub struct Context<Mode: ExecMode> {
+#[derive(Default)]
 pub struct Context {
     pub vars: HashMap<String, Value>,
     pub fns: HashMap<FnName, FnDef>,
@@ -189,7 +190,7 @@ impl Context {
                 }
             }
             KeywordKind::While { check, code } => {
-                while self.execute_check(&check)? {
+                while self.execute_check(check)? {
                     self.execute_code(code)?;
                 }
             }
@@ -217,7 +218,7 @@ impl Context {
             Err(e) => return Err(e),
         };
 
-        if let Some(arg) = self.try_get_arg(&name) {
+        if let Some(arg) = self.try_get_arg(name) {
             // try_get_arg should not pop from the stack and has higher precedence than user-defined funcs.
             // this was done to avoid confusion if an outer-scoped function was used instead of an argument
             self.stack.push(arg);
@@ -232,7 +233,7 @@ impl Context {
     }
 
     fn try_execute_user_fn(&mut self, name: &FnName) -> Option<Result<Vec<Value>>> {
-        let user_fn = self.fns.get(&name)?;
+        let user_fn = self.fns.get(name)?;
 
         let vars = match user_fn.scope {
             FnScope::Isolated => HashMap::new(),
@@ -273,7 +274,7 @@ impl Context {
 
     fn try_get_arg(&mut self, name: &FnName) -> Option<Value> {
         if let Some(args) = &self.args {
-            args.get(&name).map(|arg| arg.0.clone())
+            args.get(name).map(|arg| arg.0.clone())
         } else {
             None
         }
@@ -297,7 +298,7 @@ impl Context {
                 std::process::exit(code as i32);
             }
             "sys$argv" => {
-                let args: Vec<_> = std::env::args().into_iter().map(Value::Str).collect();
+                let args: Vec<_> = std::env::args().map(Value::Str).collect();
                 self.stack.push_this(args);
             }
             "sh" => {
@@ -491,7 +492,7 @@ impl Context {
                 let xs = self
                     .stack
                     .popn(count as usize)
-                    .expect(&format!("arr$pack-n failed to pop {count} items"));
+                    .unwrap_or_else(|_| panic!("arr$pack-n failed to pop {count} items"));
                 self.stack.push_this(xs);
             }
             "arr$new" => {
@@ -581,27 +582,23 @@ mod builtin {
                 (State::OnFmt, 's') => {
                     let add_str = stack
                         .pop_this(Value::get_str)
-                        .expect(&format!(
-                            "`%` format string {cont:?} needs a value that's not in the stack"
-                        ))
-                        .expect(&format!("`%` format string {cont:?} needed a string"));
+                        .unwrap_or_else(|| panic!("`%` format string {cont:?} needs a value that'snot in the stack"))
+                        .unwrap_or_else(|_| panic!("`%` format string {cont:?} needed a string"));
                     out.push_str(&add_str);
                     State::Nothing
                 }
                 (State::OnFmt, 'd') => {
                     let add_num = stack
                         .pop_this(Value::get_num)
-                        .expect(&format!(
-                            "`%` format string {cont:?} needs a value that's not in the stack"
-                        ))
-                        .expect(&format!("`%` format string {cont:?} needed a number"));
+                        .unwrap_or_else(|| panic!("`%` format string {cont:?} needs a value that'snot in the stack"))
+                        .unwrap_or_else(|_| panic!("`%` format string {cont:?} needed a number"));
                     out.push_str(&add_num.to_string());
                     State::Nothing
                 }
                 (State::OnFmt, 'v') => {
                     let fmt = match stack.pop() {
                         Some(x) => format!("{x:?}"),
-                        None => format!("<Nothing in stack>"),
+                        None => "<Nothing in stack>".to_string(),
                     };
                     out.push_str(&fmt);
                     State::Nothing
@@ -609,10 +606,8 @@ mod builtin {
                 (State::OnFmt, 'b') => {
                     let add_bool = stack
                         .pop_this(Value::get_bool)
-                        .expect(&format!(
-                            "`%` format string {cont:?} needs a value that's not in the stack"
-                        ))
-                        .expect(&format!("`%` format string {cont:?} needed a bool"));
+                        .unwrap_or_else(|| panic!("`%` format string {cont:?} needs a value that'snot in the stack"))
+                        .unwrap_or_else(|_| panic!("`%` format string {cont:?} needed a bool"));
                     out.push_str(&add_bool.to_string());
                     State::Nothing
                 }

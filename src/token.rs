@@ -121,17 +121,19 @@ impl Context {
                     MakeString(buf)
                 }
                 (MakeNumber(buf), matches!(space)) => {
-                    out.push(Number(buf.parse().unwrap()));
+                    let num = buf.parse()?;
+                    out.push(Number(num));
                     Nothing
                 }
                 (MakeNumber(buf), matches!(word_edge)) => {
-                    out.push(Number(buf.parse().unwrap()));
+                    let num = buf.parse()?;
+                    out.push(Number(num));
                     self.unget(); // re-read char with Nothing State
                     Nothing
                 }
 
                 (MakeKeyword(buf), ')') => {
-                    let kw = match buf.as_str() {
+                    let kw = match buf.as_str().trim() {
                         "fn" => RawKeyword::Fn(FnScope::Local),
                         "fn*" => RawKeyword::Fn(FnScope::Global),
                         "fn-" => RawKeyword::Fn(FnScope::Isolated),

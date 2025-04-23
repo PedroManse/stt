@@ -61,28 +61,7 @@ impl<'p> Context<'p> {
                     out.append(&mut included_tokens);
                 }
                 Token::Keyword(RawKeyword::Pragma { command }) => {
-                    let is_reading = if_stack.last().map(|s| s.reading).unwrap_or(true);
-                    let proc_cmd = execute_command(command, proc_vars)?;
-                    match proc_cmd {
-                        ProcChange::Keep => {}
-                        ProcChange::Pop => {
-                            if_stack.pop().ok_or(SttError::TodoErr)?;
-                        }
-                        ProcChange::PushIf { reading } => {
-                            if_stack.push(ProcStatus {
-                                status: ProcCommand::If,
-                                reading: reading && is_reading,
-                            });
-                        }
-                        ProcChange::PushElse => {
-                            //TODO remove assert
-                            assert_eq!(if_stack.pop().unwrap().status, ProcCommand::If);
-                            if_stack.push(ProcStatus {
-                                status: ProcCommand::IfElse,
-                                reading: !is_reading,
-                            });
-                        }
-                    }
+                    manage_pragma(&mut if_stack, command, proc_vars)?;
                 }
                 x if if_stack.last().map(|s| s.reading).unwrap_or(true) => {
                     out.push(x);
@@ -94,18 +73,47 @@ impl<'p> Context<'p> {
     }
 }
 
+fn manage_pragma(
+    if_stack: &mut Vec<ProcStatus>,
+    command: String,
+    proc_vars: &mut HashSet<String>,
+) -> Result<()> {
+    let is_reading = if_stack.last().map(|s| s.reading).unwrap_or(true);
+    let proc_cmd = execute_command(command, proc_vars)?;
+    match proc_cmd {
+        ProcChange::Keep => {}
+        ProcChange::Pop => {
+            if_stack.pop().ok_or(SttError::TodoErr)?;
+        }
+        ProcChange::PushIf { reading } => {
+            if_stack.push(ProcStatus {
+                status: ProcCommand::If,
+                reading: reading && is_reading,
+            });
+        }
+        ProcChange::PushElse => match if_stack.pop().map(|x| x.status) {
+            Some(ProcCommand::If) => {
+                if_stack.push(ProcStatus {
+                    status: ProcCommand::IfElse,
+                    reading: !is_reading,
+                });
+            }
+            _ => return Err(SttError::TodoErr),
+        },
+    };
+    Ok(())
+}
+
 fn execute_command(command: String, proc_vars: &mut HashSet<String>) -> Result<ProcChange> {
     let cmd_parts: Vec<&str> = command.split(" ").collect();
     Ok(match cmd_parts.as_slice() {
-        ["if", v] => {
-            ProcChange::PushIf { reading: proc_vars.contains(*v) }
-        }
-        ["if", "not", v] => {
-            ProcChange::PushIf { reading: !proc_vars.contains(*v) }
-        }
-        ["else"] => {
-            ProcChange::PushElse
-        }
+        ["if", v] => ProcChange::PushIf {
+            reading: proc_vars.contains(*v),
+        },
+        ["if", "not", v] => ProcChange::PushIf {
+            reading: !proc_vars.contains(*v),
+        },
+        ["else"] => ProcChange::PushElse,
         ["end", "if"] => ProcChange::Pop,
         ["set", v] => {
             proc_vars.insert(v.to_string());

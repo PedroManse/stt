@@ -42,9 +42,12 @@ fn execute(mode: SttMode, file_path: String) -> Result<()> {
     Ok(())
 }
 
-fn main() {
+fn main()  {
     let mut args = std::env::args().skip(1).peekable();
-    let file_path = args.next().unwrap();
+    let Some(file_path) = args.next() else {
+        eprintln!("Missing file to execute");
+        std::process::exit(1);
+    };
     let mode = if let Some(arg) = args.peek() {
         let m = match arg.as_str() {
             "--debug" => SttMode::Debug,
@@ -61,6 +64,7 @@ fn main() {
         SttMode::Normal
     };
     if let Err(e) = execute(mode, file_path.clone()) {
-        eprintln!("[ERROR] executing {file_path}:\n  {e}")
+        eprintln!("[ERROR] executing {file_path}:\n  {e}");
+        std::process::exit(1);
     }
 }

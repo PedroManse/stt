@@ -47,10 +47,12 @@ pub enum SttError {
     NoSuchBuiltin,
     #[error("The variable {0} is not defined")]
     NoSuchVariable(String),
-    #[error("TODO")]
-    TodoErr,
     #[error("Missing char")]
     MissingChar,
+    #[error(transparent)]
+    ParseIntError(#[from] std::num::ParseIntError),
+    #[error("TODO")]
+    TodoErr,
 }
 
 #[derive(Clone, Debug)]
@@ -63,15 +65,15 @@ impl Code {
 }
 
 // step token.rs
-pub fn get_raw_tokens(file_path: &PathBuf) -> Result<Vec<Token>> {
+pub fn get_raw_tokens(file_path: &Path) -> Result<Vec<Token>> {
     let Ok(cont) = std::fs::read_to_string(file_path) else {
-        return Err(SttError::CantReadFile(file_path.clone()));
+        return Err(SttError::CantReadFile(file_path.to_path_buf()));
     };
     token::Context::new(&cont).tokenize_block()
 }
 
 // step preproc.rs
-pub fn preproc_tokens(tokens: Vec<Token>, file_path: &PathBuf) -> Result<Vec<Token>> {
+pub fn preproc_tokens(tokens: Vec<Token>, file_path: &Path) -> Result<Vec<Token>> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     preprocessor.parse_clean(tokens)
@@ -79,7 +81,7 @@ pub fn preproc_tokens(tokens: Vec<Token>, file_path: &PathBuf) -> Result<Vec<Tok
 
 pub fn preproc_tokens_with_vars(
     tokens: Vec<Token>,
-    file_path: &PathBuf,
+    file_path: &Path,
     vars: &mut HashSet<String>,
 ) -> Result<Vec<Token>> {
     let cwd = PathBuf::from(".");
@@ -137,7 +139,7 @@ pub enum FnArgsIns {
     AllStack(Vec<Value>),
 }
 //pub struct FnArgs(pub Vec<String>);
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Stack(Vec<Value>);
 #[derive(Debug, Clone)]
 pub struct FnArg(pub Value);
@@ -185,8 +187,11 @@ impl Stack {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
     pub fn take(&mut self) -> Vec<Value> {
-        std::mem::replace(&mut self.0, Vec::new())
+        std::mem::take(&mut self.0)
     }
     pub fn pop_this<T, F>(&mut self, get_fn: F) -> Option<OResult<T, Value>>
     where
