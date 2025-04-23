@@ -1,0 +1,22 @@
+(fn) * printf {
+	% print
+}
+
+(fn) * printfln {
+	% print
+	"\n" print
+}
+
+(fn) * println {
+	print
+	"\n" print
+}
+
+(pragma if debug)
+
+(fn) [int  ] iprt { int   "%d\n" printf }
+(fn) [bool ] bprt { bool  "%b\n" printf }
+(fn) [str  ] sprt { str   "%s\n" printf }
+(fn) [value]  prt { value "%v\n" printf }
+
+(pragma end if)

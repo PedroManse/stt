@@ -1,5 +1,4 @@
 (fn) [t f q] ? { (ifs) {q} {t} {q not} {f} }
 (fn) [] true { 0 0 = }
 (fn) [] false { 0 1 = }
-(fn) [a] not { true false (ifs) {a} {flip} drop  }
 

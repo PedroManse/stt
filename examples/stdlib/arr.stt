@@ -15,3 +15,17 @@
 	arr$pack-n
 }
 
+(pragma if manual-array)
+(fn) [] <arr> {
+	0
+}
+
+# same def as manual-map
+(fn) [c v] , {
+	v c ++
+}
+
+(fn) * </arr> {
+	arr$pack-n
+}
+(pragma end if)

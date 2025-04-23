@@ -2,6 +2,7 @@
 (fn) [a b] flip {b a}
 (fn) [a] dup {a a}
 (fn) [a b c] rot3 { c a b }
+(fn) [a b c d] rot4 { d a b c }
 
 (fn) * stack$has {
 	stack$len 0 = not

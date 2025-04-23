@@ -6,4 +6,7 @@
 (include math.stt)
 (include bool.stt)
 (include error.stt)
+(include print.stt)
+(include logic.stt)
+(include map.stt)
 (pragma end if)

@@ -1,0 +1,19 @@
+(pragma set debug)
+(pragma set manual-map)
+(include stdlib)
+
+(fn) [n] fat {
+	(ifs) { n 1 = } {
+		1
+	} {true} {
+			n -- fat
+			n
+		*
+	}
+}
+
+<map>
+	"uwu" : "daddy" ,
+</map>
+prt
+

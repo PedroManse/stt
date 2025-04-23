@@ -1,0 +1,25 @@
+
+(pragma if manual-map)
+(fn) [] <map> { 0 }
+(fn) [c v] : {
+	v c ++
+}
+
+# same def as manual-arr
+(fn) [c v] , {
+	v c ++
+}
+
+(fn) * </map> {
+	map$new # [ ... N {} ]
+	flip # [ ... {} N ]
+	(while) { dup 0 = not } {
+		rot4 #[ ... N k v {} ]
+		rot3 #[ ... N {} k v ]
+		map$insert-kv #[ ... N {} ]
+		flip #[ ... {} N ]
+		2 -
+	}
+	drop
+}
+(pragma end if)
