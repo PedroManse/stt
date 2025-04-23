@@ -239,6 +239,7 @@ pub enum Value {
     Array(Vec<Value>),
     Map(HashMap<String, Value>),
     Result(Box<OResult<Value, Value>>),
+    Option(Option<Box<Value>>),
 }
 
 #[derive(Clone, Debug)]
@@ -252,6 +253,12 @@ pub enum ValueDef {
 }
 
 impl Value {
+    pub fn get_option(self) -> OResult<Option<Box<Value>>, Value> {
+        match self {
+            Value::Option(x) => Ok(x),
+            o => Err(o),
+        }
+    }
     pub fn get_result(self) -> OResult<OResult<Value, Value>, Value> {
         match self {
             Value::Result(x) => Ok(*x),
@@ -287,6 +294,12 @@ impl Value {
             Value::Map(x) => Ok(x),
             o => Err(o),
         }
+    }
+}
+
+impl From<Option<Value>> for Value {
+    fn from(value: Option<Value>) -> Self {
+        Value::Option(value.map(Box::new))
     }
 }
 
