@@ -40,13 +40,10 @@ pub struct Context {
 
 macro_rules! matches {
     (ident) => {
-        (matches!(*ident) | matches!(digit) | '.' | ':')
-    };
-    (*ident) => {
-        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '=' | '*' | '&'
+        (matches!(start_ident) | matches!(digit) | '.' | '/')
     };
     (start_ident) => {
-        (matches!(*ident))
+        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':'
     };
     (word_edge) => {
         '(' | ')' | '{' | '}' | '[' | ']'
@@ -66,8 +63,7 @@ impl Context {
         use Token::*;
         let mut state = Nothing;
         let mut out = Vec::new();
-        loop {
-            let ch = self.next().ok_or(crate::SttError::MissingChar)?;
+        while let Some(ch) = self.next() {
             state = match (state, ch) {
                 (Nothing, '}') => {
                     out.push(EndOfBlock);
@@ -187,6 +183,7 @@ impl Context {
                 }
             }
         }
+        Err(crate::SttError::MissingChar)
     }
 
     fn next(&mut self) -> Option<&char> {
