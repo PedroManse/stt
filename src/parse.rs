@@ -121,7 +121,10 @@ impl Context {
     }
 
     fn next(&mut self) -> Option<Token> {
-        self.ungotten.take().or(self.code.pop())
+        match self.ungotten.take() {
+           None => self.code.pop(),
+           x => x,
+        }
     }
 
     pub fn new(mut code: Vec<Token>) -> Self {
