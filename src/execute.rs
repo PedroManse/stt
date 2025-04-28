@@ -2,23 +2,26 @@ use crate::*;
 
 macro_rules! sget {
     (num) => {
-        (Value::get_num, "Number")
+        (Value::get_num, Value::get_ref_num, "Number")
     };
     (str) => {
-        (Value::get_str, "String")
+        (Value::get_str, Value::get_ref_str, "String")
     };
     (bool) => {
-        (Value::get_bool, "Boolean")
+        (Value::get_bool, Value::get_ref_bool, "Boolean")
     };
     (arr) => {
-        (Value::get_arr, "Array")
+        (Value::get_arr, Value::get_ref_arr, "Array")
     };
     (map) => {
-        (Value::get_map, "Map")
+        (Value::get_map, Value::get_ref_map, "Map")
     };
     (result) => {
-        (Value::get_result, "Result")
-    }
+        (Value::get_result, Value::get_ref_result, "Result")
+    };
+    (option) => {
+        (Value::get_option, Value::get_ref_option, "Option")
+    };
 }
 
 macro_rules! stack_pop {
@@ -37,7 +40,7 @@ macro_rules! stack_pop {
                         args: stringify!( [ $this_arg: $ty ] ),
                         this_arg: $this_arg,
                         got,
-                        expected: sget!($type).1
+                        expected: sget!($type).2
                     }
                 })
             })
@@ -52,7 +55,7 @@ macro_rules! stack_pop {
                         args: stringify!( [ $this_arg: $ty ] ),
                         this_arg: $this_arg,
                         got,
-                        expected: sget!($type).1
+                        expected: sget!($type).2
                     }
                 })
             }).transpose()
@@ -68,7 +71,7 @@ macro_rules! stack_pop {
     };
     (($stack:expr) -> &$type:ident as $this_arg:literal for $fn_name:expr) => {
         $stack
-            .peek()
+            .peek_this(sget!($type).1)
             .ok_or(SttError::MissingValueForBuiltin{
                 for_fn: $fn_name.to_owned(),
                 args: stringify!( [ $this_arg: $ty ] ),
@@ -80,8 +83,8 @@ macro_rules! stack_pop {
                         for_fn: $fn_name.to_owned(),
                         args: stringify!( [ $this_arg: $ty ] ),
                         this_arg: $this_arg,
-                        got,
-                        expected: sget!($type).1
+                        got: got.clone(),
+                        expected: sget!($type).2
                     }
                 })
             })
@@ -173,7 +176,7 @@ impl Context {
                 new_stack_size,
                 new_should_stack_size,
             }),
-            Some(_) if correct_size => Err(SttError::WrongStackSizeDiffOnCheck {
+            Some(_) if !correct_size => Err(SttError::WrongStackSizeDiffOnCheck {
                 old_stack_size,
                 new_stack_size,
                 new_should_stack_size,
@@ -256,13 +259,14 @@ impl Context {
         let args = match &user_fn.args {
             FnArgs::Args(args) => {
                 let args_stack = match self.stack.popn(args.len()) {
-                    Ok(xs) => xs,
-                    Err(rest) => panic!(
-                        "`Not enough arguments to execute {}, got {:?} needs {:?}`",
-                        name.as_str(),
-                        rest,
-                        user_fn.args,
-                    ),
+                    Some(xs) => xs,
+                    None => {
+                        return Some(Err(SttError::RTUserFnMissingArgs {
+                            name: name.as_str().to_string(),
+                            got: self.stack.0.clone(),
+                            needs: user_fn.args.clone().into_vec(),
+                        }));
+                    }
                 };
                 let arg_map = args
                     .clone()
@@ -321,15 +325,6 @@ impl Context {
                 let out = builtin::sh(&shell_cmd).map(Value::Num).map_err(Value::Str);
                 self.stack.push_this(out);
             }
-            "sh!" => {
-                let shell_cmd = stack_pop!(
-                    (self.stack) -> str as "command" for fn_name
-                )??;
-                let out = builtin::sh(&shell_cmd);
-                if let Err(e) = out {
-                    panic!("`sh!` {e}")
-                }
-            }
             "write-to" => {
                 let file = stack_pop!(
                     (self.stack) -> str as "file" for fn_name
@@ -367,13 +362,19 @@ impl Context {
                 let rhs = stack_pop!((self.stack) -> * as "rhs" for fn_name)?;
                 let lhs = stack_pop!((self.stack) -> * as "lhs" for fn_name)?;
                 let eq = match (lhs, rhs) {
-                    (Num(l), Num(r)) => l == r,
-                    (Str(l), Str(r)) => l == r,
-                    (Bool(l), Bool(r)) => l == r,
-                    (Array(_), _) | (_, Array(_)) => panic!("Can't compare array"),
-                    (Map(_), _) | (_, Map(_)) => panic!("Can't compare map"),
-                    (_, _) => false,
-                };
+                    (Num(l), Num(r)) => Ok(l == r),
+                    (Str(l), Str(r)) => Ok(l == r),
+                    (Bool(l), Bool(r)) => Ok(l == r),
+                    (Array(_), l) | (l, Array(_)) => Err(SttError::RTCompareError {
+                        this: l.type_name(),
+                        that: "Array",
+                    }),
+                    (Map(_), l) | (l, Map(_)) => Err(SttError::RTCompareError {
+                        this: l.type_name(),
+                        that: "Map",
+                    }),
+                    (_, _) => Ok(false),
+                }?;
                 self.stack.push_this(eq);
             }
             "=" => {
@@ -384,7 +385,12 @@ impl Context {
                     (Num(l), Num(r)) => l == r,
                     (Str(l), Str(r)) => l == r,
                     (Bool(l), Bool(r)) => l == r,
-                    (l, r) => panic!("Can't compare {l:?} with {r:?}"),
+                    (l, r) => {
+                        return Err(SttError::RTCompareError {
+                            this: l.type_name(),
+                            that: r.type_name(),
+                        });
+                    }
                 };
                 self.stack.push_this(eq);
             }
@@ -395,8 +401,13 @@ impl Context {
                 let eq = match (lhs, rhs) {
                     (Num(l), Num(r)) => l > r,
                     (Str(l), Str(r)) => l > r,
-                    (Bool(l), Bool(r)) => l > r,
-                    (l, r) => panic!("Can't compare {l:?} with {r:?}"),
+                    (Bool(l), Bool(r)) => l & !r,
+                    (l, r) => {
+                        return Err(SttError::RTCompareError {
+                            this: l.type_name(),
+                            that: r.type_name(),
+                        });
+                    }
                 };
                 self.stack.push_this(eq);
             }
@@ -429,6 +440,32 @@ impl Context {
             }
 
             // seq error handeling
+            "!" => {
+                let may = stack_pop!((self.stack) -> * as "Monad" for fn_name)?;
+                match may {
+                    Value::Result(r) => {
+                        match *r {
+                            Err(error) => {
+                                return Err(SttError::RTUnwrapResultBuiltinFailed { error });
+                            }
+                            Ok(o) => self.stack.push_this(o),
+                        };
+                    }
+                    Value::Option(o) => match o {
+                        None => return Err(SttError::RTUnwrapOptionBuiltinFailed),
+                        Some(s) => self.stack.push_this(*s),
+                    },
+                    e => {
+                        return Err(SttError::WrongTypeForBuiltin {
+                            for_fn: fn_name.to_string(),
+                            args: "[Monad]",
+                            this_arg: "Monad",
+                            got: e,
+                            expected: "Result or Option",
+                        });
+                    }
+                }
+            }
             "ok" => {
                 let v = self.stack.pop().expect("`ok` needs [value]");
                 self.stack.push_this(Ok(v));
@@ -437,21 +474,21 @@ impl Context {
                 let v = self.stack.pop().expect("`err` needs [value]");
                 self.stack.push_this(Err(v));
             }
-            "ok$is" => {
-                let is_ok = match self.stack.peek() {
-                    Some(Value::Result(x)) => x.is_ok(),
-                    Some(r) => panic!("Called ok$is on non-result value {r:?}"),
-                    _ => panic!("Called ok$is with nothing on stack"),
-                };
+            "none" => {
+                self.stack.push_this(None);
+            }
+            "some" => {
+                let v = stack_pop!((self.stack) -> * as "v" for fn_name)?;
+                self.stack.push_this(Some(v));
+            }
+            "&result$is-ok" => {
+                let is_ok = stack_pop!((self.stack) -> &result as "result" for fn_name)??.is_ok();
                 self.stack.push_this(is_ok);
             }
-            "ok!" => {
-                let v = stack_pop!((self.stack) -> result as "result" for fn_name)??;
-                let v = match v {
-                    Ok(v) => v,
-                    Err(e) => panic!("ok! got error: {e:?}"),
-                };
-                self.stack.push_this(v);
+            "&option$is-some" => {
+                let is_some =
+                    stack_pop!((self.stack) -> &option as "option" for fn_name)??.is_some();
+                self.stack.push_this(is_some);
             }
 
             // seq string
@@ -462,18 +499,13 @@ impl Context {
                     .expect("`%` needs at least [string]")
                     .expect("`%` [string] must be a string");
                 let out = builtin::fmt(&fmt, &mut self.stack);
-                self.stack.push_this(out);
+                self.stack.push_this(out?);
             }
-            "str-peek$has-prefix" => {
+            "&str$has-prefix" => {
                 let prefix = stack_pop!(
                     (self.stack) -> str as "prefix" for fn_name
                 )??;
-                //TODO peek in stack_pop! as &<type>
-                let s = self.stack.peek();
-                let s = match s {
-                    Some(Value::Str(x)) => x,
-                    _ => panic!("`str-peek$has-prefix` needs [string, prefix]"),
-                };
+                let s = stack_pop!((self.stack) -> &str as "string" for fn_name)??;
                 let has = s.starts_with(&prefix);
                 self.stack.push_this(has);
             }
@@ -499,21 +531,12 @@ impl Context {
             }
 
             // seq array
-            "arr-peek$len" => {
-                let arr = self.stack.peek().expect("`arr-peek$len` needs [arr]");
-                let arr_len = match arr {
-                    Value::Array(arr) => arr,
-                    _ => panic!("`arr-peek$len`'s [arr] must be an array"),
-                }
-                .len();
+            "&arr$len" => {
+                let arr_len = stack_pop!((self.stack) -> &arr as "array" for fn_name)??.len();
                 self.stack.push_this(arr_len as isize);
             }
             "arr$reverse" => {
-                let arr = self.stack.pop().expect("`arr$reverse` needs [arr]");
-                let mut arr = match arr {
-                    Value::Array(arr) => arr,
-                    _ => panic!("`arr$reverse`'s [arr] must be an array"),
-                };
+                let mut arr = stack_pop!((self.stack) -> arr as "arr" for fn_name)??;
                 arr.reverse();
                 self.stack.push_this(arr);
             }
@@ -528,15 +551,16 @@ impl Context {
                 self.stack.push_this(len as isize);
             }
             "arr$pack-n" => {
-                let count = self
-                    .stack
-                    .pop_this(Value::get_num)
-                    .expect("arr$pack-n` needs [count]")
-                    .expect("arr$pack-n` [count] must be a number");
-                let xs = self
-                    .stack
-                    .popn(count as usize)
-                    .unwrap_or_else(|_| panic!("arr$pack-n failed to pop {count} items"));
+                let count = stack_pop!((self.stack) -> num as "count" for fn_name)??;
+                let xs = self.stack.popn(count as usize).ok_or_else(|| {
+                    let got = self.stack.len() as isize;
+                    let missing = count - got;
+                    SttError::MissingValuesForBuiltin {
+                        for_fn: fn_name.to_string(),
+                        args: "[n, [n]]",
+                        missing,
+                    }
+                })?;
                 self.stack.push_this(xs);
             }
             "arr$new" => {
@@ -553,26 +577,20 @@ impl Context {
                 self.stack.push_this(arr);
             }
             "arr$join" => {
-                let joiner = self
-                    .stack
-                    .pop_this(Value::get_str)
-                    .expect("arr$join` needs [array joiner]")
-                    .expect("arr$join` [joiner] must be a string");
-                let arr: OResult<Vec<String>, Value> = self
-                    .stack
-                    .pop_this(Value::get_arr)
-                    .expect("arr$append` needs [value array]")
-                    .expect("arr$append` [array] must be an array")
+                let joiner = stack_pop!((self.stack) -> str as "joiner" for fn_name)??;
+                let arr = stack_pop!((self.stack) -> arr as "array" for fn_name)??;
+                let arr = arr
                     .into_iter()
                     .map(|i| i.get_str())
-                    .collect();
-                let joint = match arr {
-                    Ok(xs) => xs.join(&joiner),
-                    Err(v) => {
-                        panic!("`arr$join`: join's array can only have strings, found: {v:?}")
-                    }
-                };
-                self.stack.push_this(joint);
+                    .collect::<OResult<Vec<_>, _>>()
+                    .map_err(|got| SttError::WrongTypeForBuiltin {
+                        for_fn: fn_name.to_string(),
+                        args: "[array joiner]",
+                        this_arg: "array",
+                        expected: "String array",
+                        got,
+                    })?;
+                self.stack.push_this(arr.join(&joiner));
             }
 
             // seq map
@@ -596,12 +614,42 @@ impl Context {
                 let key = stack_pop!(
                     (self.stack) -> str as "key" for fn_name
                 )??;
-                let got = match self.stack.peek() {
-                    Some(Value::Map(m))=>m.get(&key),
-                    _ => panic!("")
-                }.cloned();
+                let got = stack_pop!((self.stack) -> &map as "map" for fn_name)??
+                    .get(&key)
+                    .cloned();
                 self.stack.push_this(got);
             }
+
+            // seq type
+            "type$is-str" => {
+                let is_type = stack_pop!((self.stack) -> str as "value" for fn_name)?.is_ok();
+                self.stack.push_this(is_type);
+            }
+            "type$is-num" => {
+                let is_type = stack_pop!((self.stack) -> num as "value" for fn_name)?.is_ok();
+                self.stack.push_this(is_type);
+            }
+            "type$is-bool" => {
+                let is_type = stack_pop!((self.stack) -> bool as "value" for fn_name)?.is_ok();
+                self.stack.push_this(is_type);
+            }
+            "type$is-array" => {
+                let is_type = stack_pop!((self.stack) -> arr as "value" for fn_name)?.is_ok();
+                self.stack.push_this(is_type);
+            }
+            "type$is-map" => {
+                let is_type = stack_pop!((self.stack) -> map as "value" for fn_name)?.is_ok();
+                self.stack.push_this(is_type);
+            }
+            "type$is-result" => {
+                let is_type = stack_pop!((self.stack) -> result as "value" for fn_name)?.is_ok();
+                self.stack.push_this(is_type);
+            }
+            "type$is-option" => {
+                let is_type = stack_pop!((self.stack) -> option as "value" for fn_name)?.is_ok();
+                self.stack.push_this(is_type);
+            }
+
 
             // seq debug
             "debug$stack" => eprintln!("{:?}", self.stack),
@@ -629,10 +677,10 @@ mod builtin {
         //    .map_err(|e| e.to_string())
     }
     pub fn write_to(cont: &str, file: &str) -> OResult<isize, String> {
-        eprintln!("Write {} bytes to {file}", cont.bytes().len());
-        Ok(cont.bytes().len() as isize)
+        eprintln!("Write {} bytes to {file}", cont.len());
+        Ok(cont.len() as isize)
     }
-    pub fn fmt(cont: &str, stack: &mut Stack) -> String {
+    pub fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
         let mut out = String::with_capacity(cont.len());
         enum State {
             Nothing,
@@ -651,26 +699,12 @@ mod builtin {
                     State::Nothing
                 }
                 (State::OnFmt, 's') => {
-                    let add_str = stack
-                        .pop_this(Value::get_str)
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "`%` format string {cont:?} needs a value that'snot in the stack"
-                            )
-                        })
-                        .unwrap_or_else(|_| panic!("`%` format string {cont:?} needed a string"));
+                    let add_str = stack_pop!((stack) -> str as "%s" for "%")??;
                     out.push_str(&add_str);
                     State::Nothing
                 }
                 (State::OnFmt, 'd') => {
-                    let add_num = stack
-                        .pop_this(Value::get_num)
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "`%` format string {cont:?} needs a value that'snot in the stack"
-                            )
-                        })
-                        .unwrap_or_else(|_| panic!("`%` format string {cont:?} needed a number"));
+                    let add_num = stack_pop!((stack) -> num as "%d" for "%")??;
                     out.push_str(&add_num.to_string());
                     State::Nothing
                 }
@@ -683,24 +717,15 @@ mod builtin {
                     State::Nothing
                 }
                 (State::OnFmt, 'b') => {
-                    let add_bool = stack
-                        .pop_this(Value::get_bool)
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "`%` format string {cont:?} needs a value that'snot in the stack"
-                            )
-                        })
-                        .unwrap_or_else(|_| panic!("`%` format string {cont:?} needed a bool"));
+                    let add_bool = stack_pop!((stack) -> bool as "%b" for "%")??;
                     out.push_str(&add_bool.to_string());
                     State::Nothing
                 }
                 (State::OnFmt, x) => {
-                    panic!(
-                        "`%` doesn't recognise the format directive {x}, only '%', 'd', 's' and 'b' are avaliable "
-                    )
+                    return Err(SttError::RTUnknownStringFormat(x));
                 }
             }
         }
-        out
+        Ok(out)
     }
 }

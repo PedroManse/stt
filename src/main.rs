@@ -8,7 +8,9 @@ use stt::*;
 // : would llow for (fn) [x:string] assert$is-string { x }
 // : would allow for (fn) [arr:array] assert$arr$of-string { (while) ... { assert$is-string } }
 
-// TODO array of status for each if
+
+// Is there a reason to require check code blocks to make stack n+1 of original stack?
+
 
 #[derive(PartialEq)]
 pub enum SttMode {

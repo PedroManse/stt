@@ -17,7 +17,7 @@ pub enum SttError {
     CantReadFile(PathBuf),
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
-    #[error("")]
+    #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
     WrongStackSizeDiffOnCheck {
         old_stack_size: usize,
         new_stack_size: usize,
@@ -30,6 +30,12 @@ pub enum SttError {
         for_fn: String,
         args: &'static str,
         this_arg: &'static str,
+    },
+    #[error("Function {for_fn} accepts {args}. But {missing} args are missing")]
+    MissingValuesForBuiltin {
+        for_fn: String,
+        args: &'static str,
+        missing: isize,
     },
     #[error(
         "Function {for_fn} accepts {args}. But [{this_arg}] must be a {expected} but got {got:?}"
@@ -53,6 +59,25 @@ pub enum SttError {
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("TODO")]
     TodoErr,
+    #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
+    RTUserFnMissingArgs{
+        name: String,
+        got: Vec<Value>,
+        needs: Vec<String>,
+    },
+    #[error("Found error while executing `!` on a Result: {error:?}")]
+    RTUnwrapResultBuiltinFailed{
+        error: Value,
+    },
+    #[error("Found missing value while exeuting `!` on an Option")]
+    RTUnwrapOptionBuiltinFailed,
+    #[error("Can't compare {this} with {that}")]
+    RTCompareError{
+        this: &'static str,
+        that: &'static str
+    },
+    #[error("`%` doesn't recognise the format directive {0}, only '%', 'd', 's' and 'b' are avaliable ")]
+    RTUnknownStringFormat(char),
 }
 
 #[derive(Clone, Debug)]
@@ -133,6 +158,16 @@ pub enum FnArgs {
     Args(Vec<String>),
     AllStack,
 }
+
+impl FnArgs {
+    pub fn into_vec(self) -> Vec<String> {
+        match self {
+            Self::AllStack => vec![],
+            Self::Args(xs) => xs,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum FnArgsIns {
     Args(HashMap<FnName, FnArg>),
@@ -166,17 +201,11 @@ impl Stack {
     pub fn peek(&mut self) -> Option<&Value> {
         self.0.get(self.len() - 1)
     }
-    pub fn popn(&mut self, n: usize) -> OResult<Vec<Value>, Vec<Value>> {
-        let mut out = Vec::with_capacity(n);
-        for _ in 0..n {
-            match self.pop() {
-                Some(v) => out.push(v),
-                None => return Err(out),
-            }
+    pub fn popn(&mut self, n: usize) -> Option<Vec<Value>> {
+        if n > self.len() {
+            return None;
         }
-        //TODO figure out better way to make this
-        out.reverse();
-        Ok(out)
+        Some(self.0.split_off(self.len() - n))
     }
     pub fn merge(&mut self, other: Self) {
         self.pushn(other.0);
@@ -198,6 +227,12 @@ impl Stack {
         F: Fn(Value) -> OResult<T, Value>,
     {
         self.pop().map(get_fn)
+    }
+    pub fn peek_this<T, F>(&mut self, get_fn: F) -> Option<OResult<&T, &Value>>
+    where
+        F: Fn(&Value) -> OResult<&T, &Value>
+    {
+        self.peek().map(get_fn)
     }
 }
 
@@ -242,16 +277,6 @@ pub enum Value {
     Option(Option<Box<Value>>),
 }
 
-#[derive(Clone, Debug)]
-pub enum ValueDef {
-    Str,
-    Num,
-    Bool,
-    Array,
-    Map,
-    Result,
-}
-
 impl Value {
     pub fn get_option(self) -> OResult<Option<Box<Value>>, Value> {
         match self {
@@ -293,6 +318,62 @@ impl Value {
         match self {
             Value::Map(x) => Ok(x),
             o => Err(o),
+        }
+    }
+
+    pub fn get_ref_option(&self) -> OResult<&Option<Box<Value>>, &Value> {
+        match self {
+            Value::Option(x) => Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_ref_result(&self) -> OResult<&OResult<Value, Value>, &Value> {
+        match self {
+            Value::Result(x) => Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_ref_str(&self) -> OResult<&String, &Value> {
+        match self {
+            Value::Str(x) => Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_ref_num(&self) -> OResult<&isize, &Value> {
+        match self {
+            Value::Num(x) => Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_ref_bool(&self) -> OResult<&bool, &Value> {
+        match self {
+            Value::Bool(x) => Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_ref_arr(&self) -> OResult<&Vec<Value>, &Value> {
+        match self {
+            Value::Array(x) => Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_ref_map(&self) -> OResult<&HashMap<String, Value>, &Value> {
+        match self {
+            Value::Map(x) => Ok(x),
+            o => Err(o),
+        }
+    }
+
+    pub fn type_name(&self) -> &'static str {
+        use Value::*;
+        match self {
+            Str(_)=>"String",
+            Num(_)=>"Number",
+            Bool(_)=>"Boolean",
+            Array(_)=>"Array",
+            Map(_)=>"Map",
+            Result(_)=>"Result",
+            Option(_)=>"Option",
         }
     }
 }
