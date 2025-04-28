@@ -18,5 +18,13 @@
 (fn) [bool ] bprt { bool  "%b\n" printf }
 (fn) [str  ] sprt { str   "%s\n" printf }
 (fn) [value]  prt { value "%v\n" printf }
+(fn) [v] prt! {
+	v (ifs) { v type$is-result } {
+		(ifs) { &result$is-ok } { ! }
+	} { v type$is-option } {
+		(ifs) { &option$is-some } { ! }
+	}
+	prt
+}
 
 (pragma end if)
