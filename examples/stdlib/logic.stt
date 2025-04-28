@@ -1,8 +1,7 @@
 (fn) [a] not {
-	true false
-	(ifs) {a} {flip}
-	drop
+	a false =
 }
+
 (fn) [a b] or {
 	false true
 	(ifs)
@@ -15,6 +14,10 @@
 	a true =
 	a b =
 		=
+}
+
+(fn) [a b] ~= {
+	a b ≃
 }
 
 (fn) [a b] < { b a > }
