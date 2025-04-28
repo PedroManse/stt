@@ -1,0 +1,35 @@
+(fn) [v] is-string! {
+	(ifs) { v type$is-string not } {
+		v "value %v is not a string" % err !
+	}
+}
+(fn) [v] is-num! {
+	(ifs) { v type$is-num not } {
+		v "value %v is not a num" % err !
+	}
+}
+(fn) [v] is-bool! {
+	(ifs) { v type$is-bool not } {
+		v "value %v is not a bool" % err !
+	}
+}
+(fn) [v] is-arr! {
+	(ifs) { v type$is-arr not } {
+		v "value %v is not a arr" % err !
+	}
+}
+(fn) [v] is-map! {
+	(ifs) { v type$is-map not } {
+		v "value %v is not a map" % err !
+	}
+}
+(fn) [v] is-result! {
+	(ifs) { v type$is-result not } {
+		v "value %v is not a result" % err !
+	}
+}
+(fn) [v] is-option! {
+	(ifs) { v type$is-option not } {
+		v "value %v is not a option" % err !
+	}
+}
