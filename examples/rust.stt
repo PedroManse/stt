@@ -22,7 +22,7 @@ shell.nix
 arr$new "feats" set
 (while) { stack$has } {
 	(ifs)
-		{ "-" str-peek$has-prefix } {
+		{ "-" &str$has-prefix } {
 			"-" str$remove-prefix
 			"feats" get
 				arr$append
