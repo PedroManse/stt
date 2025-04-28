@@ -1,3 +1,6 @@
+(fn) [&map key] map$get! {
+	&map key map$get !
+}
 
 (pragma if manual-map)
 (fn) [] <map> { 0 }
