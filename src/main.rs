@@ -8,6 +8,13 @@ use stt::*;
 // : would llow for (fn) [x:string] assert$is-string { x }
 // : would allow for (fn) [arr:array] assert$arr$of-string { (while) ... { assert$is-string } }
 
+// TODO (switch) statement
+// early (return)
+
+// TODO char variable type
+
+// TODO (!) = (ifs) {dup result$ok-is not } { (return) } {true} { ! }
+
 
 // Is there a reason to require check code blocks to make stack n+1 of original stack?
 
