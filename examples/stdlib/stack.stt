@@ -2,6 +2,8 @@
 (fn) [a b] flip {b a}
 (fn) [a] dup {a a}
 (fn) [a b c] rot3 { c a b }
+(fn) [a b c] pull3 { b c a }
+(fn) [a b c d] pull4 { b c d a }
 (fn) [a b c d] rot4 { d a b c }
 
 (fn) * stack$has {
