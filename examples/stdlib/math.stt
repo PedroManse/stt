@@ -2,3 +2,14 @@
 (fn) [a b] + { a b math$rev-sign - }
 (fn) [a] ++ { a 1 + }
 (fn) [a] -- { a 1 - }
+(fn) [base pwr] pow {
+	1
+	pwr
+	(while) { dup 0 > } {
+		flip
+			base *
+		flip
+			--
+	}
+	drop
+}
