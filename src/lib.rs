@@ -78,6 +78,8 @@ pub enum SttError {
     },
     #[error("`%` doesn't recognise the format directive {0}, only '%', 'd', 's' and 'b' are avaliable ")]
     RTUnknownStringFormat(char),
+    #[error("Switch case with no value")]
+    RTSwitchCaseWithNoValue,
 }
 
 #[derive(Clone, Debug)]
@@ -266,7 +268,7 @@ impl FnDef {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Str(String),
     Num(isize),
@@ -437,6 +439,15 @@ pub enum KeywordKind {
         code: Code,
         args: FnArgs,
     },
+    Switch {
+        cases: Vec<SwitchCase>,
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct SwitchCase {
+    test: Value,
+    code: Code,
 }
 
 #[derive(Clone, Debug)]

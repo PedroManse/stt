@@ -20,6 +20,7 @@ pub enum RawKeyword {
     While,
     Include { path: PathBuf },
     Pragma { command: String },
+    Switch,
 }
 
 #[derive(Debug)]
@@ -136,6 +137,7 @@ impl Context {
                         "fn-" => RawKeyword::Fn(FnScope::Isolated),
                         "while" => RawKeyword::While,
                         "return" => RawKeyword::Return,
+                        "switch" => RawKeyword::Switch,
                         "ifs" => RawKeyword::Ifs,
                         _ if buf.starts_with("include ") => RawKeyword::Include {
                             path: buf.split_once(" ").unwrap().1.trim().into(),

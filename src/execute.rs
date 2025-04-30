@@ -203,6 +203,18 @@ impl Context {
 
     fn execute_kw(&mut self, kw: &KeywordKind) -> Result<ControlFlow<()>> {
         match kw {
+            KeywordKind::Switch { cases } => {
+                let cmp = self.stack.pop().ok_or(SttError::RTSwitchCaseWithNoValue)?;
+                for case in cases {
+                    if case.test == cmp {
+                        match self.execute_code(&case.code)? {
+                            c @ ControlFlow::Break(()) => return Ok(c),
+                            _=>{}
+                        }
+                        break;
+                    }
+                }
+            }
             KeywordKind::Return => return Ok(ControlFlow::Break(())),
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
@@ -293,8 +305,8 @@ impl Context {
             FnArgs::AllStack => FnArgsIns::AllStack(self.stack.take()),
         };
         let mut fn_ctx = Context::frame(self.fns.clone(), vars, args);
-        // handle
-        
+
+        // handle (return) kw and RT errors inside functions
         if let Err(e) = fn_ctx.execute_code(&user_fn.code) {
             return Some(Err(e));
         };

@@ -20,6 +20,9 @@ enum State {
     MakeFnName(FnScope, FnArgs),
     MakeFnBlock(FnScope, FnArgs, FnName),
 
+    MakeSwitch(Vec<SwitchCase>),
+    MakeSwitchCode(Vec<SwitchCase>, Value),
+
     MakeWhile,
     MakeWhileCode(Code),
 }
@@ -49,6 +52,30 @@ impl Context {
 
                 (Nothing, Keyword(RawKeyword::Return)) => {
                     out.push(E::Keyword(KeywordKind::Return));
+                    Nothing
+                }
+
+                (Nothing, Keyword(RawKeyword::Switch)) => {
+                    MakeSwitch(vec![])
+                }
+                (MakeSwitch(cases), Str(v)) => {
+                    MakeSwitchCode(cases, Value::Str(v))
+                }
+                (MakeSwitch(cases), Number(v)) => {
+                    MakeSwitchCode(cases, Value::Num(v))
+                }
+                (MakeSwitchCode(mut cases, test), Block(code)) => {
+                    let mut inner_ctx = Context::new(code);
+                    let code = Code(inner_ctx.parse_block()?);
+                    cases.push(SwitchCase{ test, code });
+                    MakeSwitch(cases)
+                }
+                (MakeSwitch(cases), t) => {
+                    match t {
+                        EndOfBlock => {}
+                        t => self.unget(t),
+                    };
+                    out.push(E::Keyword(KeywordKind::Switch { cases } ));
                     Nothing
                 }
 
