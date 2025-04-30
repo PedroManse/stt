@@ -114,7 +114,7 @@ impl Context {
 
                 (MakeNumber(mut buf), c @ matches!(digit)) => {
                     buf.push(*c);
-                    MakeString(buf)
+                    MakeNumber(buf)
                 }
                 (MakeNumber(buf), matches!(space)) => {
                     let num = buf.parse()?;
@@ -199,7 +199,8 @@ impl Context {
 
     pub fn new(code: &str) -> Self {
         let mut chars: Vec<char> = code.chars().collect();
-        chars.push('}');
+        chars.push('\n'); // to force close comments
+        chars.push('}'); // to show EOF
         Self { point: 0, chars }
     }
 }
