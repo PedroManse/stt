@@ -203,15 +203,23 @@ impl Context {
 
     fn execute_kw(&mut self, kw: &KeywordKind) -> Result<ControlFlow<()>> {
         match kw {
-            KeywordKind::Switch { cases } => {
+            KeywordKind::Switch { cases, default } => {
                 let cmp = self.stack.pop().ok_or(SttError::RTSwitchCaseWithNoValue)?;
-                for case in cases {
-                    if case.test == cmp {
-                        match self.execute_code(&case.code)? {
+                'e: {
+                    for case in cases {
+                        if case.test == cmp {
+                            match self.execute_code(&case.code)? {
+                                c @ ControlFlow::Break(()) => return Ok(c),
+                                _=>{}
+                            }
+                            break 'e;
+                        }
+                    }
+                    if let Some(code) = default {
+                        match self.execute_code(code)? {
                             c @ ControlFlow::Break(()) => return Ok(c),
                             _=>{}
                         }
-                        break;
                     }
                 }
             }

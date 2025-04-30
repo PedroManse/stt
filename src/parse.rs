@@ -70,12 +70,18 @@ impl Context {
                     cases.push(SwitchCase{ test, code });
                     MakeSwitch(cases)
                 }
+                (MakeSwitch(cases), Block(code)) => {
+                    let mut inner_ctx = Context::new(code);
+                    let code = Code(inner_ctx.parse_block()?);
+                    out.push(E::Keyword(KeywordKind::Switch { cases, default: Some(code) } ));
+                    Nothing
+                }
                 (MakeSwitch(cases), t) => {
                     match t {
                         EndOfBlock => {}
                         t => self.unget(t),
                     };
-                    out.push(E::Keyword(KeywordKind::Switch { cases } ));
+                    out.push(E::Keyword(KeywordKind::Switch { cases, default: None } ));
                     Nothing
                 }
 

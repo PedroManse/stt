@@ -3,4 +3,4 @@
 
 #TODO atoi -> _atoi
 # atoi that handles negative numbers
-"94123" atoi prt
+"9x4123" atoi prt

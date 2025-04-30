@@ -441,6 +441,7 @@ pub enum KeywordKind {
     },
     Switch {
         cases: Vec<SwitchCase>,
+        default: Option<Code>,
     }
 }
 

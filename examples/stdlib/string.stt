@@ -21,7 +21,7 @@
 		char-to-int
 		# [...chars, char-count -1, acc, step, Result(int, string)]
 
-		! # (ifs) { &result$is-err } { (return) } { true } { ! }
+		(ifs) { &result$is-err } { (return) } { true } { ! }
 		# [...chars, char-count -1, acc, step, int]
 
 		flip
@@ -60,6 +60,6 @@
 		"7" { 7 }
 		"8" { 8 }
 		"9" { 9 }
-		# { char error (return) }
+		{ char err (return) }
 	ok
 }
