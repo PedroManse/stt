@@ -30,14 +30,14 @@ macro_rules! stack_pop {
             .pop_this(sget!($type).0)
             .ok_or(SttError::MissingValueForBuiltin{
                 for_fn: $fn_name.to_owned(),
-                args: stringify!( [ $this_arg: $ty ] ),
+                args: format!( "[{}: {}]", $this_arg, sget!($type).2 ),
                 this_arg: $this_arg,
             })
             .map(|got_v|{
                 got_v.map_err(|got|{
                     SttError::WrongTypeForBuiltin {
                         for_fn: $fn_name.to_owned(),
-                        args: stringify!( [ $this_arg: $ty ] ),
+                        args: stringify!( [ $this_arg: $type ] ),
                         this_arg: $this_arg,
                         got,
                         expected: sget!($type).2
@@ -65,7 +65,7 @@ macro_rules! stack_pop {
             .pop()
             .ok_or(SttError::MissingValueForBuiltin{
                 for_fn: $fn_name.to_owned(),
-                args: stringify!( [ $this_arg: $ty ] ),
+                args: format!( "[{}]", $this_arg ),
                 this_arg: $this_arg,
             })
     };
@@ -74,7 +74,7 @@ macro_rules! stack_pop {
             .peek_this(sget!($type).1)
             .ok_or(SttError::MissingValueForBuiltin{
                 for_fn: $fn_name.to_owned(),
-                args: stringify!( [ $this_arg: $ty ] ),
+                args: format!( "[{}: {}]", $this_arg, sget!($type).2 ),
                 this_arg: $this_arg,
             })
             .map(|got_v|{
@@ -528,6 +528,11 @@ impl Context {
                     .expect("`str$remove-prefix` needs [string] to be a string");
                 let out = st.strip_prefix(&prefix).map(String::from).unwrap_or(st);
                 self.stack.push_this(out);
+            }
+            "str$into-arr" => {
+                let string = stack_pop!((self.stack) -> str as "string" for fn_name)??;
+                let chars: Vec<_> = string.chars().map(String::from).map(Value::from).collect();
+                self.stack.push_this(chars);
             }
 
             // seq array
