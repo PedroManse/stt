@@ -28,7 +28,7 @@ pub enum SttError {
     #[error("Function {for_fn} accepts [{args}]. But {this_arg} is missing")]
     MissingValueForBuiltin {
         for_fn: String,
-        args: &'static str,
+        args: String,
         this_arg: &'static str,
     },
     #[error("Function {for_fn} accepts {args}. But {missing} args are missing")]
