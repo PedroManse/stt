@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use crate::*;
 
 macro_rules! sget {
@@ -153,11 +155,14 @@ impl Context {
     }
 
     //TODO fn to change in debug mode
-    pub fn execute_code(&mut self, code: &Code) -> Result<()> {
+    pub fn execute_code(&mut self, code: &Code) -> Result<ControlFlow<()>> {
         for expr in code.as_slice() {
-            self.execute(expr)?;
+            match self.execute(expr)? {
+                c @ ControlFlow::Break(()) => return Ok(c),
+                ControlFlow::Continue(()) => {},
+            }
         }
-        Ok(())
+        Ok(ControlFlow::Continue(()))
     }
 
     pub fn execute_check(&mut self, code: &Code) -> Result<bool> {
@@ -185,28 +190,37 @@ impl Context {
         }
     }
 
-    pub fn execute(&mut self, expr: &Expr) -> Result<()> {
+    pub fn execute(&mut self, expr: &Expr) -> Result<ControlFlow<()>> {
         match expr {
-            Expr::FnCall(name) => return self.execute_fn(name),
-            Expr::Keyword(kw) => return self.execute_kw(kw),
+            Expr::FnCall(name) => self.execute_fn(name)?,
+            Expr::Keyword(kw) => {
+                return self.execute_kw(kw);
+            }
             Expr::Immediate(v) => self.stack.push(v.clone()),
         };
-        Ok(())
+        Ok(ControlFlow::Continue(()))
     }
 
-    fn execute_kw(&mut self, kw: &KeywordKind) -> Result<()> {
+    fn execute_kw(&mut self, kw: &KeywordKind) -> Result<ControlFlow<()>> {
         match kw {
+            KeywordKind::Return => return Ok(ControlFlow::Break(())),
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
                     if self.execute_check(&branch.check)? {
-                        self.execute_code(&branch.code)?;
+                        match self.execute_code(&branch.code)? {
+                            c @ ControlFlow::Break(()) => return Ok(c),
+                            _=>{}
+                        }
                         break;
                     }
                 }
             }
             KeywordKind::While { check, code } => {
                 while self.execute_check(check)? {
-                    self.execute_code(code)?;
+                    match self.execute_code(code)? {
+                        c @ ControlFlow::Break(()) => return Ok(c),
+                        _=>{}
+                    }
                 }
             }
             KeywordKind::FnDef {
@@ -222,7 +236,7 @@ impl Context {
                 );
             }
         };
-        Ok(())
+        Ok(ControlFlow::Continue(()))
     }
 
     fn execute_fn(&mut self, name: &FnName) -> Result<()> {
@@ -279,6 +293,8 @@ impl Context {
             FnArgs::AllStack => FnArgsIns::AllStack(self.stack.take()),
         };
         let mut fn_ctx = Context::frame(self.fns.clone(), vars, args);
+        // handle
+        
         if let Err(e) = fn_ctx.execute_code(&user_fn.code) {
             return Some(Err(e));
         };
@@ -365,13 +381,13 @@ impl Context {
                     (Num(l), Num(r)) => Ok(l == r),
                     (Str(l), Str(r)) => Ok(l == r),
                     (Bool(l), Bool(r)) => Ok(l == r),
-                    (Array(_), l) | (l, Array(_)) => Err(SttError::RTCompareError {
-                        this: l.type_name(),
-                        that: "Array",
+                    (r @ Array(_), l) | (l, r @ Array(_)) => Err(SttError::RTCompareError {
+                        this: l,
+                        that: r,
                     }),
-                    (Map(_), l) | (l, Map(_)) => Err(SttError::RTCompareError {
-                        this: l.type_name(),
-                        that: "Map",
+                    (m @ Map(_), l) | (l, m @ Map(_)) => Err(SttError::RTCompareError {
+                        this: l,
+                        that: m
                     }),
                     (_, _) => Ok(false),
                 }?;
@@ -387,8 +403,8 @@ impl Context {
                     (Bool(l), Bool(r)) => l == r,
                     (l, r) => {
                         return Err(SttError::RTCompareError {
-                            this: l.type_name(),
-                            that: r.type_name(),
+                            this: l,
+                            that: r,
                         });
                     }
                 };
@@ -403,9 +419,10 @@ impl Context {
                     (Str(l), Str(r)) => l > r,
                     (Bool(l), Bool(r)) => l & !r,
                     (l, r) => {
+                        println!("->> {r:?} {l:?}");
                         return Err(SttError::RTCompareError {
-                            this: l.type_name(),
-                            that: r.type_name(),
+                            this: l,
+                            that: r,
                         });
                     }
                 };

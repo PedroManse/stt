@@ -47,6 +47,11 @@ impl Context {
                     Nothing
                 }
 
+                (Nothing, Keyword(RawKeyword::Return)) => {
+                    out.push(E::Keyword(KeywordKind::Return));
+                    Nothing
+                }
+
                 (Nothing, Keyword(RawKeyword::Ifs)) => MakeIfs(vec![]),
                 (MakeIfs(branches), Block(code)) => {
                     let mut inner_ctx = Context::new(code);

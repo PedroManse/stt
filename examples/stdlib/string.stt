@@ -21,7 +21,7 @@
 		char-to-int
 		# [...chars, char-count -1, acc, step, Result(int, string)]
 
-		!
+		! # (ifs) { &result$is-err } { (return) } { true } { ! }
 		# [...chars, char-count -1, acc, step, int]
 
 		flip
@@ -45,41 +45,24 @@
 	}
 	drop # char-count (0)
 	drop # step (original char-count)
+	ok
 }
 
 (fn) [char] char-to-int {
-	# TODO realy return would help this
 	char (ifs)
-		{ dup "0" = } { 0 ok }
-		{ dup "1" = } { 1 ok }
-		{ dup "2" = } { 2 ok }
-		{ dup "3" = } { 3 ok }
-		{ dup "4" = } { 4 ok }
-		{ dup "5" = } { 5 ok }
-		{ dup "6" = } { 6 ok }
-		{ dup "7" = } { 7 ok }
-		{ dup "8" = } { 8 ok }
-		{ dup "9" = } { 9 ok }
-		{ true } { dup err }
-	flip drop
+		{ dup "0" = } { 0 }
+		{ dup "1" = } { 1 }
+		{ dup "2" = } { 2 }
+		{ dup "3" = } { 3 }
+		{ dup "4" = } { 4 }
+		{ dup "5" = } { 5 }
+		{ dup "6" = } { 6 }
+		{ dup "7" = } { 7 }
+		{ dup "8" = } { 8 }
+		{ dup "9" = } { 9 }
+		{ true } { err (return) }
+	ok flip drop
 }
-
-# TODO: with early returns
-#(fn) [char] char-to-int {
-#	char (ifs)
-#		{ dup "0" = } { 0 }
-#		{ dup "1" = } { 1 }
-#		{ dup "2" = } { 2 }
-#		{ dup "3" = } { 3 }
-#		{ dup "4" = } { 4 }
-#		{ dup "5" = } { 5 }
-#		{ dup "6" = } { 6 }
-#		{ dup "7" = } { 7 }
-#		{ dup "8" = } { 8 }
-#		{ dup "9" = } { 9 }
-#		{ true } { error (return) }
-#	ok
-#}
 
 # TODO: with (switch)
 # TODO: with early returns
@@ -95,6 +78,6 @@
 #		"7" { 7 }
 #		"8" { 8 }
 #		"9" { 9 }
-#		(default) { error (return) }
+#		(default) { char error (return) }
 #	ok
 #}

@@ -1,18 +1,6 @@
+(pragma set debug)
 (include stdlib)
 
-(fn) * printf { % print }
-
-(pragma set x)
-(pragma set y)
-
-(pragma if x)
-	"yes x\n"
-	(pragma if y)
-		"yes x and y\n"
-	(pragma end if)
-	print
-(pragma else)
-	"no x\n"
-(pragma end if)
-
-"%s\n" printf
+#TODO atoi -> _atoi
+# atoi that handles negative numbers
+"94123" atoi prt

@@ -14,6 +14,7 @@ pub enum Token {
 
 #[derive(Debug)]
 pub enum RawKeyword {
+    Return,
     Fn(FnScope),
     Ifs,
     While,
@@ -134,6 +135,7 @@ impl Context {
                         "fn*" => RawKeyword::Fn(FnScope::Global),
                         "fn-" => RawKeyword::Fn(FnScope::Isolated),
                         "while" => RawKeyword::While,
+                        "return" => RawKeyword::Return,
                         "ifs" => RawKeyword::Ifs,
                         _ if buf.starts_with("include ") => RawKeyword::Include {
                             path: buf.split_once(" ").unwrap().1.trim().into(),

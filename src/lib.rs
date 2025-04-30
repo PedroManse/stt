@@ -71,10 +71,10 @@ pub enum SttError {
     },
     #[error("Found missing value while exeuting `!` on an Option")]
     RTUnwrapOptionBuiltinFailed,
-    #[error("Can't compare {this} with {that}")]
+    #[error("Can't compare {this:?} with {that:?}")]
     RTCompareError{
-        this: &'static str,
-        that: &'static str
+        this: Value,
+        that: Value,
     },
     #[error("`%` doesn't recognise the format directive {0}, only '%', 'd', 's' and 'b' are avaliable ")]
     RTUnknownStringFormat(char),
@@ -423,6 +423,7 @@ pub struct CondBranch {
 
 #[derive(Clone, Debug)]
 pub enum KeywordKind {
+    Return,
     Ifs {
         branches: Vec<CondBranch>,
     },
