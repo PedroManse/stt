@@ -1,0 +1,100 @@
+
+# would be better with early return
+(fn) [str] atoi {
+	str str$into-arr
+	arr$unpack
+	0 0 pull3
+	# [ ...char, acc, step, char-count]
+	(while) {
+		# [...chars, acc, step, char-count]
+		dup 0 >
+	} {
+		--
+		# [...chars, acc, step, char-count -1]
+
+		rot3
+		# [...chars, char-count -1, acc, step]
+
+		pull4
+		# [...chars, char-count -1, acc, step, char]
+
+		char-to-int
+		# [...chars, char-count -1, acc, step, Result(int, string)]
+
+		!
+		# [...chars, char-count -1, acc, step, int]
+
+		flip
+		# [...chars, char-count -1, acc, int, step]
+
+		dup 10 flip pow
+		# [...chars, char-count -1, acc, int, step, 10 ^ (step+1)]
+
+		pull3 *
+		# [...chars, char-count -1, acc, step, int * 10 ^ (step+1)]
+
+		pull3 +
+		# [...chars, char-count -1, step, acc + int * 10 ^ (step+1)]
+
+		flip ++
+		# [...chars, char-count -1, acc + int * 10 ^ (step+1), step +1]
+
+		pull3
+		# [...chars, acc + int * 10 ^ (step+1), step +1, char-count -1]
+		# new [...chars, acc, step, char-count]
+	}
+	drop # char-count (0)
+	drop # step (original char-count)
+}
+
+(fn) [char] char-to-int {
+	# TODO realy return would help this
+	char (ifs)
+		{ dup "0" = } { 0 ok }
+		{ dup "1" = } { 1 ok }
+		{ dup "2" = } { 2 ok }
+		{ dup "3" = } { 3 ok }
+		{ dup "4" = } { 4 ok }
+		{ dup "5" = } { 5 ok }
+		{ dup "6" = } { 6 ok }
+		{ dup "7" = } { 7 ok }
+		{ dup "8" = } { 8 ok }
+		{ dup "9" = } { 9 ok }
+		{ true } { dup err }
+	flip drop
+}
+
+# TODO: with early returns
+#(fn) [char] char-to-int {
+#	char (ifs)
+#		{ dup "0" = } { 0 }
+#		{ dup "1" = } { 1 }
+#		{ dup "2" = } { 2 }
+#		{ dup "3" = } { 3 }
+#		{ dup "4" = } { 4 }
+#		{ dup "5" = } { 5 }
+#		{ dup "6" = } { 6 }
+#		{ dup "7" = } { 7 }
+#		{ dup "8" = } { 8 }
+#		{ dup "9" = } { 9 }
+#		{ true } { error (return) }
+#	ok
+#}
+
+# TODO: with (switch)
+# TODO: with early returns
+#(fn) [char] char-to-int {
+#	char (switch)
+#		"0" { 0 }
+#		"1" { 1 }
+#		"2" { 2 }
+#		"3" { 3 }
+#		"4" { 4 }
+#		"5" { 5 }
+#		"6" { 6 }
+#		"7" { 7 }
+#		"8" { 8 }
+#		"9" { 9 }
+#		(default) { error (return) }
+#	ok
+#}
