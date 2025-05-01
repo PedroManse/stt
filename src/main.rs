@@ -1,6 +1,8 @@
 use stt::*;
 
 // TODO error reporting
+// : stack trace
+
 
 // TODO make (if) kw for common case of (if) {check} {if-code} {true} {else-code}
 
@@ -10,9 +12,10 @@ use stt::*;
 
 // TODO char variable type
 
+// TODO function variable type
+
 // TODO (!) = (ifs) {dup result$ok-is not } { (return) } {true} { ! }
 
-// TODO pass args on fndef to make closures
 
 // Is there a reason to *require* check code blocks to make stack n+1 of original stack?
 
