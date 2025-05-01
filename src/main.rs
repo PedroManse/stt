@@ -12,8 +12,6 @@ use stt::*;
 
 // TODO (!) = (ifs) {dup result$ok-is not } { (return) } {true} { ! }
 
-// TODO default path on switch case
-
 // Is there a reason to require check code blocks to make stack n+1 of original stack?
 
 
