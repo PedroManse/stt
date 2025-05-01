@@ -16,7 +16,6 @@ use stt::*;
 
 // Is there a reason to *require* check code blocks to make stack n+1 of original stack?
 
-
 #[derive(PartialEq)]
 pub enum SttMode {
     Normal,
@@ -49,7 +48,7 @@ fn execute(mode: SttMode, file_path: String) -> Result<()> {
     Ok(())
 }
 
-fn main()  {
+fn main() {
     let mut args = std::env::args().skip(1).peekable();
     let Some(file_path) = args.next() else {
         eprintln!("Missing file to execute");

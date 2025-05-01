@@ -1,5 +1,5 @@
+use crate::RawKeyword;
 use crate::{FnScope, Result};
-use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum Token {
@@ -12,19 +12,13 @@ pub enum Token {
     EndOfBlock,
 }
 
-#[derive(Debug)]
-pub enum RawKeyword {
-    Return,
-    Fn(FnScope),
-    Ifs,
-    While,
-    Include { path: PathBuf },
-    Pragma { command: String },
-    Switch,
+pub struct Context {
+    point: usize,
+    chars: Vec<char>,
 }
 
 #[derive(Debug)]
-pub enum State {
+enum State {
     Nothing,
     OnComment,
     MakeIdent(String),
@@ -33,11 +27,6 @@ pub enum State {
     MakeNumber(String),
     MakeKeyword(String),
     MakeFnArgs(Vec<String>, String),
-}
-
-pub struct Context {
-    point: usize,
-    chars: Vec<char>,
 }
 
 macro_rules! matches {
@@ -138,6 +127,7 @@ impl Context {
                         "while" => RawKeyword::While,
                         "return" => RawKeyword::Return,
                         "switch" => RawKeyword::Switch,
+                        "break" => RawKeyword::Break,
                         "ifs" => RawKeyword::Ifs,
                         _ if buf.starts_with("include ") => RawKeyword::Include {
                             path: buf.split_once(" ").unwrap().1.trim().into(),

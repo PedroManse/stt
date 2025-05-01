@@ -1,5 +1,3 @@
-use std::ops::ControlFlow;
-
 use crate::*;
 
 macro_rules! sget {
@@ -129,14 +127,17 @@ impl Context {
     ) -> Self {
         let stack;
         let args;
-        match args_ins {
-            FnArgsIns::AllStack(xs) => {
+        match args_ins.cap {
+            FnArgsInsCap::AllStack(xs) => {
                 stack = Stack::new_with(xs);
-                args = None;
+                args = args_ins.parent;
             }
-            FnArgsIns::Args(ars) => {
-                args = Some(ars);
+            FnArgsInsCap::Args(mut ars) => {
                 stack = Stack::new();
+                if let Some(parent_args) = args_ins.parent {
+                    ars.extend(parent_args);
+                }
+                args = Some(ars);
             }
         };
         Self {
@@ -155,42 +156,40 @@ impl Context {
     }
 
     //TODO fn to change in debug mode
-    pub fn execute_code(&mut self, code: &Code) -> Result<ControlFlow<()>> {
+    pub fn execute_code(&mut self, code: &Code) -> Result<ControlFlow> {
         for expr in code.as_slice() {
-            match self.execute(expr)? {
-                c @ ControlFlow::Break(()) => return Ok(c),
-                ControlFlow::Continue(()) => {},
+            match self.execute_expr(expr)? {
+                ControlFlow::Continue => {}
+                c => return Ok(c),
             }
         }
-        Ok(ControlFlow::Continue(()))
+        Ok(ControlFlow::Continue)
     }
 
     pub fn execute_check(&mut self, code: &Code) -> Result<bool> {
         let old_stack_size = self.stack.len();
         for expr in code.as_slice() {
-            self.execute(expr)?;
+            self.execute_expr(expr)?;
         }
         let new_stack_size = self.stack.len();
         let new_should_stack_size = old_stack_size + 1;
         let correct_size = new_should_stack_size == new_stack_size;
         let check = self.stack.pop();
+        let check = match (check, correct_size) {
+            (Some(c), true) => Ok(c),
+            _ => Err(SttError::WrongStackSizeDiffOnCheck {
+                old_stack_size,
+                new_stack_size,
+                new_should_stack_size,
+            }),
+        }?;
         match check {
-            Some(Value::Bool(b)) if correct_size => Ok(b),
-            None => Err(SttError::WrongStackSizeDiffOnCheck {
-                old_stack_size,
-                new_stack_size,
-                new_should_stack_size,
-            }),
-            Some(_) if !correct_size => Err(SttError::WrongStackSizeDiffOnCheck {
-                old_stack_size,
-                new_stack_size,
-                new_should_stack_size,
-            }),
-            Some(got) => Err(SttError::WrongTypeOnCheck { got }),
+            Value::Bool(b) if correct_size => Ok(b),
+            got => Err(SttError::WrongTypeOnCheck { got }),
         }
     }
 
-    pub fn execute(&mut self, expr: &Expr) -> Result<ControlFlow<()>> {
+    pub fn execute_expr(&mut self, expr: &Expr) -> Result<ControlFlow> {
         match expr {
             Expr::FnCall(name) => self.execute_fn(name)?,
             Expr::Keyword(kw) => {
@@ -198,11 +197,13 @@ impl Context {
             }
             Expr::Immediate(v) => self.stack.push(v.clone()),
         };
-        Ok(ControlFlow::Continue(()))
+        Ok(ControlFlow::Continue)
     }
 
-    fn execute_kw(&mut self, kw: &KeywordKind) -> Result<ControlFlow<()>> {
-        match kw {
+    fn execute_kw(&mut self, kw: &KeywordKind) -> Result<ControlFlow> {
+        Ok(match kw {
+            KeywordKind::Return => ControlFlow::Return,
+            KeywordKind::Break => ControlFlow::Break,
             KeywordKind::Switch { cases, default } => {
                 let cmp = self.stack.pop().ok_or(SttError::RTSwitchCaseWithNoValue)?;
                 for case in cases {
@@ -211,24 +212,27 @@ impl Context {
                     }
                 }
                 match default {
-                    Some(code) => self.execute_code(code),
-                    None => Ok(ControlFlow::Continue(()))
+                    Some(code) => self.execute_code(code)?,
+                    None => ControlFlow::Continue,
                 }
             }
-            KeywordKind::Return => return Ok(ControlFlow::Break(())),
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
                     if self.execute_check(&branch.check)? {
                         return self.execute_code(&branch.code);
                     }
                 }
-                Ok(ControlFlow::Continue(()))
+                ControlFlow::Continue
             }
             KeywordKind::While { check, code } => {
                 while self.execute_check(check)? {
-                    return self.execute_code(code)
+                    match self.execute_code(code)? {
+                        ControlFlow::Break => break,
+                        ControlFlow::Return => return Ok(ControlFlow::Return),
+                        _ => {}
+                    }
                 }
-                Ok(ControlFlow::Continue(()))
+                ControlFlow::Continue
             }
             KeywordKind::FnDef {
                 name,
@@ -241,9 +245,9 @@ impl Context {
                     name.clone(),
                     FnDef::new(scope.clone(), code.clone(), args.clone()),
                 );
-                Ok(ControlFlow::Continue(()))
+                ControlFlow::Continue
             }
-        }
+        })
     }
 
     fn execute_fn(&mut self, name: &FnName) -> Result<()> {
@@ -295,9 +299,13 @@ impl Context {
                     .map(FnName)
                     .zip(args_stack.into_iter().map(FnArg))
                     .collect();
-                FnArgsIns::Args(arg_map)
+                FnArgsInsCap::Args(arg_map)
             }
-            FnArgs::AllStack => FnArgsIns::AllStack(self.stack.take()),
+            FnArgs::AllStack => FnArgsInsCap::AllStack(self.stack.take()),
+        };
+        let args = FnArgsIns {
+            cap: args,
+            parent: self.args.clone(),
         };
         let mut fn_ctx = Context::frame(self.fns.clone(), vars, args);
 
@@ -388,14 +396,12 @@ impl Context {
                     (Num(l), Num(r)) => Ok(l == r),
                     (Str(l), Str(r)) => Ok(l == r),
                     (Bool(l), Bool(r)) => Ok(l == r),
-                    (r @ Array(_), l) | (l, r @ Array(_)) => Err(SttError::RTCompareError {
-                        this: l,
-                        that: r,
-                    }),
-                    (m @ Map(_), l) | (l, m @ Map(_)) => Err(SttError::RTCompareError {
-                        this: l,
-                        that: m
-                    }),
+                    (r @ Array(_), l) | (l, r @ Array(_)) => {
+                        Err(SttError::RTCompareError { this: l, that: r })
+                    }
+                    (m @ Map(_), l) | (l, m @ Map(_)) => {
+                        Err(SttError::RTCompareError { this: l, that: m })
+                    }
                     (_, _) => Ok(false),
                 }?;
                 self.stack.push_this(eq);
@@ -409,10 +415,7 @@ impl Context {
                     (Str(l), Str(r)) => l == r,
                     (Bool(l), Bool(r)) => l == r,
                     (l, r) => {
-                        return Err(SttError::RTCompareError {
-                            this: l,
-                            that: r,
-                        });
+                        return Err(SttError::RTCompareError { this: l, that: r });
                     }
                 };
                 self.stack.push_this(eq);
@@ -427,10 +430,7 @@ impl Context {
                     (Bool(l), Bool(r)) => l & !r,
                     (l, r) => {
                         println!("->> {r:?} {l:?}");
-                        return Err(SttError::RTCompareError {
-                            this: l,
-                            that: r,
-                        });
+                        return Err(SttError::RTCompareError { this: l, that: r });
                     }
                 };
                 self.stack.push_this(eq);
@@ -678,7 +678,6 @@ impl Context {
                 let is_type = stack_pop!((self.stack) -> option as "value" for fn_name)?.is_ok();
                 self.stack.push_this(is_type);
             }
-
 
             // seq debug
             "debug$stack" => eprintln!("{:?}", self.stack),

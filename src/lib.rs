@@ -60,23 +60,20 @@ pub enum SttError {
     #[error("TODO")]
     TodoErr,
     #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
-    RTUserFnMissingArgs{
+    RTUserFnMissingArgs {
         name: String,
         got: Vec<Value>,
         needs: Vec<String>,
     },
     #[error("Found error while executing `!` on a Result: {error:?}")]
-    RTUnwrapResultBuiltinFailed{
-        error: Value,
-    },
+    RTUnwrapResultBuiltinFailed { error: Value },
     #[error("Found missing value while exeuting `!` on an Option")]
     RTUnwrapOptionBuiltinFailed,
     #[error("Can't compare {this:?} with {that:?}")]
-    RTCompareError{
-        this: Value,
-        that: Value,
-    },
-    #[error("`%` doesn't recognise the format directive {0}, only '%', 'd', 's' and 'b' are avaliable ")]
+    RTCompareError { this: Value, that: Value },
+    #[error(
+        "`%` doesn't recognise the format directive {0}, only '%', 'd', 's' and 'b' are avaliable "
+    )]
     RTUnknownStringFormat(char),
     #[error("Switch case with no value")]
     RTSwitchCaseWithNoValue,
@@ -164,14 +161,20 @@ pub enum FnArgs {
 impl FnArgs {
     pub fn into_vec(self) -> Vec<String> {
         match self {
-            Self::AllStack => vec![],
-            Self::Args(xs) => xs,
+            FnArgs::AllStack => vec![],
+            FnArgs::Args(xs) => xs,
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum FnArgsIns {
+pub struct FnArgsIns {
+    cap: FnArgsInsCap,
+    parent: Option<HashMap<FnName, FnArg>>,
+}
+
+#[derive(Clone, Debug)]
+pub enum FnArgsInsCap {
     Args(HashMap<FnName, FnArg>),
     AllStack(Vec<Value>),
 }
@@ -232,7 +235,7 @@ impl Stack {
     }
     pub fn peek_this<T, F>(&mut self, get_fn: F) -> Option<OResult<&T, &Value>>
     where
-        F: Fn(&Value) -> OResult<&T, &Value>
+        F: Fn(&Value) -> OResult<&T, &Value>,
     {
         self.peek().map(get_fn)
     }
@@ -369,13 +372,13 @@ impl Value {
     pub fn type_name(&self) -> &'static str {
         use Value::*;
         match self {
-            Str(_)=>"String",
-            Num(_)=>"Number",
-            Bool(_)=>"Boolean",
-            Array(_)=>"Array",
-            Map(_)=>"Map",
-            Result(_)=>"Result",
-            Option(_)=>"Option",
+            Str(_) => "String",
+            Num(_) => "Number",
+            Bool(_) => "Boolean",
+            Array(_) => "Array",
+            Map(_) => "Map",
+            Result(_) => "Result",
+            Option(_) => "Option",
         }
     }
 }
@@ -425,6 +428,7 @@ pub struct CondBranch {
 
 #[derive(Clone, Debug)]
 pub enum KeywordKind {
+    Break,
     Return,
     Ifs {
         branches: Vec<CondBranch>,
@@ -442,7 +446,7 @@ pub enum KeywordKind {
     Switch {
         cases: Vec<SwitchCase>,
         default: Option<Code>,
-    }
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -456,4 +460,22 @@ pub enum Expr {
     Immediate(Value),
     FnCall(FnName),
     Keyword(KeywordKind),
+}
+
+pub enum ControlFlow {
+    Continue,
+    Break,
+    Return,
+}
+
+#[derive(Debug)]
+pub enum RawKeyword {
+    Return,
+    Fn(FnScope),
+    Ifs,
+    While,
+    Include { path: PathBuf },
+    Pragma { command: String },
+    Switch,
+    Break,
 }

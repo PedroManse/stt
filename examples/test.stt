@@ -1,6 +1,7 @@
 (pragma set debug)
 (include stdlib)
 
-#TODO atoi -> _atoi
-# atoi that handles negative numbers
-"9x4123" atoi prt
+(while) { true } {
+	"hi" print
+	(break)
+}

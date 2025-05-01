@@ -1,4 +1,4 @@
-use crate::token::{RawKeyword, Token};
+use crate::token::Token;
 use crate::*;
 
 pub struct Context {
@@ -49,31 +49,31 @@ impl Context {
                     out.push(E::Immediate(Value::Num(x)));
                     Nothing
                 }
-
+                (Nothing, Keyword(RawKeyword::Break)) => {
+                    out.push(E::Keyword(KeywordKind::Break));
+                    Nothing
+                }
                 (Nothing, Keyword(RawKeyword::Return)) => {
                     out.push(E::Keyword(KeywordKind::Return));
                     Nothing
                 }
 
-                (Nothing, Keyword(RawKeyword::Switch)) => {
-                    MakeSwitch(vec![])
-                }
-                (MakeSwitch(cases), Str(v)) => {
-                    MakeSwitchCode(cases, Value::Str(v))
-                }
-                (MakeSwitch(cases), Number(v)) => {
-                    MakeSwitchCode(cases, Value::Num(v))
-                }
+                (Nothing, Keyword(RawKeyword::Switch)) => MakeSwitch(vec![]),
+                (MakeSwitch(cases), Str(v)) => MakeSwitchCode(cases, Value::Str(v)),
+                (MakeSwitch(cases), Number(v)) => MakeSwitchCode(cases, Value::Num(v)),
                 (MakeSwitchCode(mut cases, test), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
                     let code = Code(inner_ctx.parse_block()?);
-                    cases.push(SwitchCase{ test, code });
+                    cases.push(SwitchCase { test, code });
                     MakeSwitch(cases)
                 }
                 (MakeSwitch(cases), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
                     let code = Code(inner_ctx.parse_block()?);
-                    out.push(E::Keyword(KeywordKind::Switch { cases, default: Some(code) } ));
+                    out.push(E::Keyword(KeywordKind::Switch {
+                        cases,
+                        default: Some(code),
+                    }));
                     Nothing
                 }
                 (MakeSwitch(cases), t) => {
@@ -81,7 +81,10 @@ impl Context {
                         EndOfBlock => {}
                         t => self.unget(t),
                     };
-                    out.push(E::Keyword(KeywordKind::Switch { cases, default: None } ));
+                    out.push(E::Keyword(KeywordKind::Switch {
+                        cases,
+                        default: None,
+                    }));
                     Nothing
                 }
 
@@ -160,8 +163,8 @@ impl Context {
 
     fn next(&mut self) -> Option<Token> {
         match self.ungotten.take() {
-           None => self.code.pop(),
-           x => x,
+            None => self.code.pop(),
+            x => x,
         }
     }
 

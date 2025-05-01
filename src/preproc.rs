@@ -1,4 +1,4 @@
-use self::token::{RawKeyword, Token};
+use self::token::Token;
 use crate::*;
 use std::collections::HashSet;
 use std::path::Path;
