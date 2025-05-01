@@ -12,7 +12,9 @@ use stt::*;
 
 // TODO (!) = (ifs) {dup result$ok-is not } { (return) } {true} { ! }
 
-// Is there a reason to require check code blocks to make stack n+1 of original stack?
+// TODO pass args on fndef to make closures
+
+// Is there a reason to *require* check code blocks to make stack n+1 of original stack?
 
 
 #[derive(PartialEq)]

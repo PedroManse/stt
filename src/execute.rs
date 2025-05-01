@@ -205,43 +205,30 @@ impl Context {
         match kw {
             KeywordKind::Switch { cases, default } => {
                 let cmp = self.stack.pop().ok_or(SttError::RTSwitchCaseWithNoValue)?;
-                'e: {
-                    for case in cases {
-                        if case.test == cmp {
-                            match self.execute_code(&case.code)? {
-                                c @ ControlFlow::Break(()) => return Ok(c),
-                                _=>{}
-                            }
-                            break 'e;
-                        }
+                for case in cases {
+                    if case.test == cmp {
+                        return self.execute_code(&case.code);
                     }
-                    if let Some(code) = default {
-                        match self.execute_code(code)? {
-                            c @ ControlFlow::Break(()) => return Ok(c),
-                            _=>{}
-                        }
-                    }
+                }
+                match default {
+                    Some(code) => self.execute_code(code),
+                    None => Ok(ControlFlow::Continue(()))
                 }
             }
             KeywordKind::Return => return Ok(ControlFlow::Break(())),
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
                     if self.execute_check(&branch.check)? {
-                        match self.execute_code(&branch.code)? {
-                            c @ ControlFlow::Break(()) => return Ok(c),
-                            _=>{}
-                        }
-                        break;
+                        return self.execute_code(&branch.code);
                     }
                 }
+                Ok(ControlFlow::Continue(()))
             }
             KeywordKind::While { check, code } => {
                 while self.execute_check(check)? {
-                    match self.execute_code(code)? {
-                        c @ ControlFlow::Break(()) => return Ok(c),
-                        _=>{}
-                    }
+                    return self.execute_code(code)
                 }
+                Ok(ControlFlow::Continue(()))
             }
             KeywordKind::FnDef {
                 name,
@@ -254,9 +241,9 @@ impl Context {
                     name.clone(),
                     FnDef::new(scope.clone(), code.clone(), args.clone()),
                 );
+                Ok(ControlFlow::Continue(()))
             }
-        };
-        Ok(ControlFlow::Continue(()))
+        }
     }
 
     fn execute_fn(&mut self, name: &FnName) -> Result<()> {
