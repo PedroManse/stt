@@ -132,12 +132,14 @@ impl Context {
                 stack = Stack::new_with(xs);
                 args = args_ins.parent;
             }
-            FnArgsInsCap::Args(mut ars) => {
+            FnArgsInsCap::Args(ars) => {
                 stack = Stack::new();
+                let mut joint_args = HashMap::new();
                 if let Some(parent_args) = args_ins.parent {
-                    ars.extend(parent_args);
+                    joint_args.extend(parent_args);
                 }
-                args = Some(ars);
+                joint_args.extend(ars);
+                args = Some(joint_args);
             }
         };
         Self {
@@ -157,7 +159,6 @@ impl Context {
 
     //TODO fn to change in debug mode
     pub fn execute_code(&mut self, code: &[Expr], source: &Path) -> Result<ControlFlow> {
-        println!("[{source:?}] -> {code:?}");
         for expr in code {
             match self.execute_expr(expr, source)? {
                 ControlFlow::Continue => {}
@@ -244,7 +245,6 @@ impl Context {
                 code,
                 args,
             } => {
-                // TODO pass on args to make closures
                 self.fns.insert(
                     name.clone(),
                     FnDef::new(scope.clone(), code.clone(), args.clone()),
@@ -433,7 +433,6 @@ impl Context {
                     (Str(l), Str(r)) => l > r,
                     (Bool(l), Bool(r)) => l & !r,
                     (l, r) => {
-                        println!("->> {r:?} {l:?}");
                         return Err(SttError::RTCompareError { this: l, that: r });
                     }
                 };
