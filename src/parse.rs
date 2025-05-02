@@ -1,4 +1,3 @@
-use crate::token::Token;
 use crate::*;
 
 pub struct Context {
@@ -31,11 +30,13 @@ impl Context {
     pub fn parse_block(&mut self) -> Result<Vec<Expr>> {
         use Expr as E;
         use State::*;
-        use Token::*;
+        use TokenCont::*;
         let mut state = Nothing;
         let mut out = vec![];
+
         while let Some(token) = self.next() {
-            state = match (state, token) {
+            let Token { cont, span } = token;
+            state = match (state, cont) {
                 (Nothing, EndOfBlock) => Nothing,
                 (Nothing, Ident(n)) => {
                     out.push(E::FnCall(FnName(n)));
@@ -76,10 +77,10 @@ impl Context {
                     }));
                     Nothing
                 }
-                (MakeSwitch(cases), t) => {
-                    match t {
+                (MakeSwitch(cases), cont) => {
+                    match cont {
                         EndOfBlock => {}
-                        t => self.unget(t),
+                        cont => self.unget(Token { cont, span }),
                     };
                     out.push(E::Keyword(KeywordKind::Switch {
                         cases,
@@ -106,10 +107,10 @@ impl Context {
                     branches.push(CondBranch { check, code });
                     MakeIfs(branches)
                 }
-                (MakeIfs(branches), t) => {
-                    match t {
+                (MakeIfs(branches), cont) => {
+                    match cont {
                         EndOfBlock => {}
-                        t => self.unget(t),
+                        cont => self.unget(Token { cont, span }),
                     };
                     out.push(E::Keyword(KeywordKind::Ifs { branches }));
                     Nothing
@@ -168,10 +169,10 @@ impl Context {
         }
     }
 
-    pub fn new(mut code: Vec<Token>) -> Self {
-        code.reverse();
+    pub fn new(mut tokens: Vec<Token>) -> Self {
+        tokens.reverse();
         Self {
-            code,
+            code: tokens,
             ungotten: None,
         }
     }

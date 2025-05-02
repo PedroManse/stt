@@ -1,16 +1,4 @@
-use crate::RawKeyword;
-use crate::{FnScope, Result};
-
-#[derive(Debug)]
-pub enum Token {
-    Ident(String),
-    Str(String),
-    Number(isize),
-    Keyword(RawKeyword),
-    FnArgs(Vec<String>),
-    Block(Vec<Token>),
-    EndOfBlock,
-}
+use crate::{FnScope, Result, TokenCont, Token, RawKeyword};
 
 pub struct Context {
     point: usize,
@@ -51,18 +39,34 @@ impl Context {
     // just read a '{'
     pub fn tokenize_block(&mut self) -> Result<Vec<Token>> {
         use State::*;
-        use Token::*;
+        use TokenCont::*;
         let mut state = Nothing;
         let mut out = Vec::new();
+        let mut last_token_pos = self.point;
+        let mut push_tkn = |token, point| {
+            let span = last_token_pos..point;
+            out.push(Token{
+                cont: token,
+                span,
+            });
+            last_token_pos = point;
+        };
+        //use $token.into
+        macro_rules! push_token {
+            ($token:expr) => {
+                push_tkn($token, self.point)
+            };
+        }
+
         while let Some(ch) = self.next() {
             state = match (state, ch) {
                 (Nothing, '}') => {
-                    out.push(EndOfBlock);
+                    push_token!(EndOfBlock);
                     return Ok(out);
                 }
                 (Nothing, '{') => {
                     let block = self.tokenize_block()?;
-                    out.push(Block(block));
+                    push_token!(Block(block));
                     Nothing
                 }
                 (Nothing, c @ matches!(start_ident)) => MakeIdent(String::from(*c)),
@@ -76,17 +80,17 @@ impl Context {
                     MakeIdent(buf)
                 }
                 (MakeIdent(buf), matches!(space)) => {
-                    out.push(Ident(buf));
+                    push_token!(Ident(buf));
                     Nothing
                 }
                 (MakeIdent(buf), matches!(word_edge)) => {
-                    out.push(Ident(buf));
+                    push_token!(Ident(buf));
                     self.unget(); // re-read char with Nothing State
                     Nothing
                 }
 
                 (MakeString(buf), '"') => {
-                    out.push(Str(buf));
+                    push_token!(Str(buf));
                     Nothing
                 }
                 (MakeString(buf), '\\') => MakeStringEsc(buf),
@@ -109,12 +113,12 @@ impl Context {
                 }
                 (MakeNumber(buf), matches!(space)) => {
                     let num = buf.parse()?;
-                    out.push(Number(num));
+                    push_token!(Number(num));
                     Nothing
                 }
                 (MakeNumber(buf), matches!(word_edge)) => {
                     let num = buf.parse()?;
-                    out.push(Number(num));
+                    push_token!(Number(num));
                     self.unget(); // re-read char with Nothing State
                     Nothing
                 }
@@ -140,7 +144,7 @@ impl Context {
                             return Err(crate::SttError::TodoErr);
                         }
                     };
-                    out.push(Keyword(kw));
+                    push_token!(Keyword(kw));
                     Nothing
                 }
                 (MakeKeyword(mut buf), c) => {
@@ -162,7 +166,7 @@ impl Context {
                     if !buf.is_empty() {
                         xs.push(buf);
                     }
-                    out.push(FnArgs(xs));
+                    push_token!(FnArgs(xs));
                     Nothing
                 }
 

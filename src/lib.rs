@@ -4,9 +4,8 @@ pub mod preproc;
 pub mod token;
 
 use std::collections::{HashMap, HashSet};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
-
-use self::token::Token;
 
 pub type OResult<T, E> = std::result::Result<T, E>;
 pub type Result<T> = std::result::Result<T, SttError>;
@@ -89,44 +88,57 @@ impl Code {
 }
 
 // step token.rs
-pub fn get_raw_tokens(file_path: &Path) -> Result<Vec<Token>> {
+pub fn get_raw_tokens(file_path: &Path) -> Result<TokenBlock> {
     let Ok(cont) = std::fs::read_to_string(file_path) else {
         return Err(SttError::CantReadFile(file_path.to_path_buf()));
     };
-    token::Context::new(&cont).tokenize_block()
+    let tokens = token::Context::new(&cont).tokenize_block()?;
+    Ok(TokenBlock {
+        tokens,
+        source: file_path.into(),
+    })
 }
 
 // step preproc.rs
-pub fn preproc_tokens(tokens: Vec<Token>, file_path: &Path) -> Result<Vec<Token>> {
+pub fn preproc_tokens(
+    TokenBlock { tokens, source }: TokenBlock,
+    file_path: &Path,
+) -> Result<TokenBlock> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
-    preprocessor.parse_clean(tokens)
+    let tokens = preprocessor.parse_clean(tokens)?;
+    Ok(TokenBlock { tokens, source })
 }
 
 pub fn preproc_tokens_with_vars(
-    tokens: Vec<Token>,
+    TokenBlock { tokens, source }: TokenBlock,
     file_path: &Path,
     vars: &mut HashSet<String>,
-) -> Result<Vec<Token>> {
+) -> Result<TokenBlock> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
-    preprocessor.parse(tokens, vars)
+    let tokens = preprocessor.parse(tokens, vars)?;
+    Ok(TokenBlock { tokens, source })
 }
 
 // step parse.rs
-pub fn parse_tokens(tokens: Vec<Token>) -> Result<Vec<Expr>> {
+pub fn parse_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<ExprBlock> {
     let mut parser = parse::Context::new(tokens);
-    parser.parse_block()
+    let exprs = parser.parse_block()?;
+    Ok(ExprBlock{
+        exprs,
+        source,
+    })
 }
 
-pub fn execute_code(code: Code) -> Result<()> {
+pub fn execute_code(exprs: ExprBlock) -> Result<()> {
     let mut executioner = execute::Context::new();
-    executioner.execute_code(&code)?;
+    executioner.execute_code(&Code(exprs.exprs))?;
     Ok(())
 }
 
 // abstract
-pub fn get_tokens(path: impl AsRef<Path>) -> Result<Vec<Token>> {
+pub fn get_tokens(path: impl AsRef<Path>) -> Result<TokenBlock> {
     let file_path = PathBuf::from(path.as_ref());
     let tokens = get_raw_tokens(&file_path)?;
     preproc_tokens(tokens, &file_path)
@@ -135,21 +147,22 @@ pub fn get_tokens(path: impl AsRef<Path>) -> Result<Vec<Token>> {
 pub fn get_tokens_with_procvars(
     path: impl AsRef<Path>,
     proc_vars: &mut HashSet<String>,
-) -> Result<Vec<Token>> {
+) -> Result<TokenBlock> {
     let file_path = PathBuf::from(path.as_ref());
     let tokens = get_raw_tokens(&file_path)?;
     preproc_tokens_with_vars(tokens, &file_path, proc_vars)
 }
 
-pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
-    let procced_block = get_tokens(path)?;
-    let mut parser = parse::Context::new(procced_block);
-    parser.parse_block().map(Code)
+pub fn get_project_code(path: impl AsRef<Path>) -> Result<ExprBlock> {
+    let TokenBlock { tokens, source } = get_tokens(path)?;
+    let mut parser = parse::Context::new(tokens);
+    let exprs = parser.parse_block()?;
+    Ok(ExprBlock { exprs, source })
 }
 
 pub fn execute_file(path: impl AsRef<Path>) -> Result<()> {
-    let code = get_project_code(path)?;
-    execute_code(code)
+    let expr_block = get_project_code(path)?;
+    execute_code(expr_block)
 }
 
 #[derive(Clone, Debug)]
@@ -455,7 +468,14 @@ pub struct SwitchCase {
     code: Code,
 }
 
+//#[derive(Clone, Debug)]
+//pub struct Expr {
+//    cont: ExprCont,
+//    span: Range<usize>
+//}
+
 #[derive(Clone, Debug)]
+//pub enum ExprCont {
 pub enum Expr {
     Immediate(Value),
     FnCall(FnName),
@@ -478,4 +498,34 @@ pub enum RawKeyword {
     Pragma { command: String },
     Switch,
     Break,
+}
+
+#[derive(Debug)]
+pub struct Token {
+    cont: TokenCont,
+    span: Range<usize>,
+}
+
+#[derive(Debug)]
+pub enum TokenCont {
+    Ident(String),
+    Str(String),
+    Number(isize),
+    Keyword(RawKeyword),
+    FnArgs(Vec<String>),
+    Block(Vec<Token>),
+    IncludedBlock(TokenBlock),
+    EndOfBlock,
+}
+
+#[derive(Debug)]
+pub struct TokenBlock {
+    source: PathBuf,
+    tokens: Vec<Token>,
+}
+
+#[derive(Debug)]
+pub struct ExprBlock {
+    source: PathBuf,
+    exprs: Vec<Expr>,
 }

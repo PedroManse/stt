@@ -1,4 +1,3 @@
-use self::token::Token;
 use crate::*;
 use std::collections::HashSet;
 use std::path::Path;
@@ -33,38 +32,43 @@ impl<'p> Context<'p> {
 }
 
 impl<'p> Context<'p> {
-    pub fn parse_clean(&'p self, code: Vec<token::Token>) -> Result<Vec<token::Token>> {
+    pub fn parse_clean(&'p self, code: Vec<Token>) -> Result<Vec<Token>> {
         let mut proc_vars: HashSet<String> = HashSet::new();
         self.parse(code, &mut proc_vars)
     }
 
     pub fn parse(
         &'p self,
-        code: Vec<token::Token>,
+        code: Vec<Token>,
         proc_vars: &mut HashSet<String>,
-    ) -> Result<Vec<token::Token>> {
+    ) -> Result<Vec<Token>> {
         let mut if_stack: Vec<ProcStatus> = vec![];
         let mut out = Vec::with_capacity(code.len());
-        for c in code {
-            match c {
-                Token::Keyword(RawKeyword::Include { path }) => {
+        for Token { cont, span } in code {
+            match cont {
+                TokenCont::Keyword(RawKeyword::Include { path }) => {
                     let include_path = self.dir.join(path);
                     let metadata = include_path
                         .metadata()
                         .ok()
                         .ok_or(SttError::CantReadFile(include_path.clone()))?;
-                    let mut included_tokens = if metadata.is_dir() {
+                    let included_tokens = if metadata.is_dir() {
                         get_tokens_with_procvars(include_path.join("stt.stt"), proc_vars)
                     } else {
                         get_tokens_with_procvars(include_path, proc_vars)
                     }?;
-                    out.append(&mut included_tokens);
+                    let included_tokens = TokenCont::IncludedBlock(included_tokens);
+                    let included_tokens = Token{
+                        cont: included_tokens,
+                        span,
+                    };
+                    out.push(included_tokens);
                 }
-                Token::Keyword(RawKeyword::Pragma { command }) => {
+                TokenCont::Keyword(RawKeyword::Pragma { command }) => {
                     manage_pragma(&mut if_stack, command, proc_vars)?;
                 }
                 x if if_stack.last().map(|s| s.reading).unwrap_or(true) => {
-                    out.push(x);
+                    out.push(Token { cont: x, span });
                 }
                 _ => {} // ignore code in IgnoringIf or IgnoringElse status
             }
