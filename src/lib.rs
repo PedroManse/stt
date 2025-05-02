@@ -79,11 +79,14 @@ pub enum SttError {
 }
 
 #[derive(Clone, Debug)]
-pub struct Code(pub Vec<Expr>);
+pub struct Code{
+    pub source: PathBuf,
+    pub exprs: Vec<Expr>,
+}
 
 impl Code {
     pub fn as_slice(&self) -> &[Expr] {
-        &self.0
+        &self.exprs
     }
 }
 
@@ -122,18 +125,18 @@ pub fn preproc_tokens_with_vars(
 }
 
 // step parse.rs
-pub fn parse_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<ExprBlock> {
+pub fn parse_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<Code> {
     let mut parser = parse::Context::new(tokens);
     let exprs = parser.parse_block()?;
-    Ok(ExprBlock{
+    Ok(Code{
         exprs,
         source,
     })
 }
 
-pub fn execute_code(exprs: ExprBlock) -> Result<()> {
+pub fn execute_code(code: Code) -> Result<()> {
     let mut executioner = execute::Context::new();
-    executioner.execute_code(&Code(exprs.exprs))?;
+    executioner.execute_code(&code.exprs, &code.source)?;
     Ok(())
 }
 
@@ -153,11 +156,11 @@ pub fn get_tokens_with_procvars(
     preproc_tokens_with_vars(tokens, &file_path, proc_vars)
 }
 
-pub fn get_project_code(path: impl AsRef<Path>) -> Result<ExprBlock> {
+pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
     let TokenBlock { tokens, source } = get_tokens(path)?;
     let mut parser = parse::Context::new(tokens);
     let exprs = parser.parse_block()?;
-    Ok(ExprBlock { exprs, source })
+    Ok(Code { exprs, source })
 }
 
 pub fn execute_file(path: impl AsRef<Path>) -> Result<()> {
@@ -274,12 +277,12 @@ pub enum FnScope {
 #[derive(Clone, Debug)]
 pub struct FnDef {
     pub scope: FnScope,
-    pub code: Code,
+    pub code: Vec<Expr>,
     pub args: FnArgs,
 }
 
 impl FnDef {
-    pub fn new(scope: FnScope, code: Code, args: FnArgs) -> Self {
+    pub fn new(scope: FnScope, code: Vec<Expr>, args: FnArgs) -> Self {
         FnDef { scope, code, args }
     }
 }
@@ -435,8 +438,8 @@ impl From<OResult<Value, Value>> for Value {
 
 #[derive(Clone, Debug)]
 pub struct CondBranch {
-    pub check: Code,
-    pub code: Code,
+    pub check: Vec<Expr>,
+    pub code: Vec<Expr>,
 }
 
 #[derive(Clone, Debug)]
@@ -447,39 +450,39 @@ pub enum KeywordKind {
         branches: Vec<CondBranch>,
     },
     While {
-        check: Code,
-        code: Code,
+        check: Vec<Expr>,
+        code: Vec<Expr>,
     },
     FnDef {
         name: FnName,
         scope: FnScope,
-        code: Code,
+        code: Vec<Expr>,
         args: FnArgs,
     },
     Switch {
         cases: Vec<SwitchCase>,
-        default: Option<Code>,
+        default: Option<Vec<Expr>>,
     },
 }
 
 #[derive(Clone, Debug)]
 pub struct SwitchCase {
     test: Value,
-    code: Code,
+    code: Vec<Expr>,
 }
 
-//#[derive(Clone, Debug)]
-//pub struct Expr {
-//    cont: ExprCont,
-//    span: Range<usize>
-//}
+#[derive(Clone, Debug)]
+pub struct Expr {
+    span: Range<usize>,
+    cont: ExprCont,
+}
 
 #[derive(Clone, Debug)]
-//pub enum ExprCont {
-pub enum Expr {
+pub enum ExprCont {
     Immediate(Value),
     FnCall(FnName),
     Keyword(KeywordKind),
+    IncludedCode(Code),
 }
 
 pub enum ControlFlow {
@@ -522,10 +525,4 @@ pub enum TokenCont {
 pub struct TokenBlock {
     source: PathBuf,
     tokens: Vec<Token>,
-}
-
-#[derive(Debug)]
-pub struct ExprBlock {
-    source: PathBuf,
-    exprs: Vec<Expr>,
 }

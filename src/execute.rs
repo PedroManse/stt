@@ -149,16 +149,17 @@ impl Context {
     }
 
     pub fn debug_code(&mut self, code: &Code) {
-        for _expr in code.as_slice() {
+        for _expr in &code.exprs {
             todo!();
             //self.debug(expr);
         }
     }
 
     //TODO fn to change in debug mode
-    pub fn execute_code(&mut self, code: &Code) -> Result<ControlFlow> {
-        for expr in code.as_slice() {
-            match self.execute_expr(expr)? {
+    pub fn execute_code(&mut self, code: &[Expr], source: &Path) -> Result<ControlFlow> {
+        println!("[{source:?}] -> {code:?}");
+        for expr in code {
+            match self.execute_expr(expr, source)? {
                 ControlFlow::Continue => {}
                 c => return Ok(c),
             }
@@ -166,10 +167,10 @@ impl Context {
         Ok(ControlFlow::Continue)
     }
 
-    pub fn execute_check(&mut self, code: &Code) -> Result<bool> {
+    pub fn execute_check(&mut self, code: &[Expr], source: &Path) -> Result<bool> {
         let old_stack_size = self.stack.len();
-        for expr in code.as_slice() {
-            self.execute_expr(expr)?;
+        for expr in code {
+            self.execute_expr(expr, source)?;
         }
         let new_stack_size = self.stack.len();
         let new_should_stack_size = old_stack_size + 1;
@@ -189,18 +190,21 @@ impl Context {
         }
     }
 
-    pub fn execute_expr(&mut self, expr: &Expr) -> Result<ControlFlow> {
-        match expr {
-            Expr::FnCall(name) => self.execute_fn(name)?,
-            Expr::Keyword(kw) => {
-                return self.execute_kw(kw);
+    pub fn execute_expr(&mut self, expr: &Expr, source: &Path) -> Result<ControlFlow> {
+        match &expr.cont {
+            ExprCont::FnCall(name) => self.execute_fn(name, source)?,
+            ExprCont::Keyword(kw) => {
+                return self.execute_kw(kw, source);
             }
-            Expr::Immediate(v) => self.stack.push(v.clone()),
+            ExprCont::Immediate(v) => self.stack.push(v.clone()),
+            ExprCont::IncludedCode(Code { source, exprs }) => {
+                self.execute_code(exprs, source)?;
+            }
         };
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_kw(&mut self, kw: &KeywordKind) -> Result<ControlFlow> {
+    fn execute_kw(&mut self, kw: &KeywordKind, source: &Path) -> Result<ControlFlow> {
         Ok(match kw {
             KeywordKind::Return => ControlFlow::Return,
             KeywordKind::Break => ControlFlow::Break,
@@ -208,25 +212,25 @@ impl Context {
                 let cmp = self.stack.pop().ok_or(SttError::RTSwitchCaseWithNoValue)?;
                 for case in cases {
                     if case.test == cmp {
-                        return self.execute_code(&case.code);
+                        return self.execute_code(&case.code, source);
                     }
                 }
                 match default {
-                    Some(code) => self.execute_code(code)?,
+                    Some(code) => self.execute_code(code, source)?,
                     None => ControlFlow::Continue,
                 }
             }
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
-                    if self.execute_check(&branch.check)? {
-                        return self.execute_code(&branch.code);
+                    if self.execute_check(&branch.check, source)? {
+                        return self.execute_code(&branch.code, source);
                     }
                 }
                 ControlFlow::Continue
             }
             KeywordKind::While { check, code } => {
-                while self.execute_check(check)? {
-                    match self.execute_code(code)? {
+                while self.execute_check(check, source)? {
+                    match self.execute_code(code, source)? {
                         ControlFlow::Break => break,
                         ControlFlow::Return => return Ok(ControlFlow::Return),
                         _ => {}
@@ -250,7 +254,7 @@ impl Context {
         })
     }
 
-    fn execute_fn(&mut self, name: &FnName) -> Result<()> {
+    fn execute_fn(&mut self, name: &FnName, source: &Path) -> Result<()> {
         // builtin fn should handle stack pop and push
         // and are always given precedence
         match self.try_execute_builtin(name.as_str()) {
@@ -263,7 +267,7 @@ impl Context {
             // try_get_arg should not pop from the stack and has higher precedence than user-defined funcs.
             // this was done to avoid confusion if an outer-scoped function was used instead of an argument
             self.stack.push(arg);
-        } else if let Some(rets) = self.try_execute_user_fn(name) {
+        } else if let Some(rets) = self.try_execute_user_fn(name, source) {
             // try_execute_user_fn should handle stack pop
             // and have the lowest precedence, since the traverse the scopes
             self.stack.pushn(rets?);
@@ -273,7 +277,7 @@ impl Context {
         Ok(())
     }
 
-    fn try_execute_user_fn(&mut self, name: &FnName) -> Option<Result<Vec<Value>>> {
+    fn try_execute_user_fn(&mut self, name: &FnName, source: &Path) -> Option<Result<Vec<Value>>> {
         let user_fn = self.fns.get(name)?;
 
         let vars = match user_fn.scope {
@@ -310,7 +314,7 @@ impl Context {
         let mut fn_ctx = Context::frame(self.fns.clone(), vars, args);
 
         // handle (return) kw and RT errors inside functions
-        if let Err(e) = fn_ctx.execute_code(&user_fn.code) {
+        if let Err(e) = fn_ctx.execute_code(&user_fn.code, source) {
             return Some(Err(e));
         };
 

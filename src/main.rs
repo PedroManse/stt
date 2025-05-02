@@ -2,9 +2,7 @@ use stt::*;
 
 // TODO error reporting
 // : stack trace
-
-
-// TODO make (if) kw for common case of (if) {check} {if-code} {true} {else-code}
+// : display span of file on error
 
 // TODO type checking (fn) [a:num b:string x:array] { ... }
 // : would llow for (fn) [x:string] assert$is-string { x }

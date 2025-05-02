@@ -12,7 +12,7 @@ enum State {
     MakeIfs(Vec<CondBranch>),
     MakeIfsCode {
         branches: Vec<CondBranch>,
-        check: Code,
+        check: Vec<Expr>,
     },
 
     MakeFnArgs(FnScope),
@@ -23,40 +23,59 @@ enum State {
     MakeSwitchCode(Vec<SwitchCase>, Value),
 
     MakeWhile,
-    MakeWhileCode(Code),
+    MakeWhileCode(Vec<Expr>),
 }
 
 impl Context {
     pub fn parse_block(&mut self) -> Result<Vec<Expr>> {
-        use Expr as E;
+        use ExprCont as E;
         use State::*;
         use TokenCont::*;
         let mut state = Nothing;
         let mut out = vec![];
+        let mut cum_span = 0..0;
 
         while let Some(token) = self.next() {
             let Token { cont, span } = token;
+            cum_span.end = span.end;
+            macro_rules! push_expr {
+                ($expr:expr) => {
+                    out.push(Expr{
+                        cont: $expr,
+                        span: cum_span,
+                    });
+                    cum_span = span.end..span.end;
+                };
+            }
             state = match (state, cont) {
                 (Nothing, EndOfBlock) => Nothing,
                 (Nothing, Ident(n)) => {
-                    out.push(E::FnCall(FnName(n)));
+                    push_expr!(E::FnCall(FnName(n)));
                     Nothing
                 }
                 (Nothing, Str(x)) => {
-                    out.push(E::Immediate(Value::Str(x)));
+                    push_expr!(E::Immediate(Value::Str(x)));
                     Nothing
                 }
                 (Nothing, Number(x)) => {
-                    out.push(E::Immediate(Value::Num(x)));
+                    push_expr!(E::Immediate(Value::Num(x)));
                     Nothing
                 }
                 (Nothing, Keyword(RawKeyword::Break)) => {
-                    out.push(E::Keyword(KeywordKind::Break));
+                    push_expr!(E::Keyword(KeywordKind::Break));
                     Nothing
                 }
                 (Nothing, Keyword(RawKeyword::Return)) => {
-                    out.push(E::Keyword(KeywordKind::Return));
+                    push_expr!(E::Keyword(KeywordKind::Return));
                     Nothing
+                }
+
+                (s, IncludedBlock(code)) => {
+                    let mut inner_ctx = Context::new(code.tokens);
+                    let parsed_code = inner_ctx.parse_block()?;
+                    push_expr!(E::IncludedCode(Code { source: code.source, exprs: parsed_code }));
+                    s
+
                 }
 
                 (Nothing, Keyword(RawKeyword::Switch)) => MakeSwitch(vec![]),
@@ -64,14 +83,14 @@ impl Context {
                 (MakeSwitch(cases), Number(v)) => MakeSwitchCode(cases, Value::Num(v)),
                 (MakeSwitchCode(mut cases, test), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
-                    let code = Code(inner_ctx.parse_block()?);
+                    let code = inner_ctx.parse_block()?;
                     cases.push(SwitchCase { test, code });
                     MakeSwitch(cases)
                 }
                 (MakeSwitch(cases), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
-                    let code = Code(inner_ctx.parse_block()?);
-                    out.push(E::Keyword(KeywordKind::Switch {
+                    let code = inner_ctx.parse_block()?;
+                    push_expr!(E::Keyword(KeywordKind::Switch {
                         cases,
                         default: Some(code),
                     }));
@@ -80,9 +99,9 @@ impl Context {
                 (MakeSwitch(cases), cont) => {
                     match cont {
                         EndOfBlock => {}
-                        cont => self.unget(Token { cont, span }),
+                        cont => self.unget(Token { cont, span: span.clone() }),
                     };
-                    out.push(E::Keyword(KeywordKind::Switch {
+                    push_expr!(E::Keyword(KeywordKind::Switch {
                         cases,
                         default: None,
                     }));
@@ -92,7 +111,7 @@ impl Context {
                 (Nothing, Keyword(RawKeyword::Ifs)) => MakeIfs(vec![]),
                 (MakeIfs(branches), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
-                    let check = Code(inner_ctx.parse_block()?);
+                    let check = inner_ctx.parse_block()?;
                     MakeIfsCode { branches, check }
                 }
                 (
@@ -103,16 +122,16 @@ impl Context {
                     Block(code),
                 ) => {
                     let mut inner_ctx = Context::new(code);
-                    let code = Code(inner_ctx.parse_block()?);
+                    let code = inner_ctx.parse_block()?;
                     branches.push(CondBranch { check, code });
                     MakeIfs(branches)
                 }
                 (MakeIfs(branches), cont) => {
                     match cont {
                         EndOfBlock => {}
-                        cont => self.unget(Token { cont, span }),
+                        cont => self.unget(Token { cont, span: span.clone() }),
                     };
-                    out.push(E::Keyword(KeywordKind::Ifs { branches }));
+                    push_expr!(E::Keyword(KeywordKind::Ifs { branches }));
                     Nothing
                 }
 
@@ -125,27 +144,27 @@ impl Context {
                 (MakeFnName(scope, args), Ident(name)) => MakeFnBlock(scope, args, FnName(name)),
                 (MakeFnBlock(scope, args, name), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
-                    let code = Code(inner_ctx.parse_block()?);
+                    let code = inner_ctx.parse_block()?;
                     let fndef = E::Keyword(KeywordKind::FnDef {
                         name,
                         scope,
                         code,
                         args,
                     });
-                    out.push(fndef);
+                    push_expr!(fndef);
                     Nothing
                 }
 
                 (Nothing, Keyword(RawKeyword::While)) => MakeWhile,
                 (MakeWhile, Block(check)) => {
                     let mut inner_ctx = Context::new(check);
-                    let check = Code(inner_ctx.parse_block()?);
+                    let check = inner_ctx.parse_block()?;
                     MakeWhileCode(check)
                 }
                 (MakeWhileCode(check), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
-                    let code = Code(inner_ctx.parse_block()?);
-                    out.push(E::Keyword(KeywordKind::While { check, code }));
+                    let code = inner_ctx.parse_block()?;
+                    push_expr!(E::Keyword(KeywordKind::While { check, code }));
                     Nothing
                 }
 

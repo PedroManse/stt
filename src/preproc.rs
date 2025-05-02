@@ -42,6 +42,7 @@ impl<'p> Context<'p> {
         code: Vec<Token>,
         proc_vars: &mut HashSet<String>,
     ) -> Result<Vec<Token>> {
+        // TODO would have to keep track of removed span from pragma lines
         let mut if_stack: Vec<ProcStatus> = vec![];
         let mut out = Vec::with_capacity(code.len());
         for Token { cont, span } in code {
