@@ -1,4 +1,4 @@
-pub mod execute;
+pub mod runtime;
 pub mod parse;
 pub mod preproc;
 pub mod token;
@@ -135,7 +135,7 @@ pub fn parse_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<Code> {
 }
 
 pub fn execute_code(code: Code) -> Result<()> {
-    let mut executioner = execute::Context::new();
+    let mut executioner = runtime::Context::new();
     executioner.execute_code(&code.exprs, &code.source)?;
     Ok(())
 }

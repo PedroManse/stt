@@ -1,95 +1,7 @@
 use crate::*;
-
-macro_rules! sget {
-    (num) => {
-        (Value::get_num, Value::get_ref_num, "Number")
-    };
-    (str) => {
-        (Value::get_str, Value::get_ref_str, "String")
-    };
-    (bool) => {
-        (Value::get_bool, Value::get_ref_bool, "Boolean")
-    };
-    (arr) => {
-        (Value::get_arr, Value::get_ref_arr, "Array")
-    };
-    (map) => {
-        (Value::get_map, Value::get_ref_map, "Map")
-    };
-    (result) => {
-        (Value::get_result, Value::get_ref_result, "Result")
-    };
-    (option) => {
-        (Value::get_option, Value::get_ref_option, "Option")
-    };
-}
-
-macro_rules! stack_pop {
-    (($stack:expr) -> $type:ident as $this_arg:literal for $fn_name:expr) => {
-        $stack
-            .pop_this(sget!($type).0)
-            .ok_or(SttError::MissingValueForBuiltin{
-                for_fn: $fn_name.to_owned(),
-                args: format!( "[{}: {}]", $this_arg, sget!($type).2 ),
-                this_arg: $this_arg,
-            })
-            .map(|got_v|{
-                got_v.map_err(|got|{
-                    SttError::WrongTypeForBuiltin {
-                        for_fn: $fn_name.to_owned(),
-                        args: stringify!( [ $this_arg: $type ] ),
-                        this_arg: $this_arg,
-                        got,
-                        expected: sget!($type).2
-                    }
-                })
-            })
-    };
-    (($stack:expr) -> $type:ident? as $this_arg:literal for $fn_name:expr) => {
-        $stack
-            .pop_this(sget!($type).0)
-            .map(|got_v|{
-                got_v.map_err(|got|{
-                    SttError::WrongTypeForBuiltin {
-                        for_fn: $fn_name.to_owned(),
-                        args: stringify!( [ $this_arg: $ty ] ),
-                        this_arg: $this_arg,
-                        got,
-                        expected: sget!($type).2
-                    }
-                })
-            }).transpose()
-    };
-    (($stack:expr) -> * as $this_arg:literal for $fn_name:expr) => {
-        $stack
-            .pop()
-            .ok_or(SttError::MissingValueForBuiltin{
-                for_fn: $fn_name.to_owned(),
-                args: format!( "[{}]", $this_arg ),
-                this_arg: $this_arg,
-            })
-    };
-    (($stack:expr) -> &$type:ident as $this_arg:literal for $fn_name:expr) => {
-        $stack
-            .peek_this(sget!($type).1)
-            .ok_or(SttError::MissingValueForBuiltin{
-                for_fn: $fn_name.to_owned(),
-                args: format!( "[{}: {}]", $this_arg, sget!($type).2 ),
-                this_arg: $this_arg,
-            })
-            .map(|got_v|{
-                got_v.map_err(|got|{
-                    SttError::WrongTypeForBuiltin {
-                        for_fn: $fn_name.to_owned(),
-                        args: stringify!( [ $this_arg: $ty ] ),
-                        this_arg: $this_arg,
-                        got: got.clone(),
-                        expected: sget!($type).2
-                    }
-                })
-            })
-    };
-}
+mod builtins;
+mod stack;
+use stack::*;
 
 //use std::marker::PhantomData;
 //pub struct DebugMode;
@@ -357,7 +269,7 @@ impl Context {
                 let shell_cmd = stack_pop!(
                     (self.stack) -> str as "command" for fn_name
                 )??;
-                let out = builtin::sh(&shell_cmd).map(Value::Num).map_err(Value::Str);
+                let out = builtins::sh(&shell_cmd).map(Value::Num).map_err(Value::Str);
                 self.stack.push_this(out);
             }
             "write-to" => {
@@ -367,7 +279,7 @@ impl Context {
                 let cont = stack_pop!(
                     (self.stack) -> str as "content" for fn_name
                 )??;
-                let out = builtin::write_to(&cont, &file)
+                let out = builtins::write_to(&cont, &file)
                     .map(Value::Num)
                     .map_err(Value::Str);
                 self.stack.push_this(out);
@@ -525,7 +437,7 @@ impl Context {
                     .pop_this(Value::get_str)
                     .expect("`%` needs at least [string]")
                     .expect("`%` [string] must be a string");
-                let out = builtin::fmt(&fmt, &mut self.stack);
+                let out = builtins::fmt(&fmt, &mut self.stack);
                 self.stack.push_this(out?);
             }
             "&str$has-prefix" => {
@@ -695,68 +607,3 @@ impl Context {
     }
 }
 
-mod builtin {
-    use super::*;
-    pub fn sh(shell_cmd: &str) -> OResult<isize, String> {
-        eprintln!("[CMD] {shell_cmd}");
-        Ok(0)
-        //std::proces::Command::new("bash")
-        //    .arg("-c")
-        //    .arg(shell_cmd)
-        //    .status()
-        //    .map(|s| s.code().unwrap_or(256) as isize)
-        //    .map_err(|e| e.to_string())
-    }
-    pub fn write_to(cont: &str, file: &str) -> OResult<isize, String> {
-        eprintln!("Write {} bytes to {file}", cont.len());
-        Ok(cont.len() as isize)
-    }
-    pub fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
-        let mut out = String::with_capacity(cont.len());
-        enum State {
-            Nothing,
-            OnFmt,
-        }
-        let mut state = State::Nothing;
-        for ch in cont.chars() {
-            state = match (state, ch) {
-                (State::Nothing, '%') => State::OnFmt,
-                (State::Nothing, ch) => {
-                    out.push(ch);
-                    State::Nothing
-                }
-                (State::OnFmt, '%') => {
-                    out.push('%');
-                    State::Nothing
-                }
-                (State::OnFmt, 's') => {
-                    let add_str = stack_pop!((stack) -> str as "%s" for "%")??;
-                    out.push_str(&add_str);
-                    State::Nothing
-                }
-                (State::OnFmt, 'd') => {
-                    let add_num = stack_pop!((stack) -> num as "%d" for "%")??;
-                    out.push_str(&add_num.to_string());
-                    State::Nothing
-                }
-                (State::OnFmt, 'v') => {
-                    let fmt = match stack.pop() {
-                        Some(x) => format!("{x:?}"),
-                        None => "<Nothing in stack>".to_string(),
-                    };
-                    out.push_str(&fmt);
-                    State::Nothing
-                }
-                (State::OnFmt, 'b') => {
-                    let add_bool = stack_pop!((stack) -> bool as "%b" for "%")??;
-                    out.push_str(&add_bool.to_string());
-                    State::Nothing
-                }
-                (State::OnFmt, x) => {
-                    return Err(SttError::RTUnknownStringFormat(x));
-                }
-            }
-        }
-        Ok(out)
-    }
-}
