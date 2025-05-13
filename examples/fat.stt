@@ -1,9 +1,10 @@
 (pragma set debug)
 (pragma set manual-map)
+(pragma set manual-array)
 (include stdlib)
 
 (fn) [n] fat {
-	(ifs) { n 1 = } {
+	(ifs) { n 1 <= } {
 		1
 	} {true} {
 			n -- fat
@@ -12,5 +13,13 @@
 	}
 }
 
-"uwu" err prt!
-none prt!
+<arr>
+0 fat ,
+1 fat ,
+2 fat ,
+3 fat ,
+4 fat ,
+5 fat ,
+6 fat ,
+</arr>
+prt
