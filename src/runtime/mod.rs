@@ -3,24 +3,14 @@ mod builtins;
 mod stack;
 use stack::*;
 
-//use std::marker::PhantomData;
-//pub struct DebugMode;
-//pub struct NormalMode;
-//trait ExecMode {}
-//impl ExecMode for DebugMode {}
-//impl ExecMode for NormalMode {}
-
-//pub struct Context<Mode: ExecMode> {
 #[derive(Default)]
 pub struct Context {
-    pub vars: HashMap<String, Value>,
-    pub fns: HashMap<FnName, FnDef>,
-    pub stack: Stack,
-    pub args: Option<HashMap<FnName, FnArg>>,
-    //pub _mode: PhantomData<Mode>,
+    vars: HashMap<String, Value>,
+    fns: HashMap<FnName, FnDef>,
+    stack: Stack,
+    args: Option<HashMap<FnName, FnArg>>,
 }
 
-//impl<M: ExecMode> Context<M> {
 impl Context {
     pub fn new() -> Self {
         Self {
@@ -28,11 +18,10 @@ impl Context {
             vars: HashMap::new(),
             stack: Stack::new(),
             args: None,
-            //_mode: PhantomData,
         }
     }
 
-    pub fn frame(
+    fn frame(
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
         args_ins: FnArgsIns,
@@ -62,14 +51,6 @@ impl Context {
         }
     }
 
-    pub fn debug_code(&mut self, code: &Code) {
-        for _expr in &code.exprs {
-            todo!();
-            //self.debug(expr);
-        }
-    }
-
-    //TODO fn to change in debug mode
     pub fn execute_code(&mut self, code: &[Expr], source: &Path) -> Result<ControlFlow> {
         for expr in code {
             match self.execute_expr(expr, source)? {
@@ -80,7 +61,7 @@ impl Context {
         Ok(ControlFlow::Continue)
     }
 
-    pub fn execute_check(&mut self, code: &[Expr], source: &Path) -> Result<bool> {
+    fn execute_check(&mut self, code: &[Expr], source: &Path) -> Result<bool> {
         let old_stack_size = self.stack.len();
         for expr in code {
             self.execute_expr(expr, source)?;
@@ -103,7 +84,7 @@ impl Context {
         }
     }
 
-    pub fn execute_expr(&mut self, expr: &Expr, source: &Path) -> Result<ControlFlow> {
+    fn execute_expr(&mut self, expr: &Expr, source: &Path) -> Result<ControlFlow> {
         match &expr.cont {
             ExprCont::FnCall(name) => self.execute_fn(name, source)?,
             ExprCont::Keyword(kw) => {
