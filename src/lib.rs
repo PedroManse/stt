@@ -473,6 +473,7 @@ pub struct SwitchCase {
 
 #[derive(Clone, Debug)]
 pub struct Expr {
+    #[allow(dead_code)]
     span: Range<usize>,
     cont: ExprCont,
 }
