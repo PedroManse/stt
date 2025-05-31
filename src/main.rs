@@ -11,11 +11,13 @@ use stt::*;
 // TODO char variable type
 
 // TODO function variable type
+// syntax for closure, @ for apply
+// : [a b]{a b +} 3 @ 5 @
+// or use function as closure
+// : (fn) [a b] sum {a b +}
+// : (@sum) 3 @ 5 @
 
 // TODO (!) = (ifs) {dup result$ok-is not } { (return) } {true} { ! }
-
-
-// Is there a reason to *require* check code blocks to make stack n+1 of original stack?
 
 #[derive(PartialEq)]
 pub enum SttMode {
