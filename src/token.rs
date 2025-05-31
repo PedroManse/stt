@@ -177,7 +177,7 @@ impl Context {
                 (OnComment, '\n') => {
                     self.last_token_pos = self.point;
                     Nothing
-                },
+                }
                 (OnComment, _) => OnComment,
 
                 (Nothing, matches!(space)) => Nothing,
@@ -205,6 +205,10 @@ impl Context {
         let mut chars: Vec<char> = code.chars().collect();
         chars.push('\n'); // to force close comments
         chars.push('}'); // to show EOF
-        Self { point: 0, chars, last_token_pos: 0 }
+        Self {
+            point: 0,
+            chars,
+            last_token_pos: 0,
+        }
     }
 }

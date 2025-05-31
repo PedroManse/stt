@@ -62,4 +62,3 @@ pub fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
     }
     Ok(out)
 }
-

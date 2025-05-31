@@ -59,7 +59,7 @@ impl<'p> Context<'p> {
                         get_tokens_with_procvars(include_path, proc_vars)
                     }?;
                     let included_tokens = TokenCont::IncludedBlock(included_tokens);
-                    let included_tokens = Token{
+                    let included_tokens = Token {
                         cont: included_tokens,
                         span,
                     };

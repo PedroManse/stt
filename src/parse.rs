@@ -75,7 +75,10 @@ impl Context {
                 (s, IncludedBlock(code)) => {
                     let mut inner_ctx = Context::new(code.tokens);
                     let parsed_code = inner_ctx.parse_block()?;
-                    push_expr!(E::IncludedCode(Code { source: code.source, exprs: parsed_code }));
+                    push_expr!(E::IncludedCode(Code {
+                        source: code.source,
+                        exprs: parsed_code
+                    }));
                     s
                 }
 

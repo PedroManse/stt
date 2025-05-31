@@ -1,7 +1,7 @@
 pub mod api;
-pub mod runtime;
 pub mod parse;
 pub mod preproc;
+pub mod runtime;
 pub mod token;
 pub use api::*;
 
@@ -153,15 +153,13 @@ impl Closure {
     pub fn fill(mut self, value: Value) -> Result<ClosureCurry> {
         if let Err(r) = self.request_args.fill(value) {
             return Err(match r {
-                ClosureFillError::Overwrite(removed, index) => {
-                    SttError::DEVOverwrittenClosure {
-                        closure: self,
-                        index,
-                        removed,
-                    }
-                }
+                ClosureFillError::Overwrite(removed, index) => SttError::DEVOverwrittenClosure {
+                    closure: self,
+                    index,
+                    removed,
+                },
                 ClosureFillError::OutOfBound => SttError::DEVFillFullClosure { closure: self },
-            })
+            });
         }
         Ok(if self.request_args.is_full() {
             ClosureCurry::Full(self)
@@ -398,7 +396,7 @@ impl Value {
             Map(_) => "Map",
             Result(_) => "Result",
             Option(_) => "Option",
-            Closure(_) => "Closure"
+            Closure(_) => "Closure",
         }
     }
 }

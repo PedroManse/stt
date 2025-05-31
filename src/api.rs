@@ -38,10 +38,7 @@ pub fn preproc_tokens_with_vars(
 pub fn parse_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<Code> {
     let mut parser = parse::Context::new(tokens);
     let exprs = parser.parse_block()?;
-    Ok(Code{
-        exprs,
-        source,
-    })
+    Ok(Code { exprs, source })
 }
 
 pub fn execute_code(code: Code) -> Result<()> {
@@ -77,5 +74,3 @@ pub fn execute_file(path: impl AsRef<Path>) -> Result<()> {
     let expr_block = get_project_code(path)?;
     execute_code(expr_block)
 }
-
-
