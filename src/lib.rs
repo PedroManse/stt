@@ -45,7 +45,7 @@ pub enum SttError {
         for_fn: String,
         args: &'static str,
         this_arg: &'static str,
-        got: Value,
+        got: Box<Value>,
         expected: &'static str,
     },
     #[error(
@@ -296,7 +296,7 @@ pub enum Value {
     Map(HashMap<String, Value>),
     Result(Box<OResult<Value, Value>>),
     Option(Option<Box<Value>>),
-    Closure(Closure),
+    Closure(Box<Closure>),
 }
 
 impl Value {

@@ -38,7 +38,7 @@ macro_rules! stack_pop {
                         for_fn: $fn_name.to_owned(),
                         args: stringify!( [ $this_arg: $type ] ),
                         this_arg: $this_arg,
-                        got,
+                        got: Box::new(got),
                         expected: sget!($type).2
                     }
                 })
@@ -82,7 +82,7 @@ macro_rules! stack_pop {
                         for_fn: $fn_name.to_owned(),
                         args: stringify!( [ $this_arg: $ty ] ),
                         this_arg: $this_arg,
-                        got: got.clone(),
+                        got: Box::new(got.clone()),
                         expected: sget!($type).2
                     }
                 })

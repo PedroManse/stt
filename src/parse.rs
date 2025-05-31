@@ -86,10 +86,11 @@ impl Context {
                 (MakeClosureBlock(args), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
                     let code = inner_ctx.parse_block()?;
-                    push_expr!(E::Immediate(Value::Closure(Closure {
+                    let closure = Closure {
                         code,
-                        request_args: ClosureArgs::new(args)
-                    })));
+                        request_args: ClosureArgs::new(args),
+                    };
+                    push_expr!(E::Immediate(Value::Closure(Box::new(closure))));
                     Nothing
                 }
 

@@ -2,6 +2,7 @@ use crate::*;
 mod builtins;
 mod stack;
 use stack::*;
+use std::boxed::Box;
 
 #[derive(Default)]
 pub struct Context {
@@ -380,7 +381,7 @@ impl Context {
                             for_fn: fn_name.to_string(),
                             args: "[Monad]",
                             this_arg: "Monad",
-                            got: e,
+                            got: Box::new(e),
                             expected: "Result or Option",
                         });
                     }
@@ -513,7 +514,7 @@ impl Context {
                         args: "[array joiner]",
                         this_arg: "array",
                         expected: "String array",
-                        got,
+                        got: Box::new(got),
                     })?;
                 self.stack.push_this(arr.join(&joiner));
             }
