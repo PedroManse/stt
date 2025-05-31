@@ -30,10 +30,10 @@ fn execute(mode: SttMode, file_path: String) -> Result<()> {
     use SttMode as M;
     match mode {
         M::Normal => {
-            execute_file(file_path, runtime::ExecMode::Normal)?;
+            execute_file(file_path)?;
         }
         M::Debug => {
-            execute_file(file_path, runtime::ExecMode::Debug)?;
+            todo!()
         }
         M::SyntaxCheck => {
             get_project_code(file_path)?;

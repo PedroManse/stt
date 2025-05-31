@@ -7,8 +7,6 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use self::runtime::ExecMode;
-
 pub type OResult<T, E> = std::result::Result<T, E>;
 pub type Result<T> = std::result::Result<T, SttError>;
 
@@ -58,8 +56,6 @@ pub enum SttError {
     MissingChar,
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
     #[error("TODO")]
     TodoErr,
     #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
@@ -138,8 +134,8 @@ pub fn parse_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<Code> {
     })
 }
 
-pub fn execute_code(code: Code, mode: ExecMode) -> Result<()> {
-    let mut executioner = runtime::Context::new(mode);
+pub fn execute_code(code: Code) -> Result<()> {
+    let mut executioner = runtime::Context::new();
     executioner.execute_code(&code.exprs, &code.source)?;
     Ok(())
 }
@@ -167,9 +163,9 @@ pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
     Ok(Code { exprs, source })
 }
 
-pub fn execute_file(path: impl AsRef<Path>, mode: ExecMode) -> Result<()> {
+pub fn execute_file(path: impl AsRef<Path>) -> Result<()> {
     let expr_block = get_project_code(path)?;
-    execute_code(expr_block, mode)
+    execute_code(expr_block)
 }
 
 #[derive(Clone, Debug)]
@@ -487,6 +483,12 @@ pub enum ExprCont {
     FnCall(FnName),
     Keyword(KeywordKind),
     IncludedCode(Code),
+}
+
+pub enum ControlFlow {
+    Continue,
+    Break,
+    Return,
 }
 
 #[derive(Debug)]

@@ -3,34 +3,32 @@ mod builtins;
 mod stack;
 use stack::*;
 
-pub enum ControlFlow {
-    Continue,
-    Break,
-    Return,
-}
+//use std::marker::PhantomData;
+//pub struct DebugMode;
+//pub struct NormalMode;
+//trait ExecMode {}
+//impl ExecMode for DebugMode {}
+//impl ExecMode for NormalMode {}
 
-#[derive(Clone, Copy)]
-pub enum ExecMode {
-    Normal,
-    Debug,
-}
-
+//pub struct Context<Mode: ExecMode> {
+#[derive(Default)]
 pub struct Context {
     pub vars: HashMap<String, Value>,
     pub fns: HashMap<FnName, FnDef>,
     pub stack: Stack,
     pub args: Option<HashMap<FnName, FnArg>>,
-    pub mode: ExecMode,
+    //pub _mode: PhantomData<Mode>,
 }
 
+//impl<M: ExecMode> Context<M> {
 impl Context {
-    pub fn new(mode: ExecMode) -> Self {
+    pub fn new() -> Self {
         Self {
             fns: HashMap::new(),
             vars: HashMap::new(),
             stack: Stack::new(),
             args: None,
-            mode,
+            //_mode: PhantomData,
         }
     }
 
@@ -38,7 +36,6 @@ impl Context {
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
         args_ins: FnArgsIns,
-        mode: ExecMode,
     ) -> Self {
         let stack;
         let args;
@@ -62,10 +59,17 @@ impl Context {
             vars,
             args,
             stack,
-            mode,
         }
     }
 
+    pub fn debug_code(&mut self, code: &Code) {
+        for _expr in &code.exprs {
+            todo!();
+            //self.debug(expr);
+        }
+    }
+
+    //TODO fn to change in debug mode
     pub fn execute_code(&mut self, code: &[Expr], source: &Path) -> Result<ControlFlow> {
         for expr in code {
             match self.execute_expr(expr, source)? {
@@ -219,7 +223,7 @@ impl Context {
             cap: args,
             parent: self.args.clone(),
         };
-        let mut fn_ctx = Context::frame(self.fns.clone(), vars, args, self.mode);
+        let mut fn_ctx = Context::frame(self.fns.clone(), vars, args);
 
         // handle (return) kw and RT errors inside functions
         if let Err(e) = fn_ctx.execute_code(&user_fn.code, source) {
