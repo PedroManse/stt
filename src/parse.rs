@@ -24,6 +24,8 @@ enum State {
 
     MakeWhile,
     MakeWhileCode(Vec<Expr>),
+
+    MakeClosureBlock(Vec<String>),
 }
 
 impl Context {
@@ -40,7 +42,7 @@ impl Context {
             cum_span.end = span.end;
             macro_rules! push_expr {
                 ($expr:expr) => {
-                    out.push(Expr{
+                    out.push(Expr {
                         cont: $expr,
                         span: cum_span,
                     });
@@ -75,7 +77,17 @@ impl Context {
                     let parsed_code = inner_ctx.parse_block()?;
                     push_expr!(E::IncludedCode(Code { source: code.source, exprs: parsed_code }));
                     s
+                }
 
+                (Nothing, FnArgs(args)) => MakeClosureBlock(args),
+                (MakeClosureBlock(args), Block(code)) => {
+                    let mut inner_ctx = Context::new(code);
+                    let code = inner_ctx.parse_block()?;
+                    push_expr!(E::Immediate(Value::Closure(Closure {
+                        code,
+                        request_args: ClosureArgs::new(args)
+                    })));
+                    Nothing
                 }
 
                 (Nothing, Keyword(RawKeyword::Switch)) => MakeSwitch(vec![]),
@@ -99,7 +111,10 @@ impl Context {
                 (MakeSwitch(cases), cont) => {
                     match cont {
                         EndOfBlock => {}
-                        cont => self.unget(Token { cont, span: span.clone() }),
+                        cont => self.unget(Token {
+                            cont,
+                            span: span.clone(),
+                        }),
                     };
                     push_expr!(E::Keyword(KeywordKind::Switch {
                         cases,
@@ -129,7 +144,10 @@ impl Context {
                 (MakeIfs(branches), cont) => {
                     match cont {
                         EndOfBlock => {}
-                        cont => self.unget(Token { cont, span: span.clone() }),
+                        cont => self.unget(Token {
+                            cont,
+                            span: span.clone(),
+                        }),
                     };
                     push_expr!(E::Keyword(KeywordKind::Ifs { branches }));
                     Nothing

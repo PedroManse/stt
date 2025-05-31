@@ -78,10 +78,18 @@ pub enum SttError {
     RTUnknownStringFormat(char),
     #[error("Switch case with no value")]
     RTSwitchCaseWithNoValue,
+    #[error("Closure's arguments ({:?}) are filled, but still tried to add more", closure.request_args)]
+    DEVFillFullClosure { closure: Closure },
+    #[error("Closure's arguments ({:?}) have been overwritten at [{}] previous value was {:?}", closure.request_args, index, removed)]
+    DEVOverwrittenClosure {
+        closure: Closure,
+        index: usize,
+        removed: Value,
+    },
 }
 
 #[derive(Clone, Debug)]
-pub struct Code{
+pub struct Code {
     pub source: PathBuf,
     pub exprs: Vec<Expr>,
 }
@@ -92,14 +100,80 @@ impl Code {
     }
 }
 
-
-
-
-
 #[derive(Clone, Debug)]
 pub enum FnArgs {
     Args(Vec<String>),
     AllStack,
+}
+
+pub enum ClosureCurry {
+    Full(Closure),
+    Partial(Closure),
+}
+
+pub enum ClosureFillError {
+    OutOfBound,
+    Overwrite(Value, usize),
+}
+
+#[derive(Clone, Debug)]
+pub struct ClosureArgs {
+    args: Vec<(String, Option<Value>)>,
+    next: usize,
+}
+impl ClosureArgs {
+    pub fn new(arg_list: Vec<String>) -> Self {
+        ClosureArgs {
+            args: arg_list.into_iter().map(|r| (r, None)).collect(),
+            next: 0,
+        }
+    }
+    pub fn fill(&mut self, value: Value) -> OResult<(), ClosureFillError> {
+        let next_arg = self
+            .args
+            .get_mut(self.next)
+            .ok_or(ClosureFillError::OutOfBound)?;
+        if let Some(n) = next_arg.1.replace(value) {
+            return Err(ClosureFillError::Overwrite(n, self.next));
+        }
+        self.next += 1;
+        Ok(())
+    }
+    pub fn is_full(&self) -> bool {
+        self.args.len() >= self.next
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Closure {
+    code: Vec<Expr>,
+    request_args: ClosureArgs,
+}
+impl Closure {
+    pub fn fill(mut self, value: Value) -> Result<ClosureCurry> {
+        if let Err(r) = self.request_args.fill(value) {
+            return Err(match r {
+                ClosureFillError::Overwrite(removed, index) => {
+                    SttError::DEVOverwrittenClosure {
+                        closure: self,
+                        index,
+                        removed,
+                    }
+                }
+                ClosureFillError::OutOfBound => SttError::DEVFillFullClosure { closure: self },
+            })
+        }
+        Ok(if self.request_args.is_full() {
+            ClosureCurry::Full(self)
+        } else {
+            ClosureCurry::Partial(self)
+        })
+    }
+}
+impl PartialEq for Closure {
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
 }
 
 impl FnArgs {
@@ -224,6 +298,7 @@ pub enum Value {
     Map(HashMap<String, Value>),
     Result(Box<OResult<Value, Value>>),
     Option(Option<Box<Value>>),
+    Closure(Closure),
 }
 
 impl Value {
@@ -323,6 +398,7 @@ impl Value {
             Map(_) => "Map",
             Result(_) => "Result",
             Option(_) => "Option",
+            Closure(_) => "Closure"
         }
     }
 }
