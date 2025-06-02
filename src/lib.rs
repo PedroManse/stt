@@ -312,6 +312,12 @@ impl Value {
             o => Err(o),
         }
     }
+    pub fn get_closure(self) -> OResult<Closure, Value> {
+        match self {
+            Value::Closure(x) => Ok(*x),
+            o => Err(o),
+        }
+    }
     pub fn get_str(self) -> OResult<String, Value> {
         match self {
             Value::Str(x) => Ok(x),
@@ -352,6 +358,12 @@ impl Value {
     pub fn get_ref_result(&self) -> OResult<&OResult<Value, Value>, &Value> {
         match self {
             Value::Result(x) => Ok(x),
+            o => Err(o),
+        }
+    }
+    pub fn get_ref_closure(&self) -> OResult<&Closure, &Value> {
+        match self {
+            Value::Closure(x) => Ok(x),
             o => Err(o),
         }
     }
