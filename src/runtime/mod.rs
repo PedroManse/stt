@@ -357,8 +357,8 @@ impl Context {
                 self.stack.push_this(eq);
             }
             "@" => {
-                let cl = stack_pop!((self.stack) -> closure as "closure" for fn_name)?;
                 let v = stack_pop!((self.stack) -> * as "value" for fn_name)?;
+                let cl = stack_pop!((self.stack) -> closure as "closure" for fn_name)?;
                 match cl.fill(v)? {
                     ClosureCurry::Partial(cl) => {
                         self.stack.push_this(cl);
