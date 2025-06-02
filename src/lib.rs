@@ -144,7 +144,7 @@ impl ClosurePartialArgs {
         Ok(())
     }
     pub fn is_full(&self) -> bool {
-        self.next_args.len() == 0
+        self.next_args.is_empty()
     }
 }
 
