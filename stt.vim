@@ -7,10 +7,16 @@ syn keyword SttVarOp get set
 hi def link SttVarOp Keyword
 
 " (while) (ifs)
-syn match SttOpenParam "(" nextgroup=SttKeyword,SttInclude,SttFnDef
+syn match SttOpenParam "(" nextgroup=SttKeyword,SttInclude,SttFnDef,SttPragma
 syn keyword SttKeyword while ifs contained
 syn match SttCloseParam ")" contained
 hi def link     SttKeyword        Keyword
+
+" (pragma)
+syn match SttPragma "pragma " nextgroup=SttPragmaCommand contained
+hi def link     SttPragma        Keyword
+hi def link     SttPragmaCommand        Number
+syn match SttPragmaCommand "\(\(if not\|if\|set\|unset\) [a-zA-Z]\+\|\(else\|end if\)\)" contained nextgroup=SttCloseParam
 
 " (include)
 syn keyword SttInclude include nextgroup=SttIncludeFilePath contained
@@ -31,8 +37,8 @@ syn match SttFnDefStart ") " contained nextgroup=SttFnDefArgsStartEmpty,SttFnDef
 syn match SttFnDefArgsAllStack "\*" contained
 
 " " parse [...] args
-syn match SttFnDefArgsStartArgs "\[" contained nextgroup=SttFnDefArgsArg,SttFnDefArgsEnd
-syn match SttFnDefArgsStartEmpty "\[\]" contained
+syn match SttFnDefArgsStartArgs "\[\s*" contained nextgroup=SttFnDefArgsArg,SttFnDefArgsEnd
+syn match SttFnDefArgsStartEmpty "\[\s*\]" contained
 syn match SttFnDefArgsArg "\<\w\+\> \?" nextgroup=SttFnDefArgsArg,SttFnDefArgsEnd contained
 syn match SttFnDefArgsEnd "\]" contained
 
