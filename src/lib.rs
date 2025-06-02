@@ -156,7 +156,7 @@ pub struct Closure {
 
 pub struct FullClosure {
     code: Vec<Expr>,
-    request_args: HashMap<String, Value>,
+    request_args: HashMap<FnName, FnArg>,
 }
 
 impl Closure {
@@ -174,7 +174,12 @@ impl Closure {
             });
         }
         Ok(if self.request_args.is_full() {
-            let args: HashMap<String, Value> = self.request_args.filled_args.into_iter().collect();
+            let args: HashMap<FnName, FnArg> = self
+                .request_args
+                .filled_args
+                .into_iter()
+                .map(|(k, v)| (FnName(k), FnArg(v)))
+                .collect();
             ClosureCurry::Full(FullClosure {
                 code: self.code,
                 request_args: args,
@@ -513,6 +518,7 @@ pub struct Expr {
     cont: ExprCont,
 }
 
+// TODO use closure as own kind of expr, to enable argument capture
 #[derive(Clone, Debug)]
 pub enum ExprCont {
     Immediate(Value),
