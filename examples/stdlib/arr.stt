@@ -29,3 +29,61 @@
 	arr$pack-n
 }
 (pragma end if)
+
+# map [arr, closure]
+# arr$new                   | [ {out-arr} ]
+# arr                       | [ {out-arr} {in-arr} ]
+# while { &arr$len 0 != } { | [ {out-arr} {in-arr...} ]
+#  arr$pop !                | [ {out-arr} {in-arr} item ]
+#  closure flip             | [ {out-arr} {in-arr} {closure} item ]
+#  @                        | [ {out-arr} {in-arr} {closure(item)} ]
+#  pull3                    | [ {in-arr} {closure(item)} {out-arr} ]
+#  arr$append               | [ {in-arr} {out-arr} ]
+#  flip                     | [ {out-arr} {in-arr} ]
+# }
+# drop                      | [ out-arr ]
+
+(fn) [arr closure] arr$map {
+	arr$new
+	arr
+	(while) { &arr$len 0 = not } {
+		arr$pop !
+		closure flip
+		@
+		pull3
+		arr$append
+		flip
+	}
+	drop
+	arr$reverse
+}
+
+# filter [arr, closure]
+# arr$new                      | [ {out-arr} ]
+# arr                          | [ {out-arr} {in-arr} ]
+# while { &arr$len 0 != } {    | [ {out-arr} {in-arr...} ]
+#  arr$pop !                   | [ {out-arr} {in-arr} item ]
+#  if { dup closure flip @ } { | [ {out-arr} {in-arr} item {closure(item)} ]
+#  	 pull3                     | [ {in-arr} item {out-arr}  ]
+#  	 arr$append                | [ {in-arr} {out-arr} ]
+#  	 flip                      | [ {out-arr} {in-arr} ]
+#  } else {drop}               | [ {out-arr} {in-arr} ]
+# }
+# drop                         | [ {out-arr} ]
+
+(fn) [arr closure] arr$filter {
+	arr$new
+	arr
+	(while) { &arr$len 0 = not } {
+		arr$pop !
+		(ifs) { dup closure flip @ } {
+			pull3
+			arr$append
+			flip
+		} { true } {
+			drop
+		}
+	}
+	drop
+	arr$reverse
+}

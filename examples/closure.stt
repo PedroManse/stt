@@ -1,17 +1,15 @@
+#! ./target/debug/stt
+(pragma set manual-array)
 (pragma set debug)
 (include stdlib)
 
-[a b]{
-	a b +
-} dup
-	3 @ 5 @
-	flip
-		0 5 - @ 3 @
-prt prt
+<arr>
+1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 ,
+</arr>
 
-(fn) [ ] sum-with-three {
-	[a b]{
-		a b +	
-	} 3 @
-}
-sum-with-three 5 @ prt
+[a]{ a 2 % 0 = }
+
+
+arr$filter
+
+prt
