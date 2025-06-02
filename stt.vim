@@ -16,7 +16,7 @@ hi def link     SttKeyword        Keyword
 syn match SttPragma "pragma " nextgroup=SttPragmaCommand contained
 hi def link     SttPragma        Keyword
 hi def link     SttPragmaCommand        Number
-syn match SttPragmaCommand "\(\(if not\|if\|set\|unset\) [a-zA-Z]\+\|\(else\|end if\)\)" contained nextgroup=SttCloseParam
+syn match SttPragmaCommand "\(\(if not\|if\|set\|unset\) [^)]\+\|\(else\|end if\)\)" contained nextgroup=SttCloseParam
 
 " (include)
 syn keyword SttInclude include nextgroup=SttIncludeFilePath contained
