@@ -1,4 +1,17 @@
+(pragma set debug)
+(include stdlib)
+
 [a b]{
 	a b +
+} dup
+	3 @ 5 @
+	flip
+		0 5 - @ 3 @
+prt prt
+
+(fn) [ ] sum-with-three {
+	[a b]{
+		a b +	
+	} 3 @
 }
-debug$stack
+sum-with-three 5 @ prt
