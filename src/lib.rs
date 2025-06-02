@@ -107,7 +107,7 @@ pub enum FnArgs {
 }
 
 pub enum ClosureCurry {
-    Full(Closure),
+    Full(FullClosure),
     Partial(Closure),
 }
 
@@ -117,38 +117,40 @@ pub enum ClosureFillError {
 }
 
 #[derive(Clone, Debug)]
-pub struct ClosureArgs {
-    args: Vec<(String, Option<Value>)>,
-    next: usize,
+pub struct ClosurePartialArgs {
+    next_args: Vec<String>,
+    filled_args: Vec<(String, Value)>
 }
-impl ClosureArgs {
-    pub fn new(arg_list: Vec<String>) -> Self {
-        ClosureArgs {
-            args: arg_list.into_iter().map(|r| (r, None)).collect(),
-            next: 0,
+
+impl ClosurePartialArgs {
+    pub fn new(mut arg_list: Vec<String>) -> Self {
+        arg_list.reverse();
+        ClosurePartialArgs {
+            filled_args: Vec::with_capacity(arg_list.len()),
+            next_args: arg_list,
         }
     }
     pub fn fill(&mut self, value: Value) -> OResult<(), ClosureFillError> {
-        let next_arg = self
-            .args
-            .get_mut(self.next)
-            .ok_or(ClosureFillError::OutOfBound)?;
-        if let Some(n) = next_arg.1.replace(value) {
-            return Err(ClosureFillError::Overwrite(n, self.next));
-        }
-        self.next += 1;
+        let next = self.next_args.pop().ok_or(ClosureFillError::OutOfBound)?;
+        self.filled_args.push((next, value));
         Ok(())
     }
     pub fn is_full(&self) -> bool {
-        self.args.len() >= self.next
+        self.next_args.len() == 0
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Closure {
     code: Vec<Expr>,
-    request_args: ClosureArgs,
+    request_args: ClosurePartialArgs,
 }
+
+pub struct FullClosure {
+    code: Vec<Expr>,
+    request_args: HashMap<String, Value>
+}
+
 impl Closure {
     pub fn fill(mut self, value: Value) -> Result<ClosureCurry> {
         if let Err(r) = self.request_args.fill(value) {
@@ -162,7 +164,8 @@ impl Closure {
             });
         }
         Ok(if self.request_args.is_full() {
-            ClosureCurry::Full(self)
+            let args: HashMap<String, Value> = self.request_args.filled_args.into_iter().collect();
+            ClosureCurry::Full(FullClosure { code: self.code, request_args: args })
         } else {
             ClosureCurry::Partial(self)
         })
