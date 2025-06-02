@@ -240,7 +240,7 @@ impl Context {
             "sys$exit" => {
                 let code = stack_pop!(
                     (self.stack) -> num as "exit_code" for fn_name
-                )??;
+                )?;
                 std::process::exit(code as i32);
             }
             "sys$argv" => {
@@ -250,17 +250,17 @@ impl Context {
             "sh" => {
                 let shell_cmd = stack_pop!(
                     (self.stack) -> str as "command" for fn_name
-                )??;
+                )?;
                 let out = builtins::sh(&shell_cmd).map(Value::Num).map_err(Value::Str);
                 self.stack.push_this(out);
             }
             "write-to" => {
                 let file = stack_pop!(
                     (self.stack) -> str as "file" for fn_name
-                )??;
+                )?;
                 let cont = stack_pop!(
                     (self.stack) -> str as "content" for fn_name
-                )??;
+                )?;
                 let out = builtins::write_to(&cont, &file)
                     .map(Value::Num)
                     .map_err(Value::Str);
@@ -271,19 +271,19 @@ impl Context {
             "-" => {
                 let rhs = stack_pop!(
                     (self.stack) -> num as "rhs" for fn_name
-                )??;
+                )?;
                 let lhs = stack_pop!(
                     (self.stack) -> num as "lhs" for fn_name
-                )??;
+                )?;
                 self.stack.push_this(lhs - rhs);
             }
             "*" => {
                 let rhs = stack_pop!(
                     (self.stack) -> num as "rhs" for fn_name
-                )??;
+                )?;
                 let lhs = stack_pop!(
                     (self.stack) -> num as "lhs" for fn_name
-                )??;
+                )?;
                 self.stack.push_this(lhs * rhs);
             }
             "≃" => {
@@ -340,7 +340,7 @@ impl Context {
             "set" => {
                 let name = stack_pop!(
                     (self.stack) -> str as "name" for fn_name
-                )??;
+                )?;
                 let value = stack_pop!(
                     (self.stack) -> * as "value" for fn_name
                 )?;
@@ -349,7 +349,7 @@ impl Context {
             "get" => {
                 let name = stack_pop!(
                     (self.stack) -> str as "name" for fn_name
-                )??;
+                )?;
                 match self.vars.get(&name) {
                     None => {
                         return Err(SttError::NoSuchVariable(name));
@@ -403,12 +403,12 @@ impl Context {
                 self.stack.push_this(Some(v));
             }
             "&result$is-ok" => {
-                let is_ok = stack_pop!((self.stack) -> &result as "result" for fn_name)??.is_ok();
+                let is_ok = stack_pop!((self.stack) -> &result as "result" for fn_name)?.is_ok();
                 self.stack.push_this(is_ok);
             }
             "&option$is-some" => {
                 let is_some =
-                    stack_pop!((self.stack) -> &option as "option" for fn_name)??.is_some();
+                    stack_pop!((self.stack) -> &option as "option" for fn_name)?.is_some();
                 self.stack.push_this(is_some);
             }
 
@@ -425,15 +425,15 @@ impl Context {
             "&str$has-prefix" => {
                 let prefix = stack_pop!(
                     (self.stack) -> str as "prefix" for fn_name
-                )??;
-                let s = stack_pop!((self.stack) -> &str as "string" for fn_name)??;
+                )?;
+                let s = stack_pop!((self.stack) -> &str as "string" for fn_name)?;
                 let has = s.starts_with(&prefix);
                 self.stack.push_this(has);
             }
             "str$trim" => {
                 let v = stack_pop!(
                     (self.stack) -> str as "string" for fn_name
-                )??;
+                )?;
                 self.stack.push_this(v.trim().to_owned());
             }
             "str$remove-prefix" => {
@@ -451,18 +451,18 @@ impl Context {
                 self.stack.push_this(out);
             }
             "str$into-arr" => {
-                let string = stack_pop!((self.stack) -> str as "string" for fn_name)??;
+                let string = stack_pop!((self.stack) -> str as "string" for fn_name)?;
                 let chars: Vec<_> = string.chars().map(String::from).map(Value::from).collect();
                 self.stack.push_this(chars);
             }
 
             // seq array
             "&arr$len" => {
-                let arr_len = stack_pop!((self.stack) -> &arr as "array" for fn_name)??.len();
+                let arr_len = stack_pop!((self.stack) -> &arr as "array" for fn_name)?.len();
                 self.stack.push_this(arr_len as isize);
             }
             "arr$reverse" => {
-                let mut arr = stack_pop!((self.stack) -> arr as "arr" for fn_name)??;
+                let mut arr = stack_pop!((self.stack) -> arr as "arr" for fn_name)?;
                 arr.reverse();
                 self.stack.push_this(arr);
             }
@@ -477,7 +477,7 @@ impl Context {
                 self.stack.push_this(len as isize);
             }
             "arr$pack-n" => {
-                let count = stack_pop!((self.stack) -> num as "count" for fn_name)??;
+                let count = stack_pop!((self.stack) -> num as "count" for fn_name)?;
                 let xs = self.stack.popn(count as usize).ok_or_else(|| {
                     let got = self.stack.len() as isize;
                     let missing = count - got;
@@ -503,8 +503,8 @@ impl Context {
                 self.stack.push_this(arr);
             }
             "arr$join" => {
-                let joiner = stack_pop!((self.stack) -> str as "joiner" for fn_name)??;
-                let arr = stack_pop!((self.stack) -> arr as "array" for fn_name)??;
+                let joiner = stack_pop!((self.stack) -> str as "joiner" for fn_name)?;
+                let arr = stack_pop!((self.stack) -> arr as "array" for fn_name)?;
                 let arr = arr
                     .into_iter()
                     .map(|i| i.get_str())
@@ -529,18 +529,18 @@ impl Context {
                 )?;
                 let key = stack_pop!(
                     (self.stack) -> str as "key" for fn_name
-                )??;
+                )?;
                 let mut map = stack_pop!(
                     (self.stack) -> map as "map" for fn_name
-                )??;
+                )?;
                 map.insert(key, value);
                 self.stack.push_this(map);
             }
             "map$get" => {
                 let key = stack_pop!(
                     (self.stack) -> str as "key" for fn_name
-                )??;
-                let got = stack_pop!((self.stack) -> &map as "map" for fn_name)??
+                )?;
+                let got = stack_pop!((self.stack) -> &map as "map" for fn_name)?
                     .get(&key)
                     .cloned();
                 self.stack.push_this(got);
@@ -548,23 +548,23 @@ impl Context {
 
             // seq type
             "type$is-str" => {
-                let is_type = stack_pop!((self.stack) -> str as "value" for fn_name)?.is_ok();
+                let is_type = stack_pop!((self.stack) -> str as "value" for fn_name).is_ok();
                 self.stack.push_this(is_type);
             }
             "type$is-num" => {
-                let is_type = stack_pop!((self.stack) -> num as "value" for fn_name)?.is_ok();
+                let is_type = stack_pop!((self.stack) -> num as "value" for fn_name).is_ok();
                 self.stack.push_this(is_type);
             }
             "type$is-bool" => {
-                let is_type = stack_pop!((self.stack) -> bool as "value" for fn_name)?.is_ok();
+                let is_type = stack_pop!((self.stack) -> bool as "value" for fn_name).is_ok();
                 self.stack.push_this(is_type);
             }
             "type$is-array" => {
-                let is_type = stack_pop!((self.stack) -> arr as "value" for fn_name)?.is_ok();
+                let is_type = stack_pop!((self.stack) -> arr as "value" for fn_name).is_ok();
                 self.stack.push_this(is_type);
             }
             "type$is-map" => {
-                let is_type = stack_pop!((self.stack) -> map as "value" for fn_name)?.is_ok();
+                let is_type = stack_pop!((self.stack) -> map as "value" for fn_name).is_ok();
                 self.stack.push_this(is_type);
             }
             "type$is-result" => {
@@ -572,7 +572,7 @@ impl Context {
                 self.stack.push_this(is_type);
             }
             "type$is-option" => {
-                let is_type = stack_pop!((self.stack) -> option as "value" for fn_name)?.is_ok();
+                let is_type = stack_pop!((self.stack) -> option as "value" for fn_name).is_ok();
                 self.stack.push_this(is_type);
             }
 

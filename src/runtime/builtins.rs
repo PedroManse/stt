@@ -33,12 +33,12 @@ pub fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
                 State::Nothing
             }
             (State::OnFmt, 's') => {
-                let add_str = stack_pop!((stack) -> str as "%s" for "%")??;
+                let add_str = stack_pop!((stack) -> str as "%s" for "%")?;
                 out.push_str(&add_str);
                 State::Nothing
             }
             (State::OnFmt, 'd') => {
-                let add_num = stack_pop!((stack) -> num as "%d" for "%")??;
+                let add_num = stack_pop!((stack) -> num as "%d" for "%")?;
                 out.push_str(&add_num.to_string());
                 State::Nothing
             }
@@ -51,7 +51,7 @@ pub fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
                 State::Nothing
             }
             (State::OnFmt, 'b') => {
-                let add_bool = stack_pop!((stack) -> bool as "%b" for "%")??;
+                let add_bool = stack_pop!((stack) -> bool as "%b" for "%")?;
                 out.push_str(&add_bool.to_string());
                 State::Nothing
             }

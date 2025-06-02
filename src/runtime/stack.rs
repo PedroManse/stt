@@ -35,7 +35,7 @@ macro_rules! stack_pop {
                 args: format!( "[{}: {}]", $this_arg, sget!($type).2 ),
                 this_arg: $this_arg,
             })
-            .map(|got_v|{
+            .and_then(|got_v|{
                 got_v.map_err(|got|{
                     SttError::WrongTypeForBuiltin {
                         for_fn: $fn_name.to_owned(),
@@ -50,7 +50,7 @@ macro_rules! stack_pop {
     (($stack:expr) -> $type:ident? as $this_arg:literal for $fn_name:expr) => {
         $stack
             .pop_this(sget!($type).0)
-            .map(|got_v|{
+            .and_then(|got_v|{
                 got_v.map_err(|got|{
                     SttError::WrongTypeForBuiltin {
                         for_fn: $fn_name.to_owned(),
@@ -79,7 +79,7 @@ macro_rules! stack_pop {
                 args: format!( "[{}: {}]", $this_arg, sget!($type).2 ),
                 this_arg: $this_arg,
             })
-            .map(|got_v|{
+            .and_then(|got_v|{
                 got_v.map_err(|got|{
                     SttError::WrongTypeForBuiltin {
                         for_fn: $fn_name.to_owned(),
