@@ -78,11 +78,11 @@ pub enum SttError {
     RTUnknownStringFormat(char),
     #[error("Switch case with no value")]
     RTSwitchCaseWithNoValue,
-    #[error("Closure's arguments ({:?}) are filled, but still tried to add more", closure.request_args)]
-    DEVFillFullClosure { closure: Closure },
-    #[error("Closure's arguments ({:?}) have been overwritten at [{}] previous value was {:?}", closure.request_args, index, removed)]
+    #[error("Closure's arguments ({:?}) are filled, but still tried to add more", closure_args)]
+    DEVFillFullClosure { closure_args: ClosureArgs },
+    #[error("Closure's arguments ({:?}) have been overwritten at [{}] previous value was {:?}", closure_args, index, removed)]
     DEVOverwrittenClosure {
-        closure: Closure,
+        closure_args: ClosureArgs,
         index: usize,
         removed: Value,
     },
@@ -156,11 +156,11 @@ impl Closure {
         if let Err(r) = self.request_args.fill(value) {
             return Err(match r {
                 ClosureFillError::Overwrite(removed, index) => SttError::DEVOverwrittenClosure {
-                    closure: self,
+                    closure: self.request_args,
                     index,
                     removed,
                 },
-                ClosureFillError::OutOfBound => SttError::DEVFillFullClosure { closure: self },
+                ClosureFillError::OutOfBound => SttError::DEVFillFullClosure { closure: self.request_args },
             });
         }
         Ok(if self.request_args.is_full() {
