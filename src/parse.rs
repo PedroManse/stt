@@ -88,7 +88,7 @@ impl Context {
                     let code = inner_ctx.parse_block()?;
                     let closure = Closure {
                         code,
-                        request_args: ClosureArgs::new(args),
+                        request_args: ClosurePartialArgs::new(args),
                     };
                     push_expr!(E::Immediate(Value::Closure(Box::new(closure))));
                     Nothing
