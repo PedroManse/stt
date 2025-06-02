@@ -449,6 +449,11 @@ impl From<OResult<Value, Value>> for Value {
         Value::Result(Box::new(value))
     }
 }
+impl From<Closure> for Value {
+    fn from(value: Closure) -> Self {
+        Value::Closure(Box::new(value))
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct CondBranch {
