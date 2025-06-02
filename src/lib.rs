@@ -79,10 +79,10 @@ pub enum SttError {
     #[error("Switch case with no value")]
     RTSwitchCaseWithNoValue,
     #[error("Closure's arguments ({:?}) are filled, but still tried to add more", closure_args)]
-    DEVFillFullClosure { closure_args: ClosureArgs },
+    DEVFillFullClosure { closure_args: ClosurePartialArgs },
     #[error("Closure's arguments ({:?}) have been overwritten at [{}] previous value was {:?}", closure_args, index, removed)]
     DEVOverwrittenClosure {
-        closure_args: ClosureArgs,
+        closure_args: ClosurePartialArgs,
         index: usize,
         removed: Value,
     },
@@ -156,11 +156,11 @@ impl Closure {
         if let Err(r) = self.request_args.fill(value) {
             return Err(match r {
                 ClosureFillError::Overwrite(removed, index) => SttError::DEVOverwrittenClosure {
-                    closure: self.request_args,
+                    closure_args: self.request_args,
                     index,
                     removed,
                 },
-                ClosureFillError::OutOfBound => SttError::DEVFillFullClosure { closure: self.request_args },
+                ClosureFillError::OutOfBound => SttError::DEVFillFullClosure { closure_args: self.request_args },
             });
         }
         Ok(if self.request_args.is_full() {
