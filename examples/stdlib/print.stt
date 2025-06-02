@@ -1,9 +1,9 @@
 (fn) * printf {
-	% print
+	%% print
 }
 
 (fn) * printfln {
-	% print
+	%% print
 	"\n" print
 }
 

@@ -356,6 +356,15 @@ impl Context {
                 };
                 self.stack.push_this(eq);
             }
+            "%" => {
+                let rhs = stack_pop!(
+                    (self.stack) -> num as "rhs" for fn_name
+                )?;
+                let lhs = stack_pop!(
+                    (self.stack) -> num as "lhs" for fn_name
+                )?;
+                self.stack.push_this(lhs % rhs);
+            }
             "@" => {
                 let v = stack_pop!((self.stack) -> * as "value" for fn_name)?;
                 let cl = stack_pop!((self.stack) -> closure as "closure" for fn_name)?;
@@ -450,7 +459,7 @@ impl Context {
             }
 
             // seq string
-            "%" => {
+            "%%" => {
                 let fmt = self
                     .stack
                     .pop_this(Value::get_str)
@@ -554,6 +563,12 @@ impl Context {
                         got: Box::new(got),
                     })?;
                 self.stack.push_this(arr.join(&joiner));
+            }
+            "arr$pop" => {
+                let mut arr = stack_pop!((self.stack) -> arr as "array" for fn_name)?;
+                let v = arr.pop();
+                self.stack.push_this(arr);
+                self.stack.push_this(v);
             }
 
             // seq map
