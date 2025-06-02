@@ -78,9 +78,17 @@ pub enum SttError {
     RTUnknownStringFormat(char),
     #[error("Switch case with no value")]
     RTSwitchCaseWithNoValue,
-    #[error("Closure's arguments ({:?}) are filled, but still tried to add more", closure_args)]
+    #[error(
+        "Closure's arguments ({:?}) are filled, but still tried to add more",
+        closure_args
+    )]
     DEVFillFullClosure { closure_args: ClosurePartialArgs },
-    #[error("Closure's arguments ({:?}) have been overwritten at [{}] previous value was {:?}", closure_args, index, removed)]
+    #[error(
+        "Closure's arguments ({:?}) have been overwritten at [{}] previous value was {:?}",
+        closure_args,
+        index,
+        removed
+    )]
     DEVOverwrittenClosure {
         closure_args: ClosurePartialArgs,
         index: usize,
@@ -119,7 +127,7 @@ pub enum ClosureFillError {
 #[derive(Clone, Debug)]
 pub struct ClosurePartialArgs {
     next_args: Vec<String>,
-    filled_args: Vec<(String, Value)>
+    filled_args: Vec<(String, Value)>,
 }
 
 impl ClosurePartialArgs {
@@ -148,7 +156,7 @@ pub struct Closure {
 
 pub struct FullClosure {
     code: Vec<Expr>,
-    request_args: HashMap<String, Value>
+    request_args: HashMap<String, Value>,
 }
 
 impl Closure {
@@ -160,12 +168,17 @@ impl Closure {
                     index,
                     removed,
                 },
-                ClosureFillError::OutOfBound => SttError::DEVFillFullClosure { closure_args: self.request_args },
+                ClosureFillError::OutOfBound => SttError::DEVFillFullClosure {
+                    closure_args: self.request_args,
+                },
             });
         }
         Ok(if self.request_args.is_full() {
             let args: HashMap<String, Value> = self.request_args.filled_args.into_iter().collect();
-            ClosureCurry::Full(FullClosure { code: self.code, request_args: args })
+            ClosureCurry::Full(FullClosure {
+                code: self.code,
+                request_args: args,
+            })
         } else {
             ClosureCurry::Partial(self)
         })
