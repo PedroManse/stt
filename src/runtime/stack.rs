@@ -20,6 +20,9 @@ macro_rules! sget {
     (option) => {
         (Value::get_option, Value::get_ref_option, "Option")
     };
+    (closure) => {
+        (Value::get_closure, Value::get_ref_closure, "Closure")
+    };
 }
 pub(crate) use sget;
 
