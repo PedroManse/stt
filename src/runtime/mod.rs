@@ -22,7 +22,7 @@ impl Context {
         }
     }
 
-    fn frame(
+    fn frame_fn(
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
         args_ins: FnArgsIns,
@@ -49,6 +49,19 @@ impl Context {
             vars,
             args,
             stack,
+        }
+    }
+
+    fn frame_closure(
+        fns: HashMap<FnName, FnDef>,
+        vars: HashMap<String, Value>,
+        args: HashMap<FnName, FnArg>,
+    ) -> Self {
+        Self {
+            fns,
+            vars,
+            args: Some(args),
+            stack: Stack::new(),
         }
     }
 
@@ -151,7 +164,7 @@ impl Context {
     fn execute_fn(&mut self, name: &FnName, source: &Path) -> Result<()> {
         // builtin fn should handle stack pop and push
         // and are always given precedence
-        match self.try_execute_builtin(name.as_str()) {
+        match self.try_execute_builtin(name.as_str(), source) {
             Ok(()) => return Ok(()),
             Err(SttError::NoSuchBuiltin) => {}
             Err(e) => return Err(e),
@@ -169,6 +182,17 @@ impl Context {
             return Err(SttError::MissingIdent(name.0.clone()));
         }
         Ok(())
+    }
+
+    fn try_execute_user_closure(
+        &mut self,
+        closure: FullClosure,
+        source: &Path,
+    ) -> Result<Vec<Value>> {
+        let mut cl_ctx =
+            Context::frame_closure(self.fns.clone(), self.vars.clone(), closure.request_args);
+        cl_ctx.execute_code(&closure.code, source)?;
+        Ok(cl_ctx.stack.into_vec())
     }
 
     fn try_execute_user_fn(&mut self, name: &FnName, source: &Path) -> Option<Result<Vec<Value>>> {
@@ -205,7 +229,7 @@ impl Context {
             cap: args,
             parent: self.args.clone(),
         };
-        let mut fn_ctx = Context::frame(self.fns.clone(), vars, args);
+        let mut fn_ctx = Context::frame_fn(self.fns.clone(), vars, args);
 
         // handle (return) kw and RT errors inside functions
         if let Err(e) = fn_ctx.execute_code(&user_fn.code, source) {
@@ -226,7 +250,7 @@ impl Context {
         }
     }
 
-    fn try_execute_builtin(&mut self, fn_name: &str) -> Result<()> {
+    fn try_execute_builtin(&mut self, fn_name: &str, source: &Path) -> Result<()> {
         match fn_name {
             // seq system
             "print" => {
@@ -331,6 +355,19 @@ impl Context {
                     }
                 };
                 self.stack.push_this(eq);
+            }
+            "@" => {
+                let cl = stack_pop!((self.stack) -> closure as "closure" for fn_name)?;
+                let v = stack_pop!((self.stack) -> * as "value" for fn_name)?;
+                match cl.fill(v)? {
+                    ClosureCurry::Partial(cl) => {
+                        self.stack.push_this(cl);
+                    }
+                    ClosureCurry::Full(cl) => {
+                        let result = self.try_execute_user_closure(cl, source)?;
+                        self.stack.pushn(result);
+                    }
+                }
             }
 
             // seq variables
