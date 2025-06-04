@@ -1,24 +1,5 @@
 use stt::*;
 
-// TODO error reporting
-// : stack trace
-// : display span of file on error
-
-// TODO type checking (fn) [a:num b:string x:array] { ... }
-// : would llow for (fn) [x:string] assert$is-string { x }
-// : would allow for (fn) [arr:array] assert$arr$of-string { (while) ... { assert$is-string } }
-
-// TODO char variable type
-
-// TODO function variable type
-// syntax for closure, @ for apply
-// : [a b]{a b +} 3 @ 5 @
-// or use function as closure
-// : (fn) [a b] sum {a b +}
-// : (@sum) 3 @ 5 @
-
-// TODO (!) = (ifs) {dup result$ok-is not } { (return) } {true} { ! }
-
 #[derive(PartialEq)]
 pub enum SttMode {
     Normal,
