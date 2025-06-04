@@ -94,6 +94,10 @@ pub enum SttError {
         index: usize,
         removed: Value,
     },
+    #[error(
+        "Can't make function ({fn_name}) that takes entire stack into closure, since it would never be executed"
+    )]
+    CantMakeIntoClosure { fn_name: String },
 }
 
 #[derive(Clone, Debug)]
@@ -305,6 +309,18 @@ pub struct FnDef {
 impl FnDef {
     pub fn new(scope: FnScope, code: Vec<Expr>, args: FnArgs) -> Self {
         FnDef { scope, code, args }
+    }
+    pub fn into_closure(self, name: &str) -> Result<Closure> {
+        let args = match self.args {
+            FnArgs::AllStack => Err(SttError::CantMakeIntoClosure {
+                fn_name: name.to_string(),
+            }),
+            FnArgs::Args(a) => Ok(a),
+        }?;
+        Ok(Closure {
+            code: self.code,
+            request_args: ClosurePartialArgs::new(args),
+        })
     }
 }
 
