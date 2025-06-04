@@ -486,6 +486,7 @@ pub struct CondBranch {
 pub enum KeywordKind {
     Break,
     Return,
+    BubbleError,
     Ifs {
         branches: Vec<CondBranch>,
     },
@@ -535,6 +536,7 @@ pub enum ControlFlow {
 
 #[derive(Debug)]
 pub enum RawKeyword {
+    BubbleError,
     Return,
     Fn(FnScope),
     Ifs,
