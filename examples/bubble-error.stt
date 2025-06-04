@@ -1,0 +1,23 @@
+(pragma set debug)
+(include stdlib)
+
+(fn) [] test_3 {
+	10 test_2
+	debug$stack
+	0 test_2
+	debug$stack
+}
+
+(fn) [ v ] test_2 {
+	v test (!) prt
+}
+
+(fn) [ v ] test {
+	(ifs) { v 0 = } {
+		0 err
+	} {true} {
+		989 ok
+	}
+}
+
+test_3

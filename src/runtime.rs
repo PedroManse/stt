@@ -114,6 +114,19 @@ impl Context {
 
     fn execute_kw(&mut self, kw: &KeywordKind, source: &Path) -> Result<ControlFlow> {
         Ok(match kw {
+            KeywordKind::BubbleError => {
+                let e = stack_pop!((self.stack) -> result as "result" for "(!) keyword")?;
+                match e {
+                    Err(x) => {
+                        self.stack.push_this(Err(x));
+                        ControlFlow::Return
+                    }
+                    Ok(x) => {
+                        self.stack.push_this(x);
+                        ControlFlow::Continue
+                    }
+                }
+            }
             KeywordKind::Return => ControlFlow::Return,
             KeywordKind::Break => ControlFlow::Break,
             KeywordKind::Switch { cases, default } => {

@@ -71,6 +71,10 @@ impl Context {
                     push_expr!(E::Keyword(KeywordKind::Return));
                     Nothing
                 }
+                (Nothing, Keyword(RawKeyword::BubbleError)) => {
+                    push_expr!(E::Keyword(KeywordKind::BubbleError));
+                    Nothing
+                }
 
                 (s, IncludedBlock(code)) => {
                     let mut inner_ctx = Context::new(code.tokens);
@@ -84,11 +88,13 @@ impl Context {
 
                 (Nothing, FnArgs(args)) => MakeClosureBlock(args),
                 (MakeClosureBlock(empty_args), Block(code)) if empty_args.is_empty() => {
-                    match code.first().and_then(|first| Some((first, code.last()?)) ) {
+                    match code.first().and_then(|first| Some((first, code.last()?))) {
                         Some((first, last)) => {
-                            let span = first.span.start .. last.span.end;
-                            panic!("Can't make closure with zero arguments, it's code spans this: {span:?}")
-                        },
+                            let span = first.span.start..last.span.end;
+                            panic!(
+                                "Can't make closure with zero arguments, it's code spans this: {span:?}"
+                            )
+                        }
                         None => {
                             panic!("Can't make closure with zero arguments")
                         }
