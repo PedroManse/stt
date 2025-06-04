@@ -95,9 +95,15 @@ pub enum SttError {
         removed: Value,
     },
     #[error(
+        "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"
+    )]
+    CantMakeFnIntoClosureZeroArgs { fn_name: String },
+    #[error(
         "Can't make function ({fn_name}) that takes entire stack into closure, since it would never be executed"
     )]
-    CantMakeIntoClosure { fn_name: String },
+    CantMakeFnIntoClosureAllStack { fn_name: String },
+    #[error("Can't make closure with zero arguments, it's code spans these bytes: {span:?}")]
+    CantInstanceClosureZeroArgs {span: Range<usize>}
 }
 
 #[derive(Clone, Debug)]
@@ -135,11 +141,25 @@ pub struct ClosurePartialArgs {
 }
 
 impl ClosurePartialArgs {
-    pub fn new(mut arg_list: Vec<String>) -> Self {
+    fn new(mut arg_list: Vec<String>) -> Result<Self> {
         arg_list.reverse();
-        ClosurePartialArgs {
+        Ok(ClosurePartialArgs {
             filled_args: Vec::with_capacity(arg_list.len()),
             next_args: arg_list,
+        })
+    }
+    pub fn parse(arg_list: Vec<String>, span: Range<usize>) -> Result<Self> {
+        if arg_list.is_empty() {
+            Err(SttError::CantInstanceClosureZeroArgs { span })
+        } else {
+            Self::new(arg_list)
+        }
+    }
+    pub fn convert(arg_list: Vec<String>, fn_name: &str) -> Result<Self> {
+        if arg_list.is_empty() {
+            return Err(SttError::CantMakeFnIntoClosureZeroArgs { fn_name: fn_name.to_string() });
+        } else {
+            Self::new(arg_list)
         }
     }
     pub fn fill(&mut self, value: Value) -> OResult<(), ClosureFillError> {
@@ -312,14 +332,14 @@ impl FnDef {
     }
     pub fn into_closure(self, name: &str) -> Result<Closure> {
         let args = match self.args {
-            FnArgs::AllStack => Err(SttError::CantMakeIntoClosure {
+            FnArgs::AllStack => Err(SttError::CantMakeFnIntoClosureAllStack {
                 fn_name: name.to_string(),
             }),
             FnArgs::Args(a) => Ok(a),
         }?;
         Ok(Closure {
             code: self.code,
-            request_args: ClosurePartialArgs::new(args),
+            request_args: ClosurePartialArgs::convert(args, name)?,
         })
     }
 }
