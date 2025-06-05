@@ -18,6 +18,8 @@ pub enum SttError {
     CantReadFile(PathBuf),
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
+    #[error("No such function `{0}`")]
+    MissingFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
     WrongStackSizeDiffOnCheck {
         old_stack_size: usize,
@@ -103,7 +105,9 @@ pub enum SttError {
     )]
     CantMakeFnIntoClosureAllStack { fn_name: String },
     #[error("Can't make closure with zero arguments, it's code spans these bytes: {span:?}")]
-    CantInstanceClosureZeroArgs {span: Range<usize>}
+    CantInstanceClosureZeroArgs { span: Range<usize> },
+    #[error("Unknown keyword: {0}")]
+    UnknownKeyword(String),
 }
 
 #[derive(Clone, Debug)]
@@ -157,7 +161,9 @@ impl ClosurePartialArgs {
     }
     pub fn convert(arg_list: Vec<String>, fn_name: &str) -> Result<Self> {
         if arg_list.is_empty() {
-            return Err(SttError::CantMakeFnIntoClosureZeroArgs { fn_name: fn_name.to_string() });
+            return Err(SttError::CantMakeFnIntoClosureZeroArgs {
+                fn_name: fn_name.to_string(),
+            });
         } else {
             Self::new(arg_list)
         }
@@ -312,6 +318,12 @@ impl FnName {
     }
 }
 
+impl From<&str> for FnName {
+    fn from(value: &str) -> Self {
+        FnName(value.to_string())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum FnScope {
     Global,   // read and writes to upper-scoped variables
@@ -330,15 +342,15 @@ impl FnDef {
     pub fn new(scope: FnScope, code: Vec<Expr>, args: FnArgs) -> Self {
         FnDef { scope, code, args }
     }
-    pub fn into_closure(self, name: &str) -> Result<Closure> {
-        let args = match self.args {
+    pub fn into_closure(&self, name: &str) -> Result<Closure> {
+        let args = match self.args.clone() {
             FnArgs::AllStack => Err(SttError::CantMakeFnIntoClosureAllStack {
                 fn_name: name.to_string(),
             }),
             FnArgs::Args(a) => Ok(a),
         }?;
         Ok(Closure {
-            code: self.code,
+            code: self.code.clone(),
             request_args: ClosurePartialArgs::convert(args, name)?,
         })
     }
@@ -520,6 +532,9 @@ pub struct CondBranch {
 
 #[derive(Clone, Debug)]
 pub enum KeywordKind {
+    IntoClosure {
+        fn_name: FnName,
+    },
     Break,
     Return,
     BubbleError,
@@ -555,7 +570,6 @@ pub struct Expr {
     cont: ExprCont,
 }
 
-// TODO use closure as own kind of expr, to enable argument capture
 #[derive(Clone, Debug)]
 pub enum ExprCont {
     Immediate(Value),
@@ -572,6 +586,7 @@ pub enum ControlFlow {
 
 #[derive(Debug)]
 pub enum RawKeyword {
+    FnIntoClosure { fn_name: FnName },
     BubbleError,
     Return,
     Fn(FnScope),

@@ -75,6 +75,10 @@ impl Context {
                     push_expr!(E::Keyword(KeywordKind::BubbleError));
                     Nothing
                 }
+                (Nothing, Keyword(RawKeyword::FnIntoClosure { fn_name })) => {
+                    push_expr!(E::Keyword(KeywordKind::IntoClosure { fn_name: fn_name }));
+                    Nothing
+                }
 
                 (s, IncludedBlock(code)) => {
                     let mut inner_ctx = Context::new(code.tokens);
