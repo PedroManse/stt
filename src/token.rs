@@ -49,26 +49,20 @@ impl Context {
         use TokenCont::*;
         let mut state = Nothing;
         let mut out = Vec::new();
-        //let mut push_tkn = |token, point| {
-        //    let span = self.last_token_pos..point;
-        //    out.push(Token { cont: token, span });
-        //    self.last_token_pos = point;
-        //};
-        ////use $token.into
-        //macro_rules! push_token {
-        //    ($token:expr) => {
-        //        push_tkn($token, self.point)
-        //    };
-        //}
 
         while let Some(ch) = self.next() {
             state = match (state, ch) {
                 (Nothing, '}') => {
+                    self.last_token_pos = self.point;
                     self.push_token(&mut out, EndOfBlock);
                     return Ok(out);
                 }
                 (Nothing, '{') => {
+                    // keep start of block's span = to where { is
+                    // but use end of block span = to where } is
+                    let last_token_pos = self.last_token_pos;
                     let block = self.tokenize_block()?;
+                    self.last_token_pos = last_token_pos;
                     self.push_token(&mut out, Block(block));
                     Nothing
                 }
@@ -181,14 +175,27 @@ impl Context {
                 }
                 (OnComment, _) => OnComment,
 
-                (Nothing, matches!(space)) => Nothing,
+                (Nothing, matches!(space)) => {
+                    self.last_token_pos += 1;
+                    Nothing
+                }
 
                 (s, c) => {
                     panic!("Tokenizer: No impl for {s:?} with {c:?}");
                 }
             }
         }
-        Err(crate::SttError::MissingChar)
+        if self.at_eof() {
+            self.last_token_pos = self.point;
+            self.push_token(&mut out, EndOfBlock);
+            Ok(out)
+        } else {
+            Err(crate::SttError::MissingChar)
+        }
+    }
+
+    fn at_eof(&self) -> bool {
+        self.point == self.chars.len()
     }
 
     fn next(&mut self) -> Option<&char> {
@@ -203,9 +210,7 @@ impl Context {
     }
 
     pub fn new(code: &str) -> Self {
-        let mut chars: Vec<char> = code.chars().collect();
-        chars.push('\n'); // to force close comments
-        chars.push('}'); // to show EOF
+        let chars: Vec<char> = code.chars().collect();
         Self {
             point: 0,
             chars,
