@@ -2,14 +2,16 @@
 (include stdlib)
 argv$init
 
+(fn) * sh! { %% sh ! drop }
+
 (ifs) {argv$is-empty} {
 	"usage: <proj_name> [crate [-feat]]\n" print
 	1 sys$exit
 }
 
 argv$pop dup
-	"cargo new --bin %s" %% sh!
-	"cd %s" %% sh!
+	"cargo new --bin %s" sh!
+	"cd %s" sh!
 
 "
 target
@@ -30,15 +32,15 @@ arr$new "feats" set
 		}
 		{ "feats" get arr$is-empty } {
 			"crate_name" get
-				"cargo add %s" %% sh!
+				"cargo add %s" sh!
 			"crate_name" set
 		}
 		{ true } {
 			"feats" get
 				" " arr$join
 			"crate_name" get
-			"cargo add %s --features %s" %%
-				sh!
+				"cargo add %s --features %s"
+			sh!
 			arr$new "feats" set
 			"crate_name" set
 		}

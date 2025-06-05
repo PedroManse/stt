@@ -119,7 +119,7 @@ impl Context {
                     .fns
                     .get(fn_name)
                     .ok_or(SttError::MissingUserFunction(fn_name.as_str().to_string()))?;
-                let closure = fndef.into_closure(fn_name.as_str())?;
+                let closure = fndef.clone().into_closure(fn_name.as_str())?;
                 self.stack.push_this(closure);
                 ControlFlow::Continue
             }

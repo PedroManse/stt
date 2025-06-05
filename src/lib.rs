@@ -1,17 +1,18 @@
-pub mod api;
-pub mod parse;
-pub mod preproc;
-pub mod runtime;
-pub mod token;
+mod api;
+mod parse;
+mod preproc;
+mod runtime;
+mod token;
 pub use api::*;
 
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-pub type OResult<T, E> = std::result::Result<T, E>;
+type OResult<T, E> = std::result::Result<T, E>;
 pub type Result<T> = std::result::Result<T, SttError>;
 
+#[allow(private_interfaces)] // Allow private types since this should only be printed
 #[derive(thiserror::Error, Debug)]
 pub enum SttError {
     #[error("Can't read file {0:?}")]
@@ -112,92 +113,80 @@ pub enum SttError {
 
 #[derive(Clone, Debug)]
 pub struct Code {
-    pub source: PathBuf,
-    pub exprs: Vec<Expr>,
-}
-
-impl Code {
-    pub fn as_slice(&self) -> &[Expr] {
-        &self.exprs
-    }
+    source: PathBuf,
+    exprs: Vec<Expr>,
 }
 
 #[derive(Clone, Debug)]
-pub enum FnArgs {
+enum FnArgs {
     Args(Vec<String>),
     AllStack,
 }
 
-pub enum ClosureCurry {
+enum ClosureCurry {
     Full(FullClosure),
     Partial(Closure),
 }
 
-pub enum ClosureFillError {
+enum ClosureFillError {
     OutOfBound,
-    Overwrite(Value, usize),
 }
 
 #[derive(Clone, Debug)]
-pub struct ClosurePartialArgs {
+struct ClosurePartialArgs {
     next_args: Vec<String>,
     filled_args: Vec<(String, Value)>,
 }
 
 impl ClosurePartialArgs {
-    fn new(mut arg_list: Vec<String>) -> Result<Self> {
+    fn new(mut arg_list: Vec<String>) -> Self {
         arg_list.reverse();
-        Ok(ClosurePartialArgs {
+        ClosurePartialArgs {
             filled_args: Vec::with_capacity(arg_list.len()),
             next_args: arg_list,
-        })
+        }
     }
     pub fn parse(arg_list: Vec<String>, span: Range<usize>) -> Result<Self> {
         if arg_list.is_empty() {
             Err(SttError::CantInstanceClosureZeroArgs { span })
         } else {
-            Self::new(arg_list)
+            Ok(Self::new(arg_list))
         }
     }
     pub fn convert(arg_list: Vec<String>, fn_name: &str) -> Result<Self> {
         if arg_list.is_empty() {
-            return Err(SttError::CantMakeFnIntoClosureZeroArgs {
+            Err(SttError::CantMakeFnIntoClosureZeroArgs {
                 fn_name: fn_name.to_string(),
-            });
+            })
         } else {
-            Self::new(arg_list)
+            Ok(Self::new(arg_list))
         }
     }
-    pub fn fill(&mut self, value: Value) -> OResult<(), ClosureFillError> {
+    fn fill(&mut self, value: Value) -> OResult<(), ClosureFillError> {
         let next = self.next_args.pop().ok_or(ClosureFillError::OutOfBound)?;
         self.filled_args.push((next, value));
         Ok(())
     }
-    pub fn is_full(&self) -> bool {
+    fn is_full(&self) -> bool {
         self.next_args.is_empty()
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct Closure {
+struct Closure {
     code: Vec<Expr>,
     request_args: ClosurePartialArgs,
 }
 
-pub struct FullClosure {
+struct FullClosure {
     code: Vec<Expr>,
     request_args: HashMap<FnName, FnArg>,
 }
 
 impl Closure {
-    pub fn fill(mut self, value: Value) -> Result<ClosureCurry> {
+    fn fill(mut self, value: Value) -> Result<ClosureCurry> {
         if let Err(r) = self.request_args.fill(value) {
             return Err(match r {
-                ClosureFillError::Overwrite(removed, index) => SttError::DEVOverwrittenClosure {
-                    closure_args: self.request_args,
-                    index,
-                    removed,
-                },
                 ClosureFillError::OutOfBound => SttError::DEVFillFullClosure {
                     closure_args: self.request_args,
                 },
@@ -226,7 +215,7 @@ impl PartialEq for Closure {
 }
 
 impl FnArgs {
-    pub fn into_vec(self) -> Vec<String> {
+    fn into_vec(self) -> Vec<String> {
         match self {
             FnArgs::AllStack => vec![],
             FnArgs::Args(xs) => xs,
@@ -235,72 +224,66 @@ impl FnArgs {
 }
 
 #[derive(Clone, Debug)]
-pub struct FnArgsIns {
+struct FnArgsIns {
     cap: FnArgsInsCap,
     parent: Option<HashMap<FnName, FnArg>>,
 }
 
 #[derive(Clone, Debug)]
-pub enum FnArgsInsCap {
+enum FnArgsInsCap {
     Args(HashMap<FnName, FnArg>),
     AllStack(Vec<Value>),
 }
 
 #[derive(Debug, Default)]
-pub struct Stack(Vec<Value>);
+struct Stack(Vec<Value>);
 #[derive(Debug, Clone)]
-pub struct FnArg(pub Value);
+struct FnArg(Value);
 
 impl Stack {
-    pub fn new_with(v: Vec<Value>) -> Self {
+    fn new_with(v: Vec<Value>) -> Self {
         Self(v)
     }
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self(Vec::new())
     }
-    pub fn push(&mut self, v: Value) {
+    fn push(&mut self, v: Value) {
         self.0.push(v)
     }
-    pub fn push_this(&mut self, v: impl Into<Value>) {
+    fn push_this(&mut self, v: impl Into<Value>) {
         self.0.push(v.into())
     }
-    pub fn pushn(&mut self, mut vs: Vec<Value>) {
+    fn pushn(&mut self, mut vs: Vec<Value>) {
         self.0.append(&mut vs);
     }
-    pub fn pop(&mut self) -> Option<Value> {
+    fn pop(&mut self) -> Option<Value> {
         self.0.pop()
     }
-    pub fn peek(&mut self) -> Option<&Value> {
+    fn peek(&mut self) -> Option<&Value> {
         self.0.get(self.len() - 1)
     }
-    pub fn popn(&mut self, n: usize) -> Option<Vec<Value>> {
+    fn popn(&mut self, n: usize) -> Option<Vec<Value>> {
         if n > self.len() {
             return None;
         }
         Some(self.0.split_off(self.len() - n))
     }
-    pub fn merge(&mut self, other: Self) {
-        self.pushn(other.0);
-    }
-    pub fn into_vec(self) -> Vec<Value> {
+    fn into_vec(self) -> Vec<Value> {
         self.0
     }
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.0.len()
     }
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-    pub fn take(&mut self) -> Vec<Value> {
+    fn take(&mut self) -> Vec<Value> {
         std::mem::take(&mut self.0)
     }
-    pub fn pop_this<T, F>(&mut self, get_fn: F) -> Option<OResult<T, Value>>
+    fn pop_this<T, F>(&mut self, get_fn: F) -> Option<OResult<T, Value>>
     where
         F: Fn(Value) -> OResult<T, Value>,
     {
         self.pop().map(get_fn)
     }
-    pub fn peek_this<T, F>(&mut self, get_fn: F) -> Option<OResult<&T, &Value>>
+    fn peek_this<T, F>(&mut self, get_fn: F) -> Option<OResult<&T, &Value>>
     where
         F: Fn(&Value) -> OResult<&T, &Value>,
     {
@@ -310,10 +293,10 @@ impl Stack {
 
 #[repr(transparent)]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct FnName(pub String);
+struct FnName(String);
 
 impl FnName {
-    pub fn as_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         &self.0
     }
 }
@@ -325,39 +308,39 @@ impl From<&str> for FnName {
 }
 
 #[derive(Clone, Debug)]
-pub enum FnScope {
+enum FnScope {
     Global,   // read and writes to upper-scoped variables
     Local,    // reads upper-scoped variables
     Isolated, // fully isolated
 }
 
 #[derive(Clone, Debug)]
-pub struct FnDef {
-    pub scope: FnScope,
-    pub code: Vec<Expr>,
-    pub args: FnArgs,
+struct FnDef {
+    scope: FnScope,
+    code: Vec<Expr>,
+    args: FnArgs,
 }
 
 impl FnDef {
-    pub fn new(scope: FnScope, code: Vec<Expr>, args: FnArgs) -> Self {
+    fn new(scope: FnScope, code: Vec<Expr>, args: FnArgs) -> Self {
         FnDef { scope, code, args }
     }
-    pub fn into_closure(&self, name: &str) -> Result<Closure> {
-        let args = match self.args.clone() {
+    pub fn into_closure(self, name: &str) -> Result<Closure> {
+        let args = match self.args {
             FnArgs::AllStack => Err(SttError::CantMakeFnIntoClosureAllStack {
                 fn_name: name.to_string(),
             }),
             FnArgs::Args(a) => Ok(a),
         }?;
         Ok(Closure {
-            code: self.code.clone(),
+            code: self.code,
             request_args: ClosurePartialArgs::convert(args, name)?,
         })
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Value {
+enum Value {
     Str(String),
     Num(isize),
     Bool(bool),
@@ -369,115 +352,101 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn get_option(self) -> OResult<Option<Box<Value>>, Value> {
+    fn get_option(self) -> OResult<Option<Box<Value>>, Value> {
         match self {
             Value::Option(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_result(self) -> OResult<OResult<Value, Value>, Value> {
+    fn get_result(self) -> OResult<OResult<Value, Value>, Value> {
         match self {
             Value::Result(x) => Ok(*x),
             o => Err(o),
         }
     }
-    pub fn get_closure(self) -> OResult<Closure, Value> {
+    fn get_closure(self) -> OResult<Closure, Value> {
         match self {
             Value::Closure(x) => Ok(*x),
             o => Err(o),
         }
     }
-    pub fn get_str(self) -> OResult<String, Value> {
+    fn get_str(self) -> OResult<String, Value> {
         match self {
             Value::Str(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_num(self) -> OResult<isize, Value> {
+    fn get_num(self) -> OResult<isize, Value> {
         match self {
             Value::Num(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_bool(self) -> OResult<bool, Value> {
+    fn get_bool(self) -> OResult<bool, Value> {
         match self {
             Value::Bool(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_arr(self) -> OResult<Vec<Value>, Value> {
+    fn get_arr(self) -> OResult<Vec<Value>, Value> {
         match self {
             Value::Array(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_map(self) -> OResult<HashMap<String, Value>, Value> {
+    fn get_map(self) -> OResult<HashMap<String, Value>, Value> {
         match self {
             Value::Map(x) => Ok(x),
             o => Err(o),
         }
     }
 
-    pub fn get_ref_option(&self) -> OResult<&Option<Box<Value>>, &Value> {
+    fn get_ref_option(&self) -> OResult<&Option<Box<Value>>, &Value> {
         match self {
             Value::Option(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_ref_result(&self) -> OResult<&OResult<Value, Value>, &Value> {
+    fn get_ref_result(&self) -> OResult<&OResult<Value, Value>, &Value> {
         match self {
             Value::Result(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_ref_closure(&self) -> OResult<&Closure, &Value> {
+    fn get_ref_closure(&self) -> OResult<&Closure, &Value> {
         match self {
             Value::Closure(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_ref_str(&self) -> OResult<&String, &Value> {
+    fn get_ref_str(&self) -> OResult<&String, &Value> {
         match self {
             Value::Str(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_ref_num(&self) -> OResult<&isize, &Value> {
+    fn get_ref_num(&self) -> OResult<&isize, &Value> {
         match self {
             Value::Num(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_ref_bool(&self) -> OResult<&bool, &Value> {
+    fn get_ref_bool(&self) -> OResult<&bool, &Value> {
         match self {
             Value::Bool(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_ref_arr(&self) -> OResult<&Vec<Value>, &Value> {
+    fn get_ref_arr(&self) -> OResult<&Vec<Value>, &Value> {
         match self {
             Value::Array(x) => Ok(x),
             o => Err(o),
         }
     }
-    pub fn get_ref_map(&self) -> OResult<&HashMap<String, Value>, &Value> {
+    fn get_ref_map(&self) -> OResult<&HashMap<String, Value>, &Value> {
         match self {
             Value::Map(x) => Ok(x),
             o => Err(o),
-        }
-    }
-
-    pub fn type_name(&self) -> &'static str {
-        use Value::*;
-        match self {
-            Str(_) => "String",
-            Num(_) => "Number",
-            Bool(_) => "Boolean",
-            Array(_) => "Array",
-            Map(_) => "Map",
-            Result(_) => "Result",
-            Option(_) => "Option",
-            Closure(_) => "Closure",
         }
     }
 }
@@ -525,13 +494,13 @@ impl From<Closure> for Value {
 }
 
 #[derive(Clone, Debug)]
-pub struct CondBranch {
-    pub check: Vec<Expr>,
-    pub code: Vec<Expr>,
+struct CondBranch {
+    check: Vec<Expr>,
+    code: Vec<Expr>,
 }
 
 #[derive(Clone, Debug)]
-pub enum KeywordKind {
+enum KeywordKind {
     IntoClosure {
         fn_name: FnName,
     },
@@ -558,34 +527,34 @@ pub enum KeywordKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct SwitchCase {
+struct SwitchCase {
     test: Value,
     code: Vec<Expr>,
 }
 
 #[derive(Clone, Debug)]
-pub struct Expr {
+struct Expr {
     #[allow(dead_code)]
     span: Range<usize>,
     cont: ExprCont,
 }
 
 #[derive(Clone, Debug)]
-pub enum ExprCont {
+enum ExprCont {
     Immediate(Value),
     FnCall(FnName),
     Keyword(KeywordKind),
     IncludedCode(Code),
 }
 
-pub enum ControlFlow {
+enum ControlFlow {
     Continue,
     Break,
     Return,
 }
 
 #[derive(Debug)]
-pub enum RawKeyword {
+enum RawKeyword {
     FnIntoClosure { fn_name: FnName },
     BubbleError,
     Return,
@@ -599,13 +568,13 @@ pub enum RawKeyword {
 }
 
 #[derive(Debug)]
-pub struct Token {
+struct Token {
     cont: TokenCont,
     span: Range<usize>,
 }
 
 #[derive(Debug)]
-pub enum TokenCont {
+enum TokenCont {
     Ident(String),
     Str(String),
     Number(isize),

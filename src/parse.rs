@@ -76,7 +76,7 @@ impl Context {
                     Nothing
                 }
                 (Nothing, Keyword(RawKeyword::FnIntoClosure { fn_name })) => {
-                    push_expr!(E::Keyword(KeywordKind::IntoClosure { fn_name: fn_name }));
+                    push_expr!(E::Keyword(KeywordKind::IntoClosure { fn_name }));
                     Nothing
                 }
 
