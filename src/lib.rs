@@ -18,8 +18,8 @@ pub enum SttError {
     CantReadFile(PathBuf),
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
-    #[error("No such function `{0}`")]
-    MissingFunction(String),
+    #[error("No such user-defined function `{0}`")]
+    MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
     WrongStackSizeDiffOnCheck {
         old_stack_size: usize,

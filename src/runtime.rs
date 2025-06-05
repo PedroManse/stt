@@ -114,6 +114,15 @@ impl Context {
 
     fn execute_kw(&mut self, kw: &KeywordKind, source: &Path) -> Result<ControlFlow> {
         Ok(match kw {
+            KeywordKind::IntoClosure { fn_name } => {
+                let fndef = self
+                    .fns
+                    .get(fn_name)
+                    .ok_or(SttError::MissingUserFunction(fn_name.as_str().to_string()))?;
+                let closure = fndef.into_closure(fn_name.as_str())?;
+                self.stack.push_this(closure);
+                ControlFlow::Continue
+            }
             KeywordKind::BubbleError => {
                 let e = stack_pop!((self.stack) -> result as "result" for "(!) keyword")?;
                 match e {
