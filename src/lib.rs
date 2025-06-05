@@ -5,6 +5,9 @@ mod runtime;
 mod token;
 pub use api::*;
 
+#[cfg(test)]
+mod tests;
+
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -271,7 +274,7 @@ impl FnName {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum FnScope {
     Global,   // read and writes to upper-scoped variables
     Local,    // reads upper-scoped variables
@@ -503,7 +506,7 @@ enum ControlFlow {
     Return,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum RawKeyword {
     BubbleError,
     Return,
@@ -516,13 +519,13 @@ enum RawKeyword {
     Break,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct Token {
     cont: TokenCont,
     span: Range<usize>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum TokenCont {
     Ident(String),
     Str(String),
@@ -534,7 +537,7 @@ enum TokenCont {
     EndOfBlock,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TokenBlock {
     source: PathBuf,
     tokens: Vec<Token>,
