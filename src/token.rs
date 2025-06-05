@@ -1,4 +1,4 @@
-use crate::{FnScope, RawKeyword, Result, Token, TokenCont};
+use crate::{FnScope, RawKeyword, Result, SttError, Token, TokenCont};
 
 pub struct Context {
     point: usize,
@@ -131,15 +131,23 @@ impl Context {
                         "switch" => RawKeyword::Switch,
                         "break" => RawKeyword::Break,
                         "ifs" => RawKeyword::Ifs,
-                        _ if buf.starts_with("include ") => RawKeyword::Include {
-                            path: buf.split_once(" ").unwrap().1.trim().into(),
-                        },
-                        _ if buf.starts_with("pragma ") => RawKeyword::Pragma {
-                            command: buf.split_once(" ").unwrap().1.trim().into(),
-                        },
-                        _ => {
-                            eprintln!("unknown keyword {buf}");
-                            return Err(crate::SttError::TodoErr);
+                        otherwise => {
+                            let include =
+                                otherwise
+                                    .strip_prefix("include ")
+                                    .map(|p| RawKeyword::Include {
+                                        path: p.trim().into(),
+                                    });
+                            let pragma = otherwise
+                                .strip_prefix("pragma ")
+                                .map(|c| RawKeyword::Pragma { command: c.into() });
+                            let fn_into_closure = otherwise
+                                .strip_prefix("@")
+                                .map(|f| RawKeyword::FnIntoClosure { fn_name: f.into() });
+                            include
+                                .or(pragma)
+                                .or(fn_into_closure)
+                                .ok_or(SttError::UnknownKeyword(otherwise.to_string()))?
                         }
                     };
                     self.push_token(&mut out, Keyword(kw));

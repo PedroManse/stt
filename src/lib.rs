@@ -19,6 +19,8 @@ pub enum SttError {
     CantReadFile(PathBuf),
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
+    #[error("No such user-defined function `{0}`")]
+    MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
     WrongStackSizeDiffOnCheck {
         old_stack_size: usize,
@@ -95,6 +97,18 @@ pub enum SttError {
         index: usize,
         removed: Value,
     },
+    #[error(
+        "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"
+    )]
+    CantMakeFnIntoClosureZeroArgs { fn_name: String },
+    #[error(
+        "Can't make function ({fn_name}) that takes entire stack into closure, since it would never be executed"
+    )]
+    CantMakeFnIntoClosureAllStack { fn_name: String },
+    #[error("Can't make closure with zero arguments, it's code spans these bytes: {span:?}")]
+    CantInstanceClosureZeroArgs { span: Range<usize> },
+    #[error("Unknown keyword: {0}")]
+    UnknownKeyword(String),
 }
 
 #[derive(Clone, Debug)]
@@ -130,6 +144,22 @@ impl ClosurePartialArgs {
         ClosurePartialArgs {
             filled_args: Vec::with_capacity(arg_list.len()),
             next_args: arg_list,
+        }
+    }
+    pub fn parse(arg_list: Vec<String>, span: Range<usize>) -> Result<Self> {
+        if arg_list.is_empty() {
+            Err(SttError::CantInstanceClosureZeroArgs { span })
+        } else {
+            Ok(Self::new(arg_list))
+        }
+    }
+    pub fn convert(arg_list: Vec<String>, fn_name: &str) -> Result<Self> {
+        if arg_list.is_empty() {
+            Err(SttError::CantMakeFnIntoClosureZeroArgs {
+                fn_name: fn_name.to_string(),
+            })
+        } else {
+            Ok(Self::new(arg_list))
         }
     }
     fn fill(&mut self, value: Value) -> OResult<(), ClosureFillError> {
@@ -271,6 +301,12 @@ impl FnName {
     }
 }
 
+impl From<&str> for FnName {
+    fn from(value: &str) -> Self {
+        FnName(value.to_string())
+    }
+}
+
 #[derive(Clone, Debug)]
 enum FnScope {
     Global,   // read and writes to upper-scoped variables
@@ -288,6 +324,18 @@ struct FnDef {
 impl FnDef {
     fn new(scope: FnScope, code: Vec<Expr>, args: FnArgs) -> Self {
         FnDef { scope, code, args }
+    }
+    pub fn into_closure(self, name: &str) -> Result<Closure> {
+        let args = match self.args {
+            FnArgs::AllStack => Err(SttError::CantMakeFnIntoClosureAllStack {
+                fn_name: name.to_string(),
+            }),
+            FnArgs::Args(a) => Ok(a),
+        }?;
+        Ok(Closure {
+            code: self.code,
+            request_args: ClosurePartialArgs::convert(args, name)?,
+        })
     }
 }
 
@@ -453,6 +501,9 @@ struct CondBranch {
 
 #[derive(Clone, Debug)]
 enum KeywordKind {
+    IntoClosure {
+        fn_name: FnName,
+    },
     Break,
     Return,
     BubbleError,
@@ -488,7 +539,6 @@ struct Expr {
     cont: ExprCont,
 }
 
-// TODO use closure as own kind of expr, to enable argument capture
 #[derive(Clone, Debug)]
 enum ExprCont {
     Immediate(Value),
@@ -505,6 +555,7 @@ enum ControlFlow {
 
 #[derive(Debug)]
 enum RawKeyword {
+    FnIntoClosure { fn_name: FnName },
     BubbleError,
     Return,
     Fn(FnScope),
