@@ -24,7 +24,7 @@ macro_rules! sget {
         (Value::get_closure, Value::get_ref_closure, "Closure")
     };
 }
-pub(crate) use sget;
+pub(super) use sget;
 
 macro_rules! stack_pop {
     (($stack:expr) -> $type:ident as $this_arg:literal for $fn_name:expr) => {
@@ -92,4 +92,4 @@ macro_rules! stack_pop {
             })
     };
 }
-pub(crate) use stack_pop;
+pub(super) use stack_pop;

@@ -1,7 +1,7 @@
 use stt::*;
 
 #[derive(PartialEq)]
-pub enum SttMode {
+enum SttMode {
     Normal,
     Debug,
     SyntaxCheck,
@@ -22,8 +22,7 @@ fn execute(mode: SttMode, file_path: String) -> Result<()> {
             get_project_code(file_path)?;
         }
         M::PrintProccCode => {
-            let code = get_project_code(file_path)?;
-            println!("{code:?}");
+            println!("{:?}", get_project_code(file_path)?);
         }
         M::TokenCheck => {
             get_tokens(file_path)?;

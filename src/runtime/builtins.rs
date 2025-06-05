@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn sh(shell_cmd: &str) -> OResult<isize, String> {
+pub(super) fn sh(shell_cmd: &str) -> OResult<isize, String> {
     eprintln!("[CMD] {shell_cmd}");
     Ok(0)
     //std::proces::Command::new("bash")
@@ -10,11 +10,11 @@ pub fn sh(shell_cmd: &str) -> OResult<isize, String> {
     //    .map(|s| s.code().unwrap_or(256) as isize)
     //    .map_err(|e| e.to_string())
 }
-pub fn write_to(cont: &str, file: &str) -> OResult<isize, String> {
+pub(super) fn write_to(cont: &str, file: &str) -> OResult<isize, String> {
     eprintln!("Write {} bytes to {file}", cont.len());
     Ok(cont.len() as isize)
 }
-pub fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
+pub(super) fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
     let mut out = String::with_capacity(cont.len());
     enum State {
         Nothing,
