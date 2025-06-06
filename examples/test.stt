@@ -1,4 +1,3 @@
-(pragma set debug)
 (include stdlib)
 
 (while) { true } {
