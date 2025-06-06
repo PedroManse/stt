@@ -3,8 +3,6 @@
 (pragma set debug)
 (include stdlib)
 
-(fn) [a] double { a 2 * }
-(fn) [a] add-one { a ++ }
 (fn) [ cl-b cl-a ] cl$join {
 	[ cl-a cl-b x ] {
 		cl-b cl-a x @ @
@@ -16,6 +14,9 @@
 		cl-b cl-a x @ @
 	} cl-a @ cl-b @
 }
+
+(fn) [a] double { a 2 * }
+(fn) [a] add-one { a ++ }
 
 (@add-one) (@double) cl$join  4 @ prt
 (@double) (@add-one) cl$join' 4 @ prt
