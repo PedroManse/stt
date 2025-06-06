@@ -1,9 +1,8 @@
-mod api;
+pub mod api;
 mod parse;
 mod preproc;
 mod runtime;
 mod token;
-pub use api::*;
 
 #[cfg(test)]
 mod tests;
