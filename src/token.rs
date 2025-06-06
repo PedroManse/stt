@@ -20,7 +20,7 @@ enum State {
 
 macro_rules! matches {
     (ident) => {
-        (matches!(start_ident) | matches!(digit) | '.' | '/')
+        (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'')
     };
     (start_ident) => {
         'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':' | '~' | '@'
