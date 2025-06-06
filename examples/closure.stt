@@ -3,16 +3,22 @@
 (pragma set debug)
 (include stdlib)
 
-<arr>
-1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 ,
-</arr>
+(fn) [a] double { a 2 * }
+(fn) [a] add-one { a ++ }
+(fn) [ cl-b cl-a ] cl$joinr {
+	[ cl-a cl-b x ] {
+		cl-b cl-a x @ @
+	} cl-a @ cl-b @
+}
 
-[a]{ a 2 % 0 = }
+(fn) [ cl-a cl-b ] cl$joinl {
+	[ cl-a cl-b x ] {
+		cl-b cl-a x @ @
+	} cl-a @ cl-b @
+}
 
+(@add-one) (@double) cl$joinr 4 @ prt
+(@double) (@add-one) cl$joinl 4 @ prt
 
-arr$filter
-
-prt
-
-2 "3" +
+(@double) (@add-one) (@double) cl$joinl cl$joinl 4 @ prt
 
