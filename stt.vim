@@ -25,6 +25,29 @@ hi def link     SttInclude        Include
 syn match      SttIncludeFilePath  " [a-zA-Z/]\+\(.stt\)\?" contained nextgroup=SttCloseParam
 hi def link SttIncludeFilePath Comment
 
+" Ident
+syn match SttIdentStart "[a-zA-Z+_\-%!?$=*&<>≃,:~@]" nextgroup=SttIdent
+syn match SttIdent "[a-zA-Z+_\-%!?$=*&<>≃,:~@./\']" nextgroup=SttIdent
+"hi def link SttIdentStart Identifier
+"hi def link SttIdent Identifier
+
+" char 'c'
+syn match SttCharStart "'" nextgroup=SttCharCont,SttCharSpecial,SttCharWrong
+syn match SttCharCont "[^\\\']" nextgroup=SttCharClose,SttCharError contained
+syn match SttCharSpecial "\\" nextgroup=SttCharSpecialChar,SttCharSpecialCharError contained
+syn match SttCharSpecialChar "\(n\|\\\|'\)" contained nextgroup=SttCharClose,SttCharError
+syn match SttCharSpecialCharError '[^n\\\']' contained nextgroup=SttCharError,SttCharClose
+syn match SttCharClose "'" contained
+syn match SttCharError '[^\']' contained nextgroup=SttCharError,SttCharClose
+
+hi def link SttCharCont Comment
+hi def link SttCharClose Comment
+hi def link SttCharStart Comment
+hi def link SttCharSpecial Comment
+hi def link SttCharSpecialChar Keyword
+hi def link SttCharSpecialCharError Error
+hi def link SttCharError Error
+
 " (fn)
 syn keyword SttFnDef fn nextgroup=SttFnDefStart,SttFnDefScope contained
 " " fn scope

@@ -351,6 +351,7 @@ impl FnDef {
 
 #[derive(Clone, Debug, PartialEq)]
 enum Value {
+    Char(char),
     Str(String),
     Num(isize),
     Bool(bool),
@@ -458,6 +459,12 @@ impl Value {
             Value::Map(x) => Ok(x),
             o => Err(o),
         }
+    }
+}
+
+impl From<char> for Value {
+    fn from(value: char) -> Self {
+        Value::Char(value)
     }
 }
 
@@ -585,6 +592,7 @@ struct Token {
 
 #[derive(Debug)]
 enum TokenCont {
+    Char(char),
     Ident(String),
     Str(String),
     Number(isize),

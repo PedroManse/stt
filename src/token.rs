@@ -16,6 +16,9 @@ enum State {
     MakeNumber(String),
     MakeKeyword(String),
     MakeFnArgs(Vec<String>, String),
+    MakeChar,
+    MakeCharEnd(char),
+    MakeCharEndEsc(char),
 }
 
 macro_rules! matches {
@@ -71,6 +74,18 @@ impl Context {
                 (Nothing, c @ matches!(digit)) => MakeNumber(String::from(*c)),
                 (Nothing, '(') => MakeKeyword(String::new()),
                 (Nothing, '[') => MakeFnArgs(Vec::new(), String::new()),
+                (Nothing, '\'') => MakeChar,
+                (MakeChar, c) => MakeCharEnd(*c),
+                (MakeCharEnd('\\'), c @ ('\\' | '\'')) => MakeCharEndEsc(*c),
+                (MakeCharEnd(c), '\'') => {
+                    self.push_token(&mut out, Char(c));
+                    Nothing
+                }
+                (MakeCharEnd('\\'), 'n') => MakeCharEndEsc('\n'),
+                (MakeCharEndEsc(c), '\'') => {
+                    self.push_token(&mut out, Char(c));
+                    Nothing
+                }
 
                 (MakeIdent(mut buf), c @ matches!(ident)) => {
                     buf.push(*c);
