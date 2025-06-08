@@ -9,14 +9,13 @@ enum ProcChange {
     PushElse,
 }
 
-#[derive(Debug)]
 struct ProcStatus {
     status: ProcCommand,
     reading: bool,
 }
 
 #[derive(Debug, PartialEq)]
-enum ProcCommand {
+pub enum ProcCommand {
     If,
     IfElse,
 }
@@ -66,7 +65,7 @@ impl<'p> Context<'p> {
                     out.push(included_tokens);
                 }
                 TokenCont::Keyword(RawKeyword::Pragma { command }) => {
-                    manage_pragma(&mut if_stack, command, proc_vars)?;
+                    manage_pragma(&mut if_stack, command, proc_vars, span)?;
                 }
                 x if if_stack.last().map(|s| s.reading).unwrap_or(true) => {
                     out.push(Token { cont: x, span });
@@ -82,13 +81,14 @@ fn manage_pragma(
     if_stack: &mut Vec<ProcStatus>,
     command: String,
     proc_vars: &mut HashSet<String>,
+    span: Range<usize>,
 ) -> Result<()> {
     let is_reading = if_stack.last().map(|s| s.reading).unwrap_or(true);
     let proc_cmd = execute_command(command, proc_vars)?;
     match proc_cmd {
         ProcChange::Keep => {}
         ProcChange::Pop => {
-            if_stack.pop().ok_or(SttError::TodoErr)?;
+            if_stack.pop().ok_or(SttError::NoSectionToClose(span))?;
         }
         ProcChange::PushIf { reading } => {
             if_stack.push(ProcStatus {
@@ -103,7 +103,7 @@ fn manage_pragma(
                     reading: !is_reading,
                 });
             }
-            _ => return Err(SttError::TodoErr),
+            s => return Err(SttError::CantElseCurrentSection(span, s)),
         },
     };
     Ok(())
@@ -129,8 +129,7 @@ fn execute_command(command: String, proc_vars: &mut HashSet<String>) -> Result<P
             ProcChange::Keep
         }
         e => {
-            println!("{e:?}");
-            return Err(SttError::TodoErr);
+            return Err(SttError::InvalidPragma(e.join(" ")));
         }
     })
 }

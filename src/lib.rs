@@ -10,6 +10,8 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+use self::preproc::ProcCommand;
+
 type OResult<T, E> = std::result::Result<T, E>;
 pub type Result<T> = std::result::Result<T, SttError>;
 
@@ -62,8 +64,6 @@ pub enum SttError {
     NoSuchVariable(String),
     #[error("Missing char")]
     MissingChar,
-    #[error("TODO")]
-    TodoErr,
     #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
     RTUserFnMissingArgs {
         name: String,
@@ -110,6 +110,12 @@ pub enum SttError {
     RTMissingValue(String, char),
     #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
     RTWrongValueType(String, Value, char),
+    #[error("No pragma section to (end if), on span {0:?}")]
+    NoSectionToClose(Range<usize>),
+    #[error("Can't start pragma (else) section on {1:?} (span {0:?})")]
+    CantElseCurrentSection(Range<usize>, Option<ProcCommand>),
+    #[error("Invalid pragma command: {0}")]
+    InvalidPragma(String),
 }
 
 #[derive(Clone, Debug)]
