@@ -74,22 +74,14 @@ impl Context {
                 (Nothing, c @ matches!(digit)) => MakeNumber(String::from(*c)),
                 (Nothing, '(') => MakeKeyword(String::new()),
                 (Nothing, '[') => MakeFnArgs(Vec::new(), String::new()),
-                (Nothing, '\'') => {
-                    MakeChar
-                }
-                (MakeChar, c) => {
-                    MakeCharEnd(*c)
-                }
-                (MakeCharEnd('\\'), c @ ('\\' | '\'')) => {
-                    MakeCharEndEsc(*c)
-                }
+                (Nothing, '\'') => MakeChar,
+                (MakeChar, c) => MakeCharEnd(*c),
+                (MakeCharEnd('\\'), c @ ('\\' | '\'')) => MakeCharEndEsc(*c),
                 (MakeCharEnd(c), '\'') => {
                     self.push_token(&mut out, Char(c));
                     Nothing
                 }
-                (MakeCharEnd('\\'), 'n') => {
-                    MakeCharEndEsc('\n')
-                }
+                (MakeCharEnd('\\'), 'n') => MakeCharEndEsc('\n'),
                 (MakeCharEndEsc(c), '\'') => {
                     self.push_token(&mut out, Char(c));
                     Nothing
