@@ -1,5 +1,5 @@
 (fn) [v] is-string! {
-	(ifs) { v type$is-string not } {
+	(ifs) { v type$is-str not } {
 		v "value %v is not a string" %% err !
 	}
 }
