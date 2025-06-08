@@ -23,4 +23,16 @@
 
 (@double) (@add-one) (@double) cl$join' cl$join' 4 @ prt
 
+(fn) [ array ] print-array {
+	"[ " print
+	array arr$reverse arr$unpack drop
+	(while) {stack$has} {
+		to-string "%s " printf
+	}
+	"]" print
+}
 
+<arr>
+1 , 2 , 3 , 4 , 5 ,
+</arr>
+print-array
