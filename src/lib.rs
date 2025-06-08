@@ -5,6 +5,7 @@ mod runtime;
 mod token;
 pub use api::*;
 
+use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -19,6 +20,8 @@ pub enum SttError {
     CantReadFile(PathBuf),
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
+    #[error(transparent)]
+    ParseIntError(#[from] std::num::ParseIntError),
     #[error("No such user-defined function `{0}`")]
     MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
@@ -59,8 +62,6 @@ pub enum SttError {
     NoSuchVariable(String),
     #[error("Missing char")]
     MissingChar,
-    #[error(transparent)]
-    ParseIntError(#[from] std::num::ParseIntError),
     #[error("TODO")]
     TodoErr,
     #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
@@ -83,15 +84,11 @@ pub enum SttError {
     )]
     DEVFillFullClosure { closure_args: ClosurePartialArgs },
     #[error(
-        "Closure's arguments ({:?}) have been overwritten at [{}] previous value was {:?}",
-        closure_args,
-        index,
-        removed
+        "Closure's arguments ({closure_args:?})'s parent function values are beeing reset with {parent_args:?}"
     )]
-    DEVOverwrittenClosure {
-        closure_args: ClosurePartialArgs,
-        index: usize,
-        removed: Value,
+    DEVResettingParentValuesForClosure {
+        closure_args: Box<ClosurePartialArgs>,
+        parent_args: HashMap<FnName, FnArg>,
     },
     #[error(
         "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"
@@ -140,6 +137,7 @@ enum ClosureFillError {
 struct ClosurePartialArgs {
     next_args: Vec<String>,
     filled_args: Vec<(String, Value)>,
+    parent_args: OnceCell<HashMap<FnName, FnArg>>,
 }
 
 impl ClosurePartialArgs {
@@ -148,6 +146,7 @@ impl ClosurePartialArgs {
         ClosurePartialArgs {
             filled_args: Vec::with_capacity(arg_list.len()),
             next_args: arg_list,
+            parent_args: OnceCell::new(),
         }
     }
     pub fn parse(arg_list: Vec<String>, span: Range<usize>) -> Result<Self> {
@@ -197,12 +196,19 @@ impl Closure {
             });
         }
         Ok(if self.request_args.is_full() {
-            let args: HashMap<FnName, FnArg> = self
-                .request_args
-                .filled_args
-                .into_iter()
-                .map(|(k, v)| (FnName(k), FnArg(v)))
-                .collect();
+            let args = if let Some(parent_args) = self.request_args.parent_args.get() {
+                let mut closure_args = parent_args.clone();
+                for (k, v) in self.request_args.filled_args {
+                    closure_args.insert(FnName(k), FnArg(v));
+                }
+                closure_args
+            } else {
+                self.request_args
+                    .filled_args
+                    .into_iter()
+                    .map(|(k, v)| (FnName(k), FnArg(v)))
+                    .collect()
+            };
             ClosureCurry::Full(FullClosure {
                 code: self.code,
                 request_args: args,

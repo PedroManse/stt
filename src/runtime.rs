@@ -104,6 +104,19 @@ impl Context {
             ExprCont::Keyword(kw) => {
                 return self.execute_kw(kw, source);
             }
+            ExprCont::Immediate(Value::Closure(cl)) => {
+                let cl = cl.clone();
+                if let Some(args) = &self.args {
+                    cl.request_args
+                        .parent_args
+                        .set(args.clone())
+                        .map_err(|old| SttError::DEVResettingParentValuesForClosure {
+                            closure_args: Box::new(cl.request_args.clone()),
+                            parent_args: old,
+                        })?;
+                }
+                self.stack.push(Value::Closure(cl))
+            }
             ExprCont::Immediate(v) => self.stack.push(v.clone()),
             ExprCont::IncludedCode(Code { source, exprs }) => {
                 self.execute_code(exprs, source)?;
