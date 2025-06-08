@@ -87,7 +87,7 @@ pub enum SttError {
         "Closure's arguments ({closure_args:?})'s parent function values are beeing reset with {parent_args:?}"
     )]
     DEVResettingParentValuesForClosure {
-        closure_args: ClosurePartialArgs,
+        closure_args: Box<ClosurePartialArgs>,
         parent_args: HashMap<FnName, FnArg>,
     },
     #[error(
@@ -97,9 +97,9 @@ pub enum SttError {
         removed
     )]
     DEVOverwrittenClosure {
-        closure_args: ClosurePartialArgs,
+        closure_args: Box<ClosurePartialArgs>,
         index: usize,
-        removed: Value,
+        removed: Box<Value>,
     },
     #[error(
         "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"

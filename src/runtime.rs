@@ -111,7 +111,7 @@ impl Context {
                         .parent_args
                         .set(args.clone())
                         .map_err(|old| SttError::DEVResettingParentValuesForClosure {
-                            closure_args: cl.request_args.clone(),
+                            closure_args: Box::new(cl.request_args.clone()),
                             parent_args: old,
                         })?;
                 }
