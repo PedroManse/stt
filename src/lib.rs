@@ -351,6 +351,7 @@ impl FnDef {
 
 #[derive(Clone, Debug, PartialEq)]
 enum Value {
+    Char(char),
     Str(String),
     Num(isize),
     Bool(bool),
@@ -585,6 +586,7 @@ struct Token {
 
 #[derive(Debug)]
 enum TokenCont {
+    Char(char),
     Ident(String),
     Str(String),
     Number(isize),

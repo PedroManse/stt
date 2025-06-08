@@ -63,6 +63,10 @@ impl Context {
                     push_expr!(E::Immediate(Value::Num(x)));
                     Nothing
                 }
+                (Nothing, Char(c)) => {
+                    push_expr!(E::Immediate(Value::Char(c)));
+                    Nothing
+                }
                 (Nothing, Keyword(RawKeyword::Break)) => {
                     push_expr!(E::Keyword(KeywordKind::Break));
                     Nothing
