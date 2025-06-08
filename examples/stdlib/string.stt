@@ -63,3 +63,16 @@
 		{ char err (return) }
 	ok
 }
+
+(fn) [v] to-string {
+	v (ifs)
+		{ v type$is-str } { "%s"  }
+		{ v type$is-num } { "%d"  }
+		{ v type$is-bool } { "%b"  }
+		{ v type$is-arr } { "%v" }
+		{ v type$is-map } { "%v" }
+		{ v type$is-result } { "%v"  }
+		{ v type$is-option } { "%v"  }
+	%%
+}
+
