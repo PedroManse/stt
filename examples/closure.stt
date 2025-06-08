@@ -23,3 +23,5 @@
 
 (@double) (@add-one) (@double) cl$join' cl$join' 4 @ prt
 
+
+"uwu %g" %% prt

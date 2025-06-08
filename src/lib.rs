@@ -75,10 +75,6 @@ pub enum SttError {
     RTUnwrapOptionBuiltinFailed,
     #[error("Can't compare {this:?} with {that:?}")]
     RTCompareError { this: Value, that: Value },
-    #[error(
-        "`%` doesn't recognise the format directive {0}, only '%', 'd', 's' and 'b' are avaliable "
-    )]
-    RTUnknownStringFormat(char),
     #[error("Switch case with no value")]
     RTSwitchCaseWithNoValue,
     #[error(
@@ -109,6 +105,18 @@ pub enum SttError {
     CantInstanceClosureZeroArgs { span: Range<usize> },
     #[error("Unknown keyword: {0}")]
     UnknownKeyword(String),
+    #[error(
+        "`%%` ({0}) doesn't recognise the format directive `{1}`, only '%', 'd', 's', 'v' and 'b' are avaliable"
+    )]
+    RTUnknownStringFormat(String, char),
+    #[error(
+        "`%%` ({0}) Can't capture any value, the stack is empty"
+    )]
+    RTMissingValue(String, char),
+    #[error(
+        "`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`"
+    )]
+    RTWrongValueType(String, Value, char),
 }
 
 #[derive(Clone, Debug)]
