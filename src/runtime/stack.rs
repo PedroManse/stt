@@ -50,17 +50,21 @@ macro_rules! stack_pop {
     (($stack:expr) -> $type:ident? as $this_arg:literal for $fn_name:expr) => {
         $stack
             .pop_this(sget!($type).0)
-            .and_then(|got_v|{
+            .map(|got_v|{
                 got_v.map_err(|got|{
                     SttError::WrongTypeForBuiltin {
                         for_fn: $fn_name.to_owned(),
                         args: stringify!( [ $this_arg: $ty ] ),
                         this_arg: $this_arg,
-                        got,
+                        got: Box::new(got),
                         expected: sget!($type).2
                     }
                 })
             }).transpose()
+    };
+    (=($stack:expr) -> $type:ident? as $this_arg:literal for $fn_name:expr) => {
+        $stack
+            .pop_this(sget!($type).0)
     };
     (($stack:expr) -> * as $this_arg:literal for $fn_name:expr) => {
         $stack
