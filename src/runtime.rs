@@ -350,6 +350,7 @@ impl Context {
                 let rhs = stack_pop!((self.stack) -> * as "rhs" for fn_name)?;
                 let lhs = stack_pop!((self.stack) -> * as "lhs" for fn_name)?;
                 let eq = match (lhs, rhs) {
+                    (Char(l), Char(r)) => Ok(l == r),
                     (Num(l), Num(r)) => Ok(l == r),
                     (Str(l), Str(r)) => Ok(l == r),
                     (Bool(l), Bool(r)) => Ok(l == r),
@@ -368,6 +369,7 @@ impl Context {
                 let rhs = stack_pop!((self.stack) -> * as "rhs" for fn_name)?;
                 let lhs = stack_pop!((self.stack) -> * as "lhs" for fn_name)?;
                 let eq = match (lhs, rhs) {
+                    (Char(l), Char(r)) => l == r,
                     (Num(l), Num(r)) => l == r,
                     (Str(l), Str(r)) => l == r,
                     (Bool(l), Bool(r)) => l == r,
@@ -533,7 +535,7 @@ impl Context {
             }
             "str$into-arr" => {
                 let string = stack_pop!((self.stack) -> str as "string" for fn_name)?;
-                let chars: Vec<_> = string.chars().map(String::from).map(Value::from).collect();
+                let chars: Vec<_> = string.chars().map(Value::from).collect();
                 self.stack.push_this(chars);
             }
 
