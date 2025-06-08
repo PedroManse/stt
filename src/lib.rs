@@ -462,6 +462,12 @@ impl Value {
     }
 }
 
+impl From<char> for Value {
+    fn from(value: char) -> Self {
+        Value::Char(value)
+    }
+}
+
 impl From<Option<Value>> for Value {
     fn from(value: Option<Value>) -> Self {
         Value::Option(value.map(Box::new))
