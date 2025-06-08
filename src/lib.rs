@@ -20,6 +20,8 @@ pub enum SttError {
     CantReadFile(PathBuf),
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
+    #[error(transparent)]
+    ParseIntError(#[from] std::num::ParseIntError),
     #[error("No such user-defined function `{0}`")]
     MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
