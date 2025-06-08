@@ -60,8 +60,6 @@ pub enum SttError {
     NoSuchVariable(String),
     #[error("Missing char")]
     MissingChar,
-    #[error(transparent)]
-    ParseIntError(#[from] std::num::ParseIntError),
     #[error("TODO")]
     TodoErr,
     #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
@@ -89,17 +87,6 @@ pub enum SttError {
     DEVResettingParentValuesForClosure {
         closure_args: Box<ClosurePartialArgs>,
         parent_args: HashMap<FnName, FnArg>,
-    },
-    #[error(
-        "Closure's arguments ({:?}) have been overwritten at [{}] previous value was {:?}",
-        closure_args,
-        index,
-        removed
-    )]
-    DEVOverwrittenClosure {
-        closure_args: Box<ClosurePartialArgs>,
-        index: usize,
-        removed: Box<Value>,
     },
     #[error(
         "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"
