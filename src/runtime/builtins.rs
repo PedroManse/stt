@@ -82,7 +82,7 @@ pub(super) fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
         match e {
             FmtError::MissingValue(c) => SttError::RTMissingValue(fmt_str, c),
             FmtError::UnknownStringFormat(c) => SttError::RTUnknownStringFormat(fmt_str, c),
-            FmtError::WrongVariableForFormat(v, c) => SttError::RTWrongValueType(fmt_str, v, c)
+            FmtError::WrongVariableForFormat(v, c) => SttError::RTWrongValueType(fmt_str, v, c),
         }
     })
 }

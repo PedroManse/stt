@@ -109,13 +109,9 @@ pub enum SttError {
         "`%%` ({0}) doesn't recognise the format directive `{1}`, only '%', 'd', 's', 'v' and 'b' are avaliable"
     )]
     RTUnknownStringFormat(String, char),
-    #[error(
-        "`%%` ({0}) Can't capture any value, the stack is empty"
-    )]
+    #[error("`%%` ({0}) Can't capture any value, the stack is empty")]
     RTMissingValue(String, char),
-    #[error(
-        "`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`"
-    )]
+    #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
     RTWrongValueType(String, Value, char),
 }
 
