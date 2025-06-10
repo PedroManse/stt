@@ -63,6 +63,10 @@ impl Context {
                     push_expr!(E::Immediate(Value::Num(x)));
                     Nothing
                 }
+                (Nothing, Char(c)) => {
+                    push_expr!(E::Immediate(Value::Char(c)));
+                    Nothing
+                }
                 (Nothing, Keyword(RawKeyword::Break)) => {
                     push_expr!(E::Keyword(KeywordKind::Break));
                     Nothing
@@ -103,6 +107,7 @@ impl Context {
                 }
 
                 (Nothing, Keyword(RawKeyword::Switch)) => MakeSwitch(vec![]),
+                (MakeSwitch(cases), Char(c)) => MakeSwitchCode(cases, Value::Char(c)),
                 (MakeSwitch(cases), Str(v)) => MakeSwitchCode(cases, Value::Str(v)),
                 (MakeSwitch(cases), Number(v)) => MakeSwitchCode(cases, Value::Num(v)),
                 (MakeSwitchCode(mut cases, test), Block(code)) => {

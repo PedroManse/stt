@@ -50,16 +50,29 @@
 
 (fn) [char] char-to-int {
 	char (switch)
-		"0" { 0 }
-		"1" { 1 }
-		"2" { 2 }
-		"3" { 3 }
-		"4" { 4 }
-		"5" { 5 }
-		"6" { 6 }
-		"7" { 7 }
-		"8" { 8 }
-		"9" { 9 }
+		'0' { 0 }
+		'1' { 1 }
+		'2' { 2 }
+		'3' { 3 }
+		'4' { 4 }
+		'5' { 5 }
+		'6' { 6 }
+		'7' { 7 }
+		'8' { 8 }
+		'9' { 9 }
 		{ char err (return) }
 	ok
 }
+
+(fn) [v] to-string {
+	v (ifs)
+		{ v type$is-str } { "%s"  }
+		{ v type$is-num } { "%d"  }
+		{ v type$is-bool } { "%b"  }
+		{ v type$is-arr } { "%v" }
+		{ v type$is-map } { "%v" }
+		{ v type$is-result } { "%v"  }
+		{ v type$is-option } { "%v"  }
+	%%
+}
+

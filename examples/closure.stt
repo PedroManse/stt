@@ -1,24 +1,38 @@
-#! ./target/debug/stt
+#! /target/debug/stt
 (pragma set manual-array)
 (pragma set debug)
 (include stdlib)
 
+(fn) [ cl-b cl-a ] cl$join {
+	[ x ] {
+		cl-b cl-a x @ @
+	}
+}
+
+(fn) [ cl-a cl-b ] cl$join' {
+	[ x ] {
+		cl-b cl-a x @ @
+	}
+}
+
 (fn) [a] double { a 2 * }
 (fn) [a] add-one { a ++ }
-(fn) [ cl-b cl-a ] cl$joinr {
-	[ cl-a cl-b x ] {
-		cl-b cl-a x @ @
-	} cl-a @ cl-b @
+
+(@add-one) (@double) cl$join  4 @ prt
+(@double) (@add-one) cl$join' 4 @ prt
+
+(@double) (@add-one) (@double) cl$join' cl$join' 4 @ prt
+
+(fn) [ array ] print-array {
+	"[ " print
+	array arr$reverse arr$unpack drop
+	(while) {stack$has} {
+		to-string "%s " printf
+	}
+	"]" print
 }
 
-(fn) [ cl-a cl-b ] cl$joinl {
-	[ cl-a cl-b x ] {
-		cl-b cl-a x @ @
-	} cl-a @ cl-b @
-}
-
-(@add-one) (@double) cl$joinr 4 @ prt
-(@double) (@add-one) cl$joinl 4 @ prt
-
-(@double) (@add-one) (@double) cl$joinl cl$joinl 4 @ prt
-
+<arr>
+1 , 2 , 3 , 4 , 5 ,
+</arr>
+print-array

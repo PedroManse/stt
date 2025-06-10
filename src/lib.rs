@@ -7,9 +7,12 @@ mod token;
 #[cfg(test)]
 mod tests;
 
+use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+
+use self::preproc::ProcCommand;
 
 type OResult<T, E> = std::result::Result<T, E>;
 pub type Result<T> = std::result::Result<T, SttError>;
@@ -21,6 +24,8 @@ pub enum SttError {
     CantReadFile(PathBuf),
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
+    #[error(transparent)]
+    ParseIntError(#[from] std::num::ParseIntError),
     #[error("No such user-defined function `{0}`")]
     MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
@@ -61,10 +66,6 @@ pub enum SttError {
     NoSuchVariable(String),
     #[error("Missing char")]
     MissingChar,
-    #[error(transparent)]
-    ParseIntError(#[from] std::num::ParseIntError),
-    #[error("TODO")]
-    TodoErr,
     #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
     RTUserFnMissingArgs {
         name: String,
@@ -77,10 +78,6 @@ pub enum SttError {
     RTUnwrapOptionBuiltinFailed,
     #[error("Can't compare {this:?} with {that:?}")]
     RTCompareError { this: Value, that: Value },
-    #[error(
-        "`%` doesn't recognise the format directive {0}, only '%', 'd', 's' and 'b' are avaliable "
-    )]
-    RTUnknownStringFormat(char),
     #[error("Switch case with no value")]
     RTSwitchCaseWithNoValue,
     #[error(
@@ -89,15 +86,11 @@ pub enum SttError {
     )]
     DEVFillFullClosure { closure_args: ClosurePartialArgs },
     #[error(
-        "Closure's arguments ({:?}) have been overwritten at [{}] previous value was {:?}",
-        closure_args,
-        index,
-        removed
+        "Closure's arguments ({closure_args:?})'s parent function values are beeing reset with {parent_args:?}"
     )]
-    DEVOverwrittenClosure {
-        closure_args: ClosurePartialArgs,
-        index: usize,
-        removed: Value,
+    DEVResettingParentValuesForClosure {
+        closure_args: Box<ClosurePartialArgs>,
+        parent_args: HashMap<FnName, FnArg>,
     },
     #[error(
         "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"
@@ -111,6 +104,20 @@ pub enum SttError {
     CantInstanceClosureZeroArgs { span: Range<usize> },
     #[error("Unknown keyword: {0}")]
     UnknownKeyword(String),
+    #[error(
+        "`%%` ({0}) doesn't recognise the format directive `{1}`, only '%', 'd', 's', 'v' and 'b' are avaliable"
+    )]
+    RTUnknownStringFormat(String, char),
+    #[error("`%%` ({0}) Can't capture any value, the stack is empty")]
+    RTMissingValue(String, char),
+    #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
+    RTWrongValueType(String, Value, char),
+    #[error("No pragma section to (end if), on span {0:?}")]
+    NoSectionToClose(Range<usize>),
+    #[error("Can't start pragma (else) section on {1:?} (span {0:?})")]
+    CantElseCurrentSection(Range<usize>, Option<ProcCommand>),
+    #[error("Invalid pragma command: {0}")]
+    InvalidPragma(String),
 }
 
 #[derive(Clone, Debug)]
@@ -138,6 +145,7 @@ enum ClosureFillError {
 struct ClosurePartialArgs {
     next_args: Vec<String>,
     filled_args: Vec<(String, Value)>,
+    parent_args: OnceCell<HashMap<FnName, FnArg>>,
 }
 
 impl ClosurePartialArgs {
@@ -146,6 +154,7 @@ impl ClosurePartialArgs {
         ClosurePartialArgs {
             filled_args: Vec::with_capacity(arg_list.len()),
             next_args: arg_list,
+            parent_args: OnceCell::new(),
         }
     }
     pub fn parse(arg_list: Vec<String>, span: Range<usize>) -> Result<Self> {
@@ -195,12 +204,19 @@ impl Closure {
             });
         }
         Ok(if self.request_args.is_full() {
-            let args: HashMap<FnName, FnArg> = self
-                .request_args
-                .filled_args
-                .into_iter()
-                .map(|(k, v)| (FnName(k), FnArg(v)))
-                .collect();
+            let args = if let Some(parent_args) = self.request_args.parent_args.get() {
+                let mut closure_args = parent_args.clone();
+                for (k, v) in self.request_args.filled_args {
+                    closure_args.insert(FnName(k), FnArg(v));
+                }
+                closure_args
+            } else {
+                self.request_args
+                    .filled_args
+                    .into_iter()
+                    .map(|(k, v)| (FnName(k), FnArg(v)))
+                    .collect()
+            };
             ClosureCurry::Full(FullClosure {
                 code: self.code,
                 request_args: args,
@@ -343,6 +359,7 @@ impl FnDef {
 
 #[derive(Clone, Debug, PartialEq)]
 enum Value {
+    Char(char),
     Str(String),
     Num(isize),
     Bool(bool),
@@ -450,6 +467,12 @@ impl Value {
             Value::Map(x) => Ok(x),
             o => Err(o),
         }
+    }
+}
+
+impl From<char> for Value {
+    fn from(value: char) -> Self {
+        Value::Char(value)
     }
 }
 
@@ -577,6 +600,7 @@ struct Token {
 
 #[derive(Debug, PartialEq)]
 enum TokenCont {
+    Char(char),
     Ident(String),
     Str(String),
     Number(isize),
