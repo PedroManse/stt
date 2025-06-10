@@ -1,7 +1,1 @@
-(pragma set debug)
-(include stdlib)
-
-(while) { true } {
-	"hi" print
-	(break)
-}
+"hello" print

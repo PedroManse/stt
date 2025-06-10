@@ -53,9 +53,9 @@ impl<'p> Context<'p> {
                         .ok()
                         .ok_or(SttError::CantReadFile(include_path.clone()))?;
                     let included_tokens = if metadata.is_dir() {
-                        get_tokens_with_procvars(include_path.join("stt.stt"), proc_vars)
+                        api::get_tokens_with_procvars(include_path.join("stt.stt"), proc_vars)
                     } else {
-                        get_tokens_with_procvars(include_path, proc_vars)
+                        api::get_tokens_with_procvars(include_path, proc_vars)
                     }?;
                     let included_tokens = TokenCont::IncludedBlock(included_tokens);
                     let included_tokens = Token {

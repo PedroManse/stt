@@ -4,7 +4,7 @@ mod stack;
 use stack::*;
 use std::boxed::Box;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Context {
     vars: HashMap<String, Value>,
     fns: HashMap<FnName, FnDef>,
@@ -20,6 +20,10 @@ impl Context {
             stack: Stack::new(),
             args: None,
         }
+    }
+
+    pub fn get_stack(&self) -> &[Value] {
+        &self.stack.0
     }
 
     fn frame_fn(
@@ -65,7 +69,17 @@ impl Context {
         }
     }
 
-    pub fn execute_code(&mut self, code: &[Expr], source: &Path) -> Result<ControlFlow> {
+    pub fn execute_entire_code(&mut self, Code { source, exprs }: &Code) -> Result<ControlFlow> {
+        for expr in exprs {
+            match self.execute_expr(expr, &source)? {
+                ControlFlow::Continue => {}
+                c => return Ok(c),
+            }
+        }
+        Ok(ControlFlow::Continue)
+    }
+
+    fn execute_code(&mut self, code: &[Expr], source: &Path) -> Result<ControlFlow> {
         for expr in code {
             match self.execute_expr(expr, source)? {
                 ControlFlow::Continue => {}

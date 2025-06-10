@@ -1,9 +1,12 @@
-mod api;
+pub mod api;
 mod parse;
 mod preproc;
 mod runtime;
 mod token;
-pub use api::*;
+pub use runtime::Context;
+
+#[cfg(test)]
+mod tests;
 
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
@@ -124,6 +127,12 @@ pub struct Code {
     exprs: Vec<Expr>,
 }
 
+impl Code {
+    pub fn expr_count(&self) -> usize {
+        self.exprs.len()
+    }
+}
+
 #[derive(Clone, Debug)]
 enum FnArgs {
     Args(Vec<String>),
@@ -182,7 +191,7 @@ impl ClosurePartialArgs {
 }
 
 #[derive(Clone, Debug)]
-struct Closure {
+pub struct Closure {
     code: Vec<Expr>,
     request_args: ClosurePartialArgs,
 }
@@ -309,7 +318,7 @@ impl Stack {
 
 #[repr(transparent)]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-struct FnName(String);
+pub struct FnName(String);
 
 impl FnName {
     fn as_str(&self) -> &str {
@@ -323,8 +332,8 @@ impl From<&str> for FnName {
     }
 }
 
-#[derive(Clone, Debug)]
-enum FnScope {
+#[derive(Clone, Debug, PartialEq)]
+pub enum FnScope {
     Global,   // read and writes to upper-scoped variables
     Local,    // reads upper-scoped variables
     Isolated, // fully isolated
@@ -356,7 +365,7 @@ impl FnDef {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Value {
+pub enum Value {
     Char(char),
     Str(String),
     Num(isize),
@@ -570,14 +579,14 @@ enum ExprCont {
     IncludedCode(Code),
 }
 
-enum ControlFlow {
+pub enum ControlFlow {
     Continue,
     Break,
     Return,
 }
 
-#[derive(Debug)]
-enum RawKeyword {
+#[derive(Debug, PartialEq)]
+pub enum RawKeyword {
     FnIntoClosure { fn_name: FnName },
     BubbleError,
     Return,
@@ -590,14 +599,14 @@ enum RawKeyword {
     Break,
 }
 
-#[derive(Debug)]
-struct Token {
+#[derive(Debug, PartialEq)]
+pub struct Token {
     cont: TokenCont,
     span: Range<usize>,
 }
 
-#[derive(Debug)]
-enum TokenCont {
+#[derive(Debug, PartialEq)]
+pub enum TokenCont {
     Char(char),
     Ident(String),
     Str(String),
@@ -609,8 +618,25 @@ enum TokenCont {
     EndOfBlock,
 }
 
-#[derive(Debug)]
+/// # Array of tokens and their source
+///
+/// Usually created by [api::get_tokens] for files or [api::get_tokens_str] for raw strings.
+/// The token array ends with a [TokenCont::EndOfBlock] token, to indicate either the end of the
+/// source string or a `}` that closed the code block
+#[derive(Debug, PartialEq)]
 pub struct TokenBlock {
     source: PathBuf,
     tokens: Vec<Token>,
+}
+
+impl TokenBlock {
+    pub fn token_count(&self) -> usize {
+        self.tokens.len() - (if self.last_is_eof() { 1 } else { 0 })
+    }
+    pub fn last_is_eof(&self) -> bool {
+        self.tokens
+            .last()
+            .map(|e| matches!(e.cont, TokenCont::EndOfBlock))
+            .unwrap_or(false)
+    }
 }
