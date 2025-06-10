@@ -10,6 +10,7 @@ mod tests;
 
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -261,7 +262,7 @@ enum FnArgsInsCap {
 }
 
 #[derive(Debug, Default)]
-struct Stack(Vec<Value>);
+pub struct Stack(Vec<Value>);
 #[derive(Debug, Clone)]
 struct FnArg(Value);
 
@@ -272,22 +273,22 @@ impl Stack {
     fn new() -> Self {
         Self(Vec::new())
     }
-    fn push(&mut self, v: Value) {
+    pub fn push(&mut self, v: Value) {
         self.0.push(v)
     }
-    fn push_this(&mut self, v: impl Into<Value>) {
+    pub fn push_this(&mut self, v: impl Into<Value>) {
         self.0.push(v.into())
     }
-    fn pushn(&mut self, mut vs: Vec<Value>) {
+    pub fn pushn(&mut self, mut vs: Vec<Value>) {
         self.0.append(&mut vs);
     }
-    fn pop(&mut self) -> Option<Value> {
+    pub fn pop(&mut self) -> Option<Value> {
         self.0.pop()
     }
-    fn peek(&mut self) -> Option<&Value> {
+    pub fn peek(&mut self) -> Option<&Value> {
         self.0.get(self.len() - 1)
     }
-    fn popn(&mut self, n: usize) -> Option<Vec<Value>> {
+    pub fn popn(&mut self, n: usize) -> Option<Vec<Value>> {
         if n > self.len() {
             return None;
         }
@@ -296,19 +297,19 @@ impl Stack {
     fn into_vec(self) -> Vec<Value> {
         self.0
     }
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.0.len()
     }
     fn take(&mut self) -> Vec<Value> {
         std::mem::take(&mut self.0)
     }
-    fn pop_this<T, F>(&mut self, get_fn: F) -> Option<OResult<T, Value>>
+    pub fn pop_this<T, F>(&mut self, get_fn: F) -> Option<OResult<T, Value>>
     where
         F: Fn(Value) -> OResult<T, Value>,
     {
         self.pop().map(get_fn)
     }
-    fn peek_this<T, F>(&mut self, get_fn: F) -> Option<OResult<&T, &Value>>
+    pub fn peek_this<T, F>(&mut self, get_fn: F) -> Option<OResult<&T, &Value>>
     where
         F: Fn(&Value) -> OResult<&T, &Value>,
     {
@@ -378,49 +379,49 @@ pub enum Value {
 }
 
 impl Value {
-    fn get_option(self) -> OResult<Option<Box<Value>>, Value> {
+    pub fn get_option(self) -> OResult<Option<Box<Value>>, Value> {
         match self {
             Value::Option(x) => Ok(x),
             o => Err(o),
         }
     }
-    fn get_result(self) -> OResult<OResult<Value, Value>, Value> {
+    pub fn get_result(self) -> OResult<OResult<Value, Value>, Value> {
         match self {
             Value::Result(x) => Ok(*x),
             o => Err(o),
         }
     }
-    fn get_closure(self) -> OResult<Closure, Value> {
+    pub fn get_closure(self) -> OResult<Closure, Value> {
         match self {
             Value::Closure(x) => Ok(*x),
             o => Err(o),
         }
     }
-    fn get_str(self) -> OResult<String, Value> {
+    pub fn get_str(self) -> OResult<String, Value> {
         match self {
             Value::Str(x) => Ok(x),
             o => Err(o),
         }
     }
-    fn get_num(self) -> OResult<isize, Value> {
+    pub fn get_num(self) -> OResult<isize, Value> {
         match self {
             Value::Num(x) => Ok(x),
             o => Err(o),
         }
     }
-    fn get_bool(self) -> OResult<bool, Value> {
+    pub fn get_bool(self) -> OResult<bool, Value> {
         match self {
             Value::Bool(x) => Ok(x),
             o => Err(o),
         }
     }
-    fn get_arr(self) -> OResult<Vec<Value>, Value> {
+    pub fn get_arr(self) -> OResult<Vec<Value>, Value> {
         match self {
             Value::Array(x) => Ok(x),
             o => Err(o),
         }
     }
-    fn get_map(self) -> OResult<HashMap<String, Value>, Value> {
+    pub fn get_map(self) -> OResult<HashMap<String, Value>, Value> {
         match self {
             Value::Map(x) => Ok(x),
             o => Err(o),
@@ -638,5 +639,31 @@ impl TokenBlock {
             .last()
             .map(|e| matches!(e.cont, TokenCont::EndOfBlock))
             .unwrap_or(false)
+    }
+}
+
+type RustSttFnRaw = fn(&mut runtime::Context, &Path);
+#[derive(Clone)]
+pub struct RustSttFn {
+    name: String,
+    code: RustSttFnRaw,
+}
+
+// TODO ::new test if name is valid (for tokenizer)
+impl RustSttFn {
+    pub fn new(
+        name: String,
+        code: RustSttFnRaw,
+    ) -> Self {
+        RustSttFn { name, code }
+    }
+    fn call(&self, ctx: &mut runtime::Context, source: &Path) {
+        (self.code)(ctx, source)
+    }
+}
+
+impl Debug for RustSttFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Rust function {}", self.name)
     }
 }
