@@ -1,6 +1,6 @@
 use crate::*;
-mod token;
 mod runtime;
+mod token;
 
 trait StrVecIntoStringVec {
     fn into_strings(self) -> Vec<String>;
