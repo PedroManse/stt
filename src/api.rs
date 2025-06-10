@@ -88,7 +88,7 @@ pub fn execute_raw_code(code: Code) -> Result<runtime::Context> {
 fn read_file(file_path: impl AsRef<Path>) -> Result<String> {
     match std::fs::read_to_string(file_path.as_ref()) {
         Ok(cont) => Ok(cont),
-        Err(_) => Err(SttError::CantReadFile(file_path.as_ref().to_path_buf()))
+        Err(_) => Err(SttError::CantReadFile(file_path.as_ref().to_path_buf())),
     }
 }
 

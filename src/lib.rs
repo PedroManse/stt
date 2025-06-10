@@ -631,9 +631,12 @@ pub struct TokenBlock {
 
 impl TokenBlock {
     pub fn token_count(&self) -> usize {
-        self.tokens.len() - (if self.last_is_eof() {1} else {0})
+        self.tokens.len() - (if self.last_is_eof() { 1 } else { 0 })
     }
     pub fn last_is_eof(&self) -> bool {
-        self.tokens.last().map(|e|matches!(e.cont, TokenCont::EndOfBlock)).unwrap_or(false)
+        self.tokens
+            .last()
+            .map(|e| matches!(e.cont, TokenCont::EndOfBlock))
+            .unwrap_or(false)
     }
 }
