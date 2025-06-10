@@ -8,8 +8,9 @@ use std::boxed::Box;
 pub struct Context {
     vars: HashMap<String, Value>,
     fns: HashMap<FnName, FnDef>,
-    stack: Stack,
+    pub stack: Stack,
     args: Option<HashMap<FnName, FnArg>>,
+    rust_fns: HashMap<FnName, RustSttFn>,
 }
 
 impl Context {
@@ -18,8 +19,13 @@ impl Context {
             fns: HashMap::new(),
             vars: HashMap::new(),
             stack: Stack::new(),
+            rust_fns: HashMap::new(),
             args: None,
         }
+    }
+
+    pub fn add_rust_hook(&mut self, rnf: RustSttFn) -> Option<RustSttFn> {
+        self.rust_fns.insert(FnName(rnf.name.clone()), rnf)
     }
 
     pub fn get_stack(&self) -> &[Value] {
@@ -30,6 +36,7 @@ impl Context {
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
         args_ins: FnArgsIns,
+        rust_fns: HashMap<FnName, RustSttFn>,
     ) -> Self {
         let stack;
         let args;
@@ -53,6 +60,7 @@ impl Context {
             vars,
             args,
             stack,
+            rust_fns,
         }
     }
 
@@ -60,8 +68,10 @@ impl Context {
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
         args: HashMap<FnName, FnArg>,
+        rust_fns: HashMap<FnName, RustSttFn>,
     ) -> Self {
         Self {
+            rust_fns,
             fns,
             vars,
             args: Some(args),
@@ -227,6 +237,7 @@ impl Context {
             // try_execute_user_fn should handle stack pop
             // and have the lowest precedence, since the traverse the scopes
             self.stack.pushn(rets?);
+        } else if let Some(()) = self.try_execute_rust_hook(name, source) {
         } else {
             return Err(SttError::MissingIdent(name.0.clone()));
         }
@@ -238,8 +249,12 @@ impl Context {
         closure: FullClosure,
         source: &Path,
     ) -> Result<Vec<Value>> {
-        let mut cl_ctx =
-            Context::frame_closure(self.fns.clone(), self.vars.clone(), closure.request_args);
+        let mut cl_ctx = Context::frame_closure(
+            self.fns.clone(),
+            self.vars.clone(),
+            closure.request_args,
+            self.rust_fns.clone(),
+        );
         cl_ctx.execute_code(&closure.code, source)?;
         Ok(cl_ctx.stack.into_vec())
     }
@@ -278,7 +293,7 @@ impl Context {
             cap: args,
             parent: self.args.clone(),
         };
-        let mut fn_ctx = Context::frame_fn(self.fns.clone(), vars, args);
+        let mut fn_ctx = Context::frame_fn(self.fns.clone(), vars, args, self.rust_fns.clone());
 
         // handle (return) kw and RT errors inside functions
         if let Err(e) = fn_ctx.execute_code(&user_fn.code, source) {
@@ -297,6 +312,12 @@ impl Context {
         } else {
             None
         }
+    }
+
+    fn try_execute_rust_hook(&mut self, name: &FnName, source: &Path) -> Option<()> {
+        let rfn = self.rust_fns.get(name)?.clone();
+        rfn.call(self, source);
+        Some(())
     }
 
     fn try_execute_builtin(&mut self, fn_name: &str, source: &Path) -> Result<()> {
