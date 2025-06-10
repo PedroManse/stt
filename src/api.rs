@@ -52,7 +52,7 @@ pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
 /// # Parse expressions from tokens
 /// ```rust
 /// let token_block = stt::api::get_tokens_str("\"hello\\n\" print\n", "From raw string").unwrap();
-/// assert_eq!(token_block.token_count(), 2);
+/// # assert_eq!(token_block.token_count(), 2);
 /// let code = stt::api::parse_raw_tokens(token_block).unwrap();
 /// assert_eq!(code.expr_count(), 2);
 /// ```
@@ -75,9 +75,9 @@ pub fn execute_file(path: impl AsRef<Path>) -> Result<()> {
 /// # Execute code from expressions
 /// ```rust
 /// let token_block = stt::api::get_tokens_str("5 2 -\n", "From raw string").unwrap();
-/// assert_eq!(token_block.token_count(), 3);
+/// # assert_eq!(token_block.token_count(), 3);
 /// let code = stt::api::parse_raw_tokens(token_block).unwrap();
-/// assert_eq!(code.expr_count(), 3);
+/// # assert_eq!(code.expr_count(), 3);
 /// let ctx = stt::api::execute_raw_code(code).unwrap();
 /// assert_eq!(ctx.get_stack()[0], stt::Value::Num(3));
 /// ```
