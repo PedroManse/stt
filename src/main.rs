@@ -1,4 +1,4 @@
-use stt::{Result, api::*};
+use stt::{api::*, Result};
 
 #[derive(PartialEq)]
 enum SttMode {
