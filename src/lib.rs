@@ -651,7 +651,10 @@ pub struct RustSttFn {
 
 // TODO ::new test if name is valid (for tokenizer)
 impl RustSttFn {
-    pub fn new(name: String, code: RustSttFnRaw) -> Self {
+    pub fn new(
+        name: String,
+        code: RustSttFnRaw,
+    ) -> Self {
         RustSttFn { name, code }
     }
     fn call(&self, ctx: &mut runtime::Context, source: &Path) {
