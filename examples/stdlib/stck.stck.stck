@@ -1,0 +1,16 @@
+(pragma if not STDLIB_STT)
+(pragma set STDLIB_STT)
+(include stack.stck)
+(include types.stck)
+
+(include arr.stck)
+(include map.stck)
+(include bool.stck)
+(include math.stck)
+(include error.stck)
+(include string.stck)
+
+(include argv.stck)
+(include print.stck)
+(include logic.stck)
+(pragma end if)
