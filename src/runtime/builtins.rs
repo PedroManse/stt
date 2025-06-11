@@ -80,9 +80,9 @@ pub(super) fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
     fmt_internal(cont, stack).map_err(|e| {
         let fmt_str = cont.to_string();
         match e {
-            FmtError::MissingValue(c) => SttError::RTMissingValue(fmt_str, c),
-            FmtError::UnknownStringFormat(c) => SttError::RTUnknownStringFormat(fmt_str, c),
-            FmtError::WrongVariableForFormat(v, c) => SttError::RTWrongValueType(fmt_str, v, c),
+            FmtError::MissingValue(c) => StckError::RTMissingValue(fmt_str, c),
+            FmtError::UnknownStringFormat(c) => StckError::RTUnknownStringFormat(fmt_str, c),
+            FmtError::WrongVariableForFormat(v, c) => StckError::RTWrongValueType(fmt_str, v, c),
         }
     })
 }

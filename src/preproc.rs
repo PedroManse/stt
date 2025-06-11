@@ -51,9 +51,9 @@ impl<'p> Context<'p> {
                     let metadata = include_path
                         .metadata()
                         .ok()
-                        .ok_or(SttError::CantReadFile(include_path.clone()))?;
+                        .ok_or(StckError::CantReadFile(include_path.clone()))?;
                     let included_tokens = if metadata.is_dir() {
-                        api::get_tokens_with_procvars(include_path.join("stt.stt"), proc_vars)
+                        api::get_tokens_with_procvars(include_path.join("stck.stck"), proc_vars)
                     } else {
                         api::get_tokens_with_procvars(include_path, proc_vars)
                     }?;
@@ -88,7 +88,7 @@ fn manage_pragma(
     match proc_cmd {
         ProcChange::Keep => {}
         ProcChange::Pop => {
-            if_stack.pop().ok_or(SttError::NoSectionToClose(span))?;
+            if_stack.pop().ok_or(StckError::NoSectionToClose(span))?;
         }
         ProcChange::PushIf { reading } => {
             if_stack.push(ProcStatus {
@@ -103,7 +103,7 @@ fn manage_pragma(
                     reading: !is_reading,
                 });
             }
-            s => return Err(SttError::CantElseCurrentSection(span, s)),
+            s => return Err(StckError::CantElseCurrentSection(span, s)),
         },
     };
     Ok(())
@@ -129,7 +129,7 @@ fn execute_command(command: String, proc_vars: &mut HashSet<String>) -> Result<P
             ProcChange::Keep
         }
         e => {
-            return Err(SttError::InvalidPragma(e.join(" ")));
+            return Err(StckError::InvalidPragma(e.join(" ")));
         }
     })
 }

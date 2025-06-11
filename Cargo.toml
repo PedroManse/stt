@@ -1,7 +1,16 @@
 [package]
-name = "stt"
-version = "0.1.0"
+name = "stck"
+version = "0.2.0"
 edition = "2024"
+authors = ["Manse <pedromanse@duck.com>"]
 
 [dependencies]
 thiserror = "2.0.12"
+
+[lib]
+name = "stck"
+path = "src/lib.rs"
+
+[[bin]]
+name = "stck"
+path = "src/interpreter.rs"

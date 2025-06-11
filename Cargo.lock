@@ -21,8 +21,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "stt"
-version = "0.1.0"
+name = "stck"
+version = "0.2.0"
 dependencies = [
  "thiserror",
 ]

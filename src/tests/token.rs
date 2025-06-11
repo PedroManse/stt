@@ -48,7 +48,7 @@ fn read_tokens() {
         let wanted = expected.get(index);
         test_eq!(got: got, expected: wanted);
         if let Some(t) = got {
-            eprintln!("text: {}", text[t.span.clone()].to_string());
+            eprintln!("text: {}", &text[t.span.clone()]);
         }
     }
 
