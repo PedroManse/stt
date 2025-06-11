@@ -1,4 +1,4 @@
-use crate::{FnScope, RawKeyword, Result, SttError, Token, TokenCont};
+use crate::{FnScope, RawKeyword, Result, StckError, Token, TokenCont};
 
 pub struct Context {
     point: usize,
@@ -162,7 +162,7 @@ impl Context {
                             include
                                 .or(pragma)
                                 .or(fn_into_closure)
-                                .ok_or(SttError::UnknownKeyword(otherwise.to_string()))?
+                                .ok_or(StckError::UnknownKeyword(otherwise.to_string()))?
                         }
                     };
                     self.push_token(&mut out, Keyword(kw));
@@ -213,7 +213,7 @@ impl Context {
             self.push_token(&mut out, EndOfBlock);
             Ok(out)
         } else {
-            Err(crate::SttError::MissingChar)
+            Err(crate::StckError::MissingChar)
         }
     }
 

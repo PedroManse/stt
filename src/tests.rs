@@ -17,12 +17,12 @@ macro_rules! test_eq {
     (got: $got:expr, expected: $expected:expr) => {{
         if $got != $expected {
             panic!(
-                r#"assertion failed: `got == expected`
+                r"assertion failed: `got == expected`
      got: `{:?}`,
-expected: `{:?}`"#,
+expected: `{:?}`",
                 $got, $expected
             )
         }
     }};
 }
-pub(self) use test_eq;
+use test_eq;

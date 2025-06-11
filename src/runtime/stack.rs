@@ -30,14 +30,14 @@ macro_rules! stack_pop {
     (($stack:expr) -> $type:ident as $this_arg:literal for $fn_name:expr) => {
         $stack
             .pop_this(sget!($type).0)
-            .ok_or(SttError::MissingValueForBuiltin{
+            .ok_or(StckError::MissingValueForBuiltin{
                 for_fn: $fn_name.to_owned(),
                 args: format!( "[{}: {}]", $this_arg, sget!($type).2 ),
                 this_arg: $this_arg,
             })
             .and_then(|got_v|{
                 got_v.map_err(|got|{
-                    SttError::WrongTypeForBuiltin {
+                    StckError::WrongTypeForBuiltin {
                         for_fn: $fn_name.to_owned(),
                         args: stringify!( [ $this_arg: $type ] ),
                         this_arg: $this_arg,
@@ -52,7 +52,7 @@ macro_rules! stack_pop {
             .pop_this(sget!($type).0)
             .map(|got_v|{
                 got_v.map_err(|got|{
-                    SttError::WrongTypeForBuiltin {
+                    StckError::WrongTypeForBuiltin {
                         for_fn: $fn_name.to_owned(),
                         args: stringify!( [ $this_arg: $ty ] ),
                         this_arg: $this_arg,
@@ -69,7 +69,7 @@ macro_rules! stack_pop {
     (($stack:expr) -> * as $this_arg:literal for $fn_name:expr) => {
         $stack
             .pop()
-            .ok_or(SttError::MissingValueForBuiltin{
+            .ok_or(StckError::MissingValueForBuiltin{
                 for_fn: $fn_name.to_owned(),
                 args: format!( "[{}]", $this_arg ),
                 this_arg: $this_arg,
@@ -78,14 +78,14 @@ macro_rules! stack_pop {
     (($stack:expr) -> &$type:ident as $this_arg:literal for $fn_name:expr) => {
         $stack
             .peek_this(sget!($type).1)
-            .ok_or(SttError::MissingValueForBuiltin{
+            .ok_or(StckError::MissingValueForBuiltin{
                 for_fn: $fn_name.to_owned(),
                 args: format!( "[{}: {}]", $this_arg, sget!($type).2 ),
                 this_arg: $this_arg,
             })
             .and_then(|got_v|{
                 got_v.map_err(|got|{
-                    SttError::WrongTypeForBuiltin {
+                    StckError::WrongTypeForBuiltin {
                         for_fn: $fn_name.to_owned(),
                         args: stringify!( [ $this_arg: $ty ] ),
                         this_arg: $this_arg,
