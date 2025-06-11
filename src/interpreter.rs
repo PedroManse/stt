@@ -1,7 +1,7 @@
-use stt::{Result, api::*};
+use stck::{Result, api::*};
 
 #[derive(PartialEq)]
-enum SttMode {
+enum StckMode {
     Normal,
     Debug,
     SyntaxCheck,
@@ -9,8 +9,8 @@ enum SttMode {
     PrintProccCode,
 }
 
-fn execute(mode: SttMode, file_path: String) -> Result<()> {
-    use SttMode as M;
+fn execute(mode: StckMode, file_path: String) -> Result<()> {
+    use StckMode as M;
     match mode {
         M::Normal => {
             execute_file(file_path)?;
@@ -39,18 +39,18 @@ fn main() {
     };
     let mode = if let Some(arg) = args.peek() {
         let m = match arg.as_str() {
-            "--debug" => SttMode::Debug,
-            "--token" => SttMode::TokenCheck,
-            "--syntax" => SttMode::SyntaxCheck,
-            "--proc" => SttMode::PrintProccCode,
-            _ => SttMode::Normal,
+            "--debug" => StckMode::Debug,
+            "--token" => StckMode::TokenCheck,
+            "--syntax" => StckMode::SyntaxCheck,
+            "--proc" => StckMode::PrintProccCode,
+            _ => StckMode::Normal,
         };
-        if m != SttMode::Normal {
+        if m != StckMode::Normal {
             args.next();
         }
         m
     } else {
-        SttMode::Normal
+        StckMode::Normal
     };
     if let Err(e) = execute(mode, file_path.clone()) {
         eprintln!("[ERROR] executing {file_path}:\n  {e}");

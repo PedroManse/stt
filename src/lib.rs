@@ -17,11 +17,11 @@ use std::path::{Path, PathBuf};
 use self::preproc::ProcCommand;
 
 type OResult<T, E> = std::result::Result<T, E>;
-pub type Result<T> = std::result::Result<T, SttError>;
+pub type Result<T> = std::result::Result<T, StckError>;
 
 #[allow(private_interfaces)] // Allow private types since this should only be printed
 #[derive(thiserror::Error, Debug)]
-pub enum SttError {
+pub enum StckError {
     #[error("Can't read file {0:?}")]
     CantReadFile(PathBuf),
     #[error("No such function or function argument called `{0}`")]
@@ -167,14 +167,14 @@ impl ClosurePartialArgs {
     }
     pub fn parse(arg_list: Vec<String>, span: Range<usize>) -> Result<Self> {
         if arg_list.is_empty() {
-            Err(SttError::CantInstanceClosureZeroArgs { span })
+            Err(StckError::CantInstanceClosureZeroArgs { span })
         } else {
             Ok(Self::new(arg_list))
         }
     }
     pub fn convert(arg_list: Vec<String>, fn_name: &str) -> Result<Self> {
         if arg_list.is_empty() {
-            Err(SttError::CantMakeFnIntoClosureZeroArgs {
+            Err(StckError::CantMakeFnIntoClosureZeroArgs {
                 fn_name: fn_name.to_string(),
             })
         } else {
@@ -206,7 +206,7 @@ impl Closure {
     fn fill(mut self, value: Value) -> Result<ClosureCurry> {
         if let Err(r) = self.request_args.fill(value) {
             return Err(match r {
-                ClosureFillError::OutOfBound => SttError::DEVFillFullClosure {
+                ClosureFillError::OutOfBound => StckError::DEVFillFullClosure {
                     closure_args: self.request_args,
                 },
             });
@@ -353,7 +353,7 @@ impl FnDef {
     }
     pub fn into_closure(self, name: &str) -> Result<Closure> {
         let args = match self.args {
-            FnArgs::AllStack => Err(SttError::CantMakeFnIntoClosureAllStack {
+            FnArgs::AllStack => Err(StckError::CantMakeFnIntoClosureAllStack {
                 fn_name: name.to_string(),
             }),
             FnArgs::Args(a) => Ok(a),
@@ -642,24 +642,24 @@ impl TokenBlock {
     }
 }
 
-type RustSttFnRaw = fn(&mut runtime::Context, &Path);
+type RustStckFnRaw = fn(&mut runtime::Context, &Path);
 #[derive(Clone)]
-pub struct RustSttFn {
+pub struct RustStckFn {
     name: String,
-    code: RustSttFnRaw,
+    code: RustStckFnRaw,
 }
 
 // TODO ::new test if name is valid (for tokenizer)
-impl RustSttFn {
-    pub fn new(name: String, code: RustSttFnRaw) -> Self {
-        RustSttFn { name, code }
+impl RustStckFn {
+    pub fn new(name: String, code: RustStckFnRaw) -> Self {
+        RustStckFn { name, code }
     }
     fn call(&self, ctx: &mut runtime::Context, source: &Path) {
         (self.code)(ctx, source)
     }
 }
 
-impl Debug for RustSttFn {
+impl Debug for RustStckFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Rust function {}", self.name)
     }

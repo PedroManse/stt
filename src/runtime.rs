@@ -10,7 +10,7 @@ pub struct Context {
     fns: HashMap<FnName, FnDef>,
     pub stack: Stack,
     args: Option<HashMap<FnName, FnArg>>,
-    rust_fns: HashMap<FnName, RustSttFn>,
+    rust_fns: HashMap<FnName, RustStckFn>,
 }
 
 impl Context {
@@ -24,7 +24,7 @@ impl Context {
         }
     }
 
-    pub fn add_rust_hook(&mut self, rnf: RustSttFn) -> Option<RustSttFn> {
+    pub fn add_rust_hook(&mut self, rnf: RustStckFn) -> Option<RustStckFn> {
         self.rust_fns.insert(FnName(rnf.name.clone()), rnf)
     }
 
@@ -36,7 +36,7 @@ impl Context {
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
         args_ins: FnArgsIns,
-        rust_fns: HashMap<FnName, RustSttFn>,
+        rust_fns: HashMap<FnName, RustStckFn>,
     ) -> Self {
         let stack;
         let args;
@@ -68,7 +68,7 @@ impl Context {
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
         args: HashMap<FnName, FnArg>,
-        rust_fns: HashMap<FnName, RustSttFn>,
+        rust_fns: HashMap<FnName, RustStckFn>,
     ) -> Self {
         Self {
             rust_fns,
@@ -110,7 +110,7 @@ impl Context {
         let check = self.stack.pop();
         let check = match (check, correct_size) {
             (Some(c), true) => Ok(c),
-            _ => Err(SttError::WrongStackSizeDiffOnCheck {
+            _ => Err(StckError::WrongStackSizeDiffOnCheck {
                 old_stack_size,
                 new_stack_size,
                 new_should_stack_size,
@@ -118,7 +118,7 @@ impl Context {
         }?;
         match check {
             Value::Bool(b) if correct_size => Ok(b),
-            got => Err(SttError::WrongTypeOnCheck { got }),
+            got => Err(StckError::WrongTypeOnCheck { got }),
         }
     }
 
@@ -134,7 +134,7 @@ impl Context {
                     cl.request_args
                         .parent_args
                         .set(args.clone())
-                        .map_err(|old| SttError::DEVResettingParentValuesForClosure {
+                        .map_err(|old| StckError::DEVResettingParentValuesForClosure {
                             closure_args: Box::new(cl.request_args.clone()),
                             parent_args: old,
                         })?;
@@ -155,7 +155,7 @@ impl Context {
                 let fndef = self
                     .fns
                     .get(fn_name)
-                    .ok_or(SttError::MissingUserFunction(fn_name.as_str().to_string()))?;
+                    .ok_or(StckError::MissingUserFunction(fn_name.as_str().to_string()))?;
                 let closure = fndef.clone().into_closure(fn_name.as_str())?;
                 self.stack.push_this(closure);
                 ControlFlow::Continue
@@ -176,7 +176,7 @@ impl Context {
             KeywordKind::Return => ControlFlow::Return,
             KeywordKind::Break => ControlFlow::Break,
             KeywordKind::Switch { cases, default } => {
-                let cmp = self.stack.pop().ok_or(SttError::RTSwitchCaseWithNoValue)?;
+                let cmp = self.stack.pop().ok_or(StckError::RTSwitchCaseWithNoValue)?;
                 for case in cases {
                     if case.test == cmp {
                         return self.execute_code(&case.code, source);
@@ -225,7 +225,7 @@ impl Context {
         // and are always given precedence
         match self.try_execute_builtin(name.as_str(), source) {
             Ok(()) => return Ok(()),
-            Err(SttError::NoSuchBuiltin) => {}
+            Err(StckError::NoSuchBuiltin) => {}
             Err(e) => return Err(e),
         };
 
@@ -239,7 +239,7 @@ impl Context {
             self.stack.pushn(rets?);
         } else if let Some(()) = self.try_execute_rust_hook(name, source) {
         } else {
-            return Err(SttError::MissingIdent(name.0.clone()));
+            return Err(StckError::MissingIdent(name.0.clone()));
         }
         Ok(())
     }
@@ -272,7 +272,7 @@ impl Context {
                 let args_stack = match self.stack.popn(args.len()) {
                     Some(xs) => xs,
                     None => {
-                        return Some(Err(SttError::RTUserFnMissingArgs {
+                        return Some(Err(StckError::RTUserFnMissingArgs {
                             name: name.as_str().to_string(),
                             got: self.stack.0.clone(),
                             needs: user_fn.args.clone().into_vec(),
@@ -390,10 +390,10 @@ impl Context {
                     (Str(l), Str(r)) => Ok(l == r),
                     (Bool(l), Bool(r)) => Ok(l == r),
                     (r @ Array(_), l) | (l, r @ Array(_)) => {
-                        Err(SttError::RTCompareError { this: l, that: r })
+                        Err(StckError::RTCompareError { this: l, that: r })
                     }
                     (m @ Map(_), l) | (l, m @ Map(_)) => {
-                        Err(SttError::RTCompareError { this: l, that: m })
+                        Err(StckError::RTCompareError { this: l, that: m })
                     }
                     (_, _) => Ok(false),
                 }?;
@@ -409,7 +409,7 @@ impl Context {
                     (Str(l), Str(r)) => l == r,
                     (Bool(l), Bool(r)) => l == r,
                     (l, r) => {
-                        return Err(SttError::RTCompareError { this: l, that: r });
+                        return Err(StckError::RTCompareError { this: l, that: r });
                     }
                 };
                 self.stack.push_this(eq);
@@ -423,7 +423,7 @@ impl Context {
                     (Str(l), Str(r)) => l > r,
                     (Bool(l), Bool(r)) => l & !r,
                     (l, r) => {
-                        return Err(SttError::RTCompareError { this: l, that: r });
+                        return Err(StckError::RTCompareError { this: l, that: r });
                     }
                 };
                 self.stack.push_this(eq);
@@ -470,7 +470,7 @@ impl Context {
                 )?;
                 match self.vars.get(&name) {
                     None => {
-                        return Err(SttError::NoSuchVariable(name));
+                        return Err(StckError::NoSuchVariable(name));
                     }
                     Some(v) => {
                         self.stack.push(v.clone());
@@ -485,17 +485,17 @@ impl Context {
                     Value::Result(r) => {
                         match *r {
                             Err(error) => {
-                                return Err(SttError::RTUnwrapResultBuiltinFailed { error });
+                                return Err(StckError::RTUnwrapResultBuiltinFailed { error });
                             }
                             Ok(o) => self.stack.push_this(o),
                         };
                     }
                     Value::Option(o) => match o {
-                        None => return Err(SttError::RTUnwrapOptionBuiltinFailed),
+                        None => return Err(StckError::RTUnwrapOptionBuiltinFailed),
                         Some(s) => self.stack.push_this(*s),
                     },
                     e => {
-                        return Err(SttError::WrongTypeForBuiltin {
+                        return Err(StckError::WrongTypeForBuiltin {
                             for_fn: fn_name.to_string(),
                             args: "[Monad]",
                             this_arg: "Monad",
@@ -599,7 +599,7 @@ impl Context {
                 let xs = self.stack.popn(count as usize).ok_or_else(|| {
                     let got = self.stack.len() as isize;
                     let missing = count - got;
-                    SttError::MissingValuesForBuiltin {
+                    StckError::MissingValuesForBuiltin {
                         for_fn: fn_name.to_string(),
                         args: "[n, [n]]",
                         missing,
@@ -627,7 +627,7 @@ impl Context {
                     .into_iter()
                     .map(|i| i.get_str())
                     .collect::<OResult<Vec<_>, _>>()
-                    .map_err(|got| SttError::WrongTypeForBuiltin {
+                    .map_err(|got| StckError::WrongTypeForBuiltin {
                         for_fn: fn_name.to_string(),
                         args: "[array joiner]",
                         this_arg: "array",
@@ -706,7 +706,7 @@ impl Context {
             "debug$args" => eprintln!("{:?}", self.args),
 
             _ => {
-                return Err(SttError::NoSuchBuiltin);
+                return Err(StckError::NoSuchBuiltin);
             }
         };
         Ok(())

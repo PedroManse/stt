@@ -1,8 +1,8 @@
-# STT
+# STCK
 
 ###### This describes what the language *should* be, *not necessarily* what it is
 
-Pronounced as "stah", Stt is a simple scripting language made to be embedded in other rust programs.
+Pronounced as "stah", STCK is a simple scripting language made to be embedded in other rust programs.
 
 It's also made to be as simple as possible to parse and execute.
 
@@ -15,7 +15,7 @@ It's also possible to add rust bindings to be executable by user script
 
 
 ## Execution pipeline
-STT has several modules for breaking up each important step, from reading files
+STCK has several modules for breaking up each important step, from reading files
 until executing the code
 
 ### Tokenizer
@@ -70,6 +70,6 @@ The expression executioner handles every runtime element and the definition of e
 
 The context of execution is preserved after all the code is ran. So it is possible to reuse the `runtime::Context` and even to utilize previously defined functions.
 
-The recommended usage for context reusage is to send variables to STT code as
+The recommended usage for context reusage is to send variables to STCK code as
 values in the stack and to clear the stack after every execution, since a faulty
 program could polute another's input.
