@@ -12,5 +12,5 @@ name = "stck"
 path = "src/lib.rs"
 
 [[bin]]
-name = "interpreter"
+name = "stck"
 path = "src/interpreter.rs"
