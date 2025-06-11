@@ -704,6 +704,7 @@ impl Context {
             "debug$stack" => eprintln!("{:?}", self.stack),
             "debug$vars" => eprintln!("{:?}", self.vars),
             "debug$args" => eprintln!("{:?}", self.args),
+            "debug$fns" => eprintln!("{:?}", self.fns),
 
             _ => {
                 return Err(StckError::NoSuchBuiltin);
