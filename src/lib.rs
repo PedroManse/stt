@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use self::preproc::ProcCommand;
 
@@ -121,7 +122,9 @@ pub enum StckError {
     #[error("Invalid pragma command: {0}")]
     InvalidPragma(String),
     #[error("Expected type: {0:?} got value {1:?}")]
-    RTTypeError(TypeTester, Box<Value>)
+    RTTypeError(TypeTester, Box<Value>),
+    #[error("Type {0} doesn't exist")]
+    UnknownType(String),
 }
 
 #[derive(Clone, Debug)]
@@ -168,13 +171,13 @@ impl FnArgDef {
     fn check(&self, v: &FnArg) -> OResult<(), TypeTester> {
         match self.type_check.as_ref() {
             Some(tt) => tt.check(&v.0),
-            None => Ok(())
+            None => Ok(()),
         }
     }
     fn check_raw(&self, v: &Value) -> OResult<(), TypeTester> {
         match self.type_check.as_ref() {
             Some(tt) => tt.check(&v),
-            None => Ok(())
+            None => Ok(()),
         }
     }
 }
@@ -192,7 +195,7 @@ enum ClosureCurry {
 
 enum ClosureFillError {
     OutOfBound,
-    TypeError(TypeTester, Value)
+    TypeError(TypeTester, Value),
 }
 
 #[derive(Clone, Debug)]
@@ -258,7 +261,7 @@ impl Closure {
                 ClosureFillError::OutOfBound => StckError::DEVFillFullClosure {
                     closure_args: self.request_args,
                 },
-                ClosureFillError::TypeError(tt, v) => StckError::RTTypeError(tt, Box::new(v))
+                ClosureFillError::TypeError(tt, v) => StckError::RTTypeError(tt, Box::new(v)),
             });
         }
         Ok(if self.request_args.is_full() {
@@ -301,7 +304,7 @@ impl FnArgs {
     fn into_needs(self) -> Vec<String> {
         match self {
             FnArgs::AllStack => vec![],
-            FnArgs::Args(xs) => xs.into_iter().map(|x|x.name).collect(),
+            FnArgs::Args(xs) => xs.into_iter().map(|x| x.name).collect(),
         }
     }
 }
@@ -397,6 +400,24 @@ enum TypeTester {
     Result,
     Option,
     Closure,
+}
+
+impl FromStr for TypeTester {
+    type Err = StckError;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(match s {
+            "char" => Self::Char,
+            "str" => Self::Str,
+            "num" => Self::Num,
+            "bool" => Self::Bool,
+            "array" => Self::Array,
+            "map" => Self::Map,
+            "result" => Self::Result,
+            "option" => Self::Option,
+            "closure" => Self::Closure,
+            s => return Err(StckError::UnknownType(s.to_string()))
+        })
+    }
 }
 
 impl TypeTester {

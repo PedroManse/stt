@@ -16,14 +16,21 @@ enum State {
     MakeNumber(String),
     MakeKeyword(String),
     MakeFnArgs(Vec<FnArgDef>, String),
+    MakeFnArgType(Vec<FnArgDef>, String, String),
     MakeChar,
     MakeCharEnd(char),
     MakeCharEndEsc(char),
 }
 
 macro_rules! matches {
+    (arg_ident) => {
+        'a'..='z' | 'A'..='Z' | '_' | '-' | '&'
+    };
     (ident) => {
         (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'')
+    };
+    (letter) => {
+        'a'..='z' | 'A'..='Z'
     };
     (start_ident) => {
         'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':' | '~' | '@'
@@ -179,7 +186,19 @@ impl Context {
                     }
                     MakeFnArgs(xs, String::new())
                 }
-                (MakeFnArgs(xs, mut buf), c @ matches!(ident)) => {
+                (MakeFnArgs(xs, buf), '<') => {
+                    MakeFnArgType(xs, buf, String::new())
+                }
+                (MakeFnArgType(xs, buf, mut type_buf), c @ matches!(letter)) => {
+                    type_buf.push(*c);
+                    MakeFnArgType(xs, buf, type_buf)
+                }
+                (MakeFnArgType(mut xs, buf, type_buf), '>') => {
+                    let x = FnArgDef::new_typed(buf, type_buf.parse()?);
+                    xs.push(x);
+                    MakeFnArgs(xs, String::new())
+                }
+                (MakeFnArgs(xs, mut buf), c @ matches!(arg_ident)) => {
                     buf.push(*c);
                     MakeFnArgs(xs, buf)
                 }
