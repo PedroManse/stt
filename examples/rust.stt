@@ -1,4 +1,4 @@
-#! stt
+#! stck
 (include stdlib)
 argv$init
 
