@@ -1,3 +1,36 @@
-(fn)
+(pragma set debug)
+(include stdlib)
 
-debug$fns
+(fn) [ times<num> cl<closure> ] do-n-times {
+	times
+	(while) { dup 0 = not } {
+		dup
+			-- "c" set
+			cl flip @
+		"c" get
+	}
+	drop times arr$pack-n arr$reverse
+}
+
+
+(fn) [ list<array> index<num> ] arr$get {
+	list arr$unpack
+		index - --
+	(while) {dup 0 = not} {
+		-- flip drop
+	} drop
+	"out" set
+	index (while) {dup 0 = not} {
+		-- flip drop
+	} drop
+	"out" get
+}
+
+10 [ x<num> ]{
+	10 [ y<num> ]{
+		x -- 10 * y -- +
+	} do-n-times
+} do-n-times
+
+dup
+	[ _<array> ]{} type$array-check
