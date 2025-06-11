@@ -9,7 +9,7 @@ pub struct Context {
     vars: HashMap<String, Value>,
     fns: HashMap<FnName, FnDef>,
     pub stack: Stack,
-    args: Option<HashMap<FnName, FnArg>>,
+    args: Option<HashMap<ArgName, FnArg>>,
     rust_fns: HashMap<FnName, RustStckFn>,
 }
 
@@ -25,7 +25,7 @@ impl Context {
     }
 
     pub fn add_rust_hook(&mut self, rnf: RustStckFn) -> Option<RustStckFn> {
-        self.rust_fns.insert(FnName(rnf.name.clone()), rnf)
+        self.rust_fns.insert(rnf.name.clone(), rnf)
     }
 
     pub fn get_stack(&self) -> &[Value] {
@@ -38,21 +38,12 @@ impl Context {
         args_ins: FnArgsIns,
         rust_fns: HashMap<FnName, RustStckFn>,
     ) -> Self {
-        let stack;
-        let args;
-        match args_ins.cap {
+        let (stack, args) = match args_ins.cap {
             FnArgsInsCap::AllStack(xs) => {
-                stack = Stack::new_with(xs);
-                args = args_ins.parent;
+                (Stack::new_with(xs), None)
             }
-            FnArgsInsCap::Args(ars) => {
-                stack = Stack::new();
-                let mut joint_args = HashMap::new();
-                if let Some(parent_args) = args_ins.parent {
-                    joint_args.extend(parent_args);
-                }
-                joint_args.extend(ars);
-                args = Some(joint_args);
+            FnArgsInsCap::Args(args) => {
+                (Stack::new(), Some(args))
             }
         };
         Self {
@@ -67,7 +58,7 @@ impl Context {
     fn frame_closure(
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
-        args: HashMap<FnName, FnArg>,
+        args: HashMap<ArgName, FnArg>,
         rust_fns: HashMap<FnName, RustStckFn>,
     ) -> Self {
         Self {
@@ -239,7 +230,7 @@ impl Context {
             self.stack.pushn(rets?);
         } else if let Some(()) = self.try_execute_rust_hook(name, source) {
         } else {
-            return Err(StckError::MissingIdent(name.0.clone()));
+            return Err(StckError::MissingIdent(name.clone()));
         }
         Ok(())
     }
@@ -275,24 +266,30 @@ impl Context {
                         return Some(Err(StckError::RTUserFnMissingArgs {
                             name: name.as_str().to_string(),
                             got: self.stack.0.clone(),
-                            needs: user_fn.args.clone().into_vec(),
+                            needs: user_fn.args.clone().into_needs(),
                         }));
                     }
                 };
                 let arg_map = args
-                    .clone()
                     .into_iter()
-                    .map(FnName)
                     .zip(args_stack.into_iter().map(FnArg))
-                    .collect();
+                    .map(|(cap, ins)|{
+                        if let Err(type_check_error) = cap.check(&ins) {
+                            Err(StckError::RTTypeError(type_check_error, Box::new(ins.0)))
+                        } else {
+                            Ok((cap.get_name().to_string(), ins))
+                        }
+                    })
+                    .collect::<OResult<_, StckError>>();
+                let arg_map = match arg_map {
+                    Err(e) => return Some(Err(e)),
+                    Ok(a) => a,
+                };
                 FnArgsInsCap::Args(arg_map)
             }
             FnArgs::AllStack => FnArgsInsCap::AllStack(self.stack.take()),
         };
-        let args = FnArgsIns {
-            cap: args,
-            parent: self.args.clone(),
-        };
+        let args = FnArgsIns { cap: args };
         let mut fn_ctx = Context::frame_fn(self.fns.clone(), vars, args, self.rust_fns.clone());
 
         // handle (return) kw and RT errors inside functions
@@ -306,7 +303,7 @@ impl Context {
         Some(Ok(fn_ctx.stack.into_vec()))
     }
 
-    fn try_get_arg(&mut self, name: &FnName) -> Option<Value> {
+    fn try_get_arg(&mut self, name: &ArgName) -> Option<Value> {
         if let Some(args) = &self.args {
             args.get(name).map(|arg| arg.0.clone())
         } else {

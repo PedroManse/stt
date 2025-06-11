@@ -51,7 +51,7 @@ pub enum StckError {
         missing: isize,
     },
     #[error(
-        "Function {for_fn} accepts {args}. But [{this_arg}] must be a {expected} but got {got:?}"
+        "Function {for_fn} accepts {args}. But [{this_arg}] must be a {expected} and got {got:?}"
     )]
     WrongTypeForBuiltin {
         for_fn: String,
@@ -92,7 +92,7 @@ pub enum StckError {
     )]
     DEVResettingParentValuesForClosure {
         closure_args: Box<ClosurePartialArgs>,
-        parent_args: HashMap<FnName, FnArg>,
+        parent_args: HashMap<ArgName, FnArg>,
     },
     #[error(
         "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"
@@ -120,6 +120,8 @@ pub enum StckError {
     CantElseCurrentSection(Range<usize>, Option<ProcCommand>),
     #[error("Invalid pragma command: {0}")]
     InvalidPragma(String),
+    #[error("Expected type: {0:?} got value {1:?}")]
+    RTTypeError(TypeTester, Box<Value>)
 }
 
 #[derive(Clone, Debug)]
@@ -129,14 +131,57 @@ pub struct Code {
 }
 
 impl Code {
+    #[must_use]
     pub fn expr_count(&self) -> usize {
         self.exprs.len()
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct FnArgDef {
+    name: String,
+    type_check: Option<TypeTester>,
+}
+
+impl FnArgDef {
+    fn new_untyped(name: String) -> Self {
+        Self {
+            name,
+            type_check: None,
+        }
+    }
+    fn new_typed(name: String, type_check: TypeTester) -> Self {
+        Self {
+            name,
+            type_check: Some(type_check),
+        }
+    }
+    fn new(name: String, type_check: Option<TypeTester>) -> Self {
+        Self { name, type_check }
+    }
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+    fn take_name(self) -> String {
+        self.name
+    }
+    fn check(&self, v: &FnArg) -> OResult<(), TypeTester> {
+        match self.type_check.as_ref() {
+            Some(tt) => tt.check(&v.0),
+            None => Ok(())
+        }
+    }
+    fn check_raw(&self, v: &Value) -> OResult<(), TypeTester> {
+        match self.type_check.as_ref() {
+            Some(tt) => tt.check(&v),
+            None => Ok(())
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 enum FnArgs {
-    Args(Vec<String>),
+    Args(Vec<FnArgDef>),
     AllStack,
 }
 
@@ -147,17 +192,18 @@ enum ClosureCurry {
 
 enum ClosureFillError {
     OutOfBound,
+    TypeError(TypeTester, Value)
 }
 
 #[derive(Clone, Debug)]
 struct ClosurePartialArgs {
-    next_args: Vec<String>,
-    filled_args: Vec<(String, Value)>,
-    parent_args: OnceCell<HashMap<FnName, FnArg>>,
+    next_args: Vec<FnArgDef>,
+    filled_args: Vec<(ArgName, Value)>,
+    parent_args: OnceCell<HashMap<ArgName, FnArg>>,
 }
 
 impl ClosurePartialArgs {
-    fn new(mut arg_list: Vec<String>) -> Self {
+    fn new(mut arg_list: Vec<FnArgDef>) -> Self {
         arg_list.reverse();
         ClosurePartialArgs {
             filled_args: Vec::with_capacity(arg_list.len()),
@@ -165,14 +211,14 @@ impl ClosurePartialArgs {
             parent_args: OnceCell::new(),
         }
     }
-    pub fn parse(arg_list: Vec<String>, span: Range<usize>) -> Result<Self> {
+    pub fn parse(arg_list: Vec<FnArgDef>, span: Range<usize>) -> Result<Self> {
         if arg_list.is_empty() {
             Err(StckError::CantInstanceClosureZeroArgs { span })
         } else {
             Ok(Self::new(arg_list))
         }
     }
-    pub fn convert(arg_list: Vec<String>, fn_name: &str) -> Result<Self> {
+    pub fn convert(arg_list: Vec<FnArgDef>, fn_name: &str) -> Result<Self> {
         if arg_list.is_empty() {
             Err(StckError::CantMakeFnIntoClosureZeroArgs {
                 fn_name: fn_name.to_string(),
@@ -183,7 +229,10 @@ impl ClosurePartialArgs {
     }
     fn fill(&mut self, value: Value) -> OResult<(), ClosureFillError> {
         let next = self.next_args.pop().ok_or(ClosureFillError::OutOfBound)?;
-        self.filled_args.push((next, value));
+        if let Err(tt) = next.check_raw(&value) {
+            return Err(ClosureFillError::TypeError(tt, value));
+        }
+        self.filled_args.push((next.take_name(), value));
         Ok(())
     }
     fn is_full(&self) -> bool {
@@ -199,7 +248,7 @@ pub struct Closure {
 
 struct FullClosure {
     code: Vec<Expr>,
-    request_args: HashMap<FnName, FnArg>,
+    request_args: HashMap<ArgName, FnArg>,
 }
 
 impl Closure {
@@ -209,20 +258,21 @@ impl Closure {
                 ClosureFillError::OutOfBound => StckError::DEVFillFullClosure {
                     closure_args: self.request_args,
                 },
+                ClosureFillError::TypeError(tt, v) => StckError::RTTypeError(tt, Box::new(v))
             });
         }
         Ok(if self.request_args.is_full() {
             let args = if let Some(parent_args) = self.request_args.parent_args.get() {
                 let mut closure_args = parent_args.clone();
                 for (k, v) in self.request_args.filled_args {
-                    closure_args.insert(FnName(k), FnArg(v));
+                    closure_args.insert(k, FnArg(v));
                 }
                 closure_args
             } else {
                 self.request_args
                     .filled_args
                     .into_iter()
-                    .map(|(k, v)| (FnName(k), FnArg(v)))
+                    .map(|(k, v)| (k, FnArg(v)))
                     .collect()
             };
             ClosureCurry::Full(FullClosure {
@@ -241,10 +291,17 @@ impl PartialEq for Closure {
 }
 
 impl FnArgs {
-    fn into_vec(self) -> Vec<String> {
+    fn into_vec(self) -> Vec<FnArgDef> {
         match self {
             FnArgs::AllStack => vec![],
             FnArgs::Args(xs) => xs,
+        }
+    }
+
+    fn into_needs(self) -> Vec<String> {
+        match self {
+            FnArgs::AllStack => vec![],
+            FnArgs::Args(xs) => xs.into_iter().map(|x|x.name).collect(),
         }
     }
 }
@@ -252,12 +309,11 @@ impl FnArgs {
 #[derive(Clone, Debug)]
 struct FnArgsIns {
     cap: FnArgsInsCap,
-    parent: Option<HashMap<FnName, FnArg>>,
 }
 
 #[derive(Clone, Debug)]
 enum FnArgsInsCap {
-    Args(HashMap<FnName, FnArg>),
+    Args(HashMap<ArgName, FnArg>),
     AllStack(Vec<Value>),
 }
 
@@ -320,27 +376,44 @@ impl Stack {
     }
 }
 
-#[repr(transparent)]
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct FnName(String);
-
-impl FnName {
-    fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl From<&str> for FnName {
-    fn from(value: &str) -> Self {
-        FnName(value.to_string())
-    }
-}
+type ArgName = String;
+type FnName = String;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum FnScope {
     Global,   // read and writes to upper-scoped variables
     Local,    // reads upper-scoped variables
     Isolated, // fully isolated
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum TypeTester {
+    Char,
+    Str,
+    Num,
+    Bool,
+    Array,
+    Map,
+    Result,
+    Option,
+    Closure,
+}
+
+impl TypeTester {
+    fn check(&self, v: &Value) -> OResult<(), TypeTester> {
+        match (self, v) {
+            (Self::Char, Value::Char(_)) => Ok(()),
+            (Self::Str, Value::Str(_)) => Ok(()),
+            (Self::Num, Value::Num(_)) => Ok(()),
+            (Self::Bool, Value::Bool(_)) => Ok(()),
+            (Self::Array, Value::Array(_)) => Ok(()),
+            (Self::Map, Value::Map(_)) => Ok(()),
+            (Self::Result, Value::Result(_)) => Ok(()),
+            (Self::Option, Value::Option(_)) => Ok(()),
+            (Self::Closure, Value::Closure(_)) => Ok(()),
+            (t, _) => Err(*t),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -616,7 +689,7 @@ pub enum TokenCont {
     Str(String),
     Number(isize),
     Keyword(RawKeyword),
-    FnArgs(Vec<String>),
+    FnArgs(Vec<FnArgDef>),
     Block(Vec<Token>),
     IncludedBlock(TokenBlock),
     EndOfBlock,
