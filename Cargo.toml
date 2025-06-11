@@ -2,6 +2,15 @@
 name = "stt"
 version = "0.1.0"
 edition = "2024"
+authors = ["me <me@gmail.com>"]
 
 [dependencies]
 thiserror = "2.0.12"
+
+[lib]
+name = "stt"
+path = "src/lib.rs"
+
+[[bin]]
+name = "stt-interpreter"
+path = "src/interpreter.rs"
