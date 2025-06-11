@@ -2,7 +2,7 @@
 
 ###### This describes what the language *should* be, *not necessarily* what it is
 
-Pronounced as "stah", STCK is a simple scripting language made to be embedded in other rust programs.
+Pronounced as "stack", STCK is a simple scripting language made to be embedded in other rust programs.
 
 It's also made to be as simple as possible to parse and execute.
 
