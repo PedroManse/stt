@@ -1,7 +1,7 @@
 # Changelog
 
 ## 0.2.0
-* Restructure crate as lib and publish first version
+* Restructure crate as lib and publish first version (#51)
 * Add rust hook function as callable in stck script (#47)
 * GPLv3 as license (#36)
 * Closures
