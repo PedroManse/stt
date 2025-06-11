@@ -1,4 +1,4 @@
-use crate::{FnScope, RawKeyword, Result, StckError, Token, TokenCont};
+use crate::{FnArgDef, FnScope, RawKeyword, Result, StckError, Token, TokenCont};
 
 pub struct Context {
     point: usize,
@@ -15,7 +15,7 @@ enum State {
     MakeStringEsc(String), // found \ on string
     MakeNumber(String),
     MakeKeyword(String),
-    MakeFnArgs(Vec<String>, String),
+    MakeFnArgs(Vec<FnArgDef>, String),
     MakeChar,
     MakeCharEnd(char),
     MakeCharEndEsc(char),
@@ -175,7 +175,7 @@ impl Context {
 
                 (MakeFnArgs(mut xs, buf), matches!(space)) => {
                     if !buf.is_empty() {
-                        xs.push(buf);
+                        xs.push(FnArgDef::new_typed(buf, crate::TypeTester::Num));
                     }
                     MakeFnArgs(xs, String::new())
                 }
@@ -185,7 +185,7 @@ impl Context {
                 }
                 (MakeFnArgs(mut xs, buf), ']') => {
                     if !buf.is_empty() {
-                        xs.push(buf);
+                        xs.push(FnArgDef::new_untyped(buf));
                     }
                     self.push_token(&mut out, FnArgs(xs));
                     Nothing

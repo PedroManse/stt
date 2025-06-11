@@ -25,7 +25,7 @@ enum State {
     MakeWhile,
     MakeWhileCode(Vec<Expr>),
 
-    MakeClosureBlock(Vec<String>),
+    MakeClosureBlock(Vec<FnArgDef>),
 }
 
 impl Context {
@@ -52,7 +52,7 @@ impl Context {
             state = match (state, cont) {
                 (Nothing, EndOfBlock) => Nothing,
                 (Nothing, Ident(n)) => {
-                    push_expr!(E::FnCall(FnName(n)));
+                    push_expr!(E::FnCall(n));
                     Nothing
                 }
                 (Nothing, Str(x)) => {
@@ -176,7 +176,7 @@ impl Context {
                     "*" => MakeFnName(scope, crate::FnArgs::AllStack),
                     x => panic!("Can only user param list or '*' as function arguments, not {x}"),
                 },
-                (MakeFnName(scope, args), Ident(name)) => MakeFnBlock(scope, args, FnName(name)),
+                (MakeFnName(scope, args), Ident(name)) => MakeFnBlock(scope, args, name),
                 (MakeFnBlock(scope, args, name), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
                     let code = inner_ctx.parse_block()?;
