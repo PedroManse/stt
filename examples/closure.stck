@@ -1,4 +1,4 @@
-#! /target/debug/stt
+#! /target/debug/stck
 (pragma set manual-array)
 (pragma set debug)
 (include stdlib)
