@@ -29,7 +29,7 @@ pub fn get_tokens(path: impl AsRef<Path>) -> Result<TokenBlock> {
 /// assert_eq!(token_block.token_count(), 2);
 /// ```
 pub fn get_tokens_str(cont: &str, content_name: impl AsRef<Path>) -> Result<TokenBlock> {
-    let tokens = token::Context::new(&cont).tokenize_block()?;
+    let tokens = token::Context::new(cont).tokenize_block()?;
     let token_block = TokenBlock {
         tokens,
         source: content_name.as_ref().to_path_buf(),

@@ -297,6 +297,9 @@ impl Stack {
     fn into_vec(self) -> Vec<Value> {
         self.0
     }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
     pub fn len(&self) -> usize {
         self.0.len()
     }
