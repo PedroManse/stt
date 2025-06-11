@@ -175,7 +175,7 @@ impl Context {
 
                 (MakeFnArgs(mut xs, buf), matches!(space)) => {
                     if !buf.is_empty() {
-                        xs.push(FnArgDef::new_typed(buf, crate::TypeTester::Num));
+                        xs.push(FnArgDef::new_untyped(buf));
                     }
                     MakeFnArgs(xs, String::new())
                 }
