@@ -29,6 +29,9 @@ macro_rules! matches {
     (ident) => {
         (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'')
     };
+    (arg_type) => {
+        (matches!(letter) | matches!(space))
+    };
     (letter) => {
         'a'..='z' | 'A'..='Z'
     };
@@ -189,7 +192,7 @@ impl Context {
                 (MakeFnArgs(args, arg_name), '<') => {
                     MakeFnArgType{args, arg_name, type_buf: String::new(), tag_count: 0}
                 }
-                (MakeFnArgType{args, arg_name, mut type_buf, tag_count}, c @ matches!(letter)) => {
+                (MakeFnArgType{args, arg_name, mut type_buf, tag_count}, c @ matches!(arg_type)) => {
                     type_buf.push(*c);
                     MakeFnArgType{args, arg_name, type_buf, tag_count}
                 }
