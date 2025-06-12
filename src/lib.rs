@@ -159,7 +159,7 @@ impl FnArgDef {
             type_check: Some(type_check),
         }
     }
-    fn new(name: String, type_check: Option<TypeTester>) -> Self {
+    pub fn new(name: String, type_check: Option<TypeTester>) -> Self {
         Self { name, type_check }
     }
     fn get_name(&self) -> &str {
@@ -176,14 +176,14 @@ impl FnArgDef {
     }
     fn check_raw(&self, v: &Value) -> OResult<(), TypeTester> {
         match self.type_check.as_ref() {
-            Some(tt) => tt.check(&v),
+            Some(tt) => tt.check(v),
             None => Ok(()),
         }
     }
 }
 
 #[derive(Clone, Debug)]
-enum FnArgs {
+pub enum FnArgs {
     Args(Vec<FnArgDef>),
     AllStack,
 }
@@ -199,14 +199,14 @@ enum ClosureFillError {
 }
 
 #[derive(Clone, Debug)]
-struct ClosurePartialArgs {
+pub struct ClosurePartialArgs {
     next_args: Vec<FnArgDef>,
     filled_args: Vec<(ArgName, Value)>,
     parent_args: OnceCell<HashMap<ArgName, FnArg>>,
 }
 
 impl ClosurePartialArgs {
-    fn new(mut arg_list: Vec<FnArgDef>) -> Self {
+    pub fn new(mut arg_list: Vec<FnArgDef>) -> Self {
         arg_list.reverse();
         ClosurePartialArgs {
             filled_args: Vec::with_capacity(arg_list.len()),
@@ -245,8 +245,9 @@ impl ClosurePartialArgs {
 
 #[derive(Clone, Debug)]
 pub struct Closure {
-    code: Vec<Expr>,
-    request_args: ClosurePartialArgs,
+    pub code: Vec<Expr>,
+    pub request_args: ClosurePartialArgs,
+    pub output_types: Option<Vec<TypeTester>>,
 }
 
 struct FullClosure {
@@ -294,14 +295,14 @@ impl PartialEq for Closure {
 }
 
 impl FnArgs {
-    fn into_vec(self) -> Vec<FnArgDef> {
+    pub fn into_vec(self) -> Vec<FnArgDef> {
         match self {
             FnArgs::AllStack => vec![],
             FnArgs::Args(xs) => xs,
         }
     }
 
-    fn into_needs(self) -> Vec<String> {
+    pub fn into_needs(self) -> Vec<String> {
         match self {
             FnArgs::AllStack => vec![],
             FnArgs::Args(xs) => xs.into_iter().map(|x| x.name).collect(),
@@ -389,17 +390,22 @@ pub enum FnScope {
     Isolated, // fully isolated
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum TypeTester {
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeTester {
     Char,
     Str,
     Num,
     Bool,
-    Array,
-    Map,
-    Result,
-    Option,
-    Closure,
+    ArrayAny,
+    MapAny,
+    ResultAny,
+    OptionAny,
+    ClosureAny,
+    Array(Box<TypeTester>),
+    Map(Box<TypeTester>),
+    Result(Box<(TypeTester, TypeTester)>),
+    Option(Box<TypeTester>),
+    Closure(Vec<TypeTester>, Vec<TypeTester>),
 }
 
 impl FromStr for TypeTester {
@@ -410,29 +416,74 @@ impl FromStr for TypeTester {
             "str" => Self::Str,
             "num" => Self::Num,
             "bool" => Self::Bool,
-            "array" => Self::Array,
-            "map" => Self::Map,
-            "result" => Self::Result,
-            "option" => Self::Option,
-            "closure" => Self::Closure,
-            s => return Err(StckError::UnknownType(s.to_string()))
+            "array" => Self::ArrayAny,
+            "map" => Self::MapAny,
+            "result" => Self::ResultAny,
+            "option" => Self::OptionAny,
+            "closure" => Self::ClosureAny,
+            // TODO: parse complex type or error out
+            _ => return Err(StckError::UnknownType(s.to_string())),
         })
     }
 }
 
 impl TypeTester {
-    fn check(&self, v: &Value) -> OResult<(), TypeTester> {
+    pub fn check(&self, v: &Value) -> OResult<(), TypeTester> {
         match (self, v) {
             (Self::Char, Value::Char(_)) => Ok(()),
             (Self::Str, Value::Str(_)) => Ok(()),
             (Self::Num, Value::Num(_)) => Ok(()),
             (Self::Bool, Value::Bool(_)) => Ok(()),
-            (Self::Array, Value::Array(_)) => Ok(()),
-            (Self::Map, Value::Map(_)) => Ok(()),
-            (Self::Result, Value::Result(_)) => Ok(()),
-            (Self::Option, Value::Option(_)) => Ok(()),
-            (Self::Closure, Value::Closure(_)) => Ok(()),
-            (t, _) => Err(*t),
+            (Self::ArrayAny, Value::Array(_)) => Ok(()),
+            (Self::MapAny, Value::Map(_)) => Ok(()),
+            (Self::ResultAny, Value::Result(_)) => Ok(()),
+            (Self::OptionAny, Value::Option(_)) => Ok(()),
+            (Self::ClosureAny, Value::Closure(_)) => Ok(()),
+            (Self::Array(tt), Value::Array(n)) => {
+                n.iter()
+                    .map(|v| tt.check(v))
+                    .collect::<OResult<Vec<_>, _>>()?;
+                Ok(())
+            }
+            (Self::Map(tt_value), Value::Map(m)) => {
+                for value in m.values() {
+                    tt_value.check(value)?;
+                }
+                Ok(())
+            }
+            (Self::Result(tt), Value::Result(v)) => {
+                let (tt_ok, tt_err) = tt.as_ref();
+                match v.as_ref() {
+                    Ok(v_ok) => tt_ok.check(v_ok),
+                    Err(v_err) => tt_err.check(v_err),
+                }
+            }
+            (Self::Option(_), Value::Option(None)) => Ok(()),
+            (Self::Option(tt), Value::Option(Some(v))) => tt.check(v),
+            (Self::Closure(ttinput, ttoutput), Value::Closure(cl)) => {
+                let outs = cl
+                    .request_args
+                    .next_args
+                    .iter()
+                    .map(|arg_def| &arg_def.type_check)
+                    .zip(ttinput);
+                for (cl_req, tt_req) in outs {
+                    let ok = cl_req.as_ref().map(|c| c == tt_req).unwrap_or(true);
+                    if !ok {
+                        return Err(tt_req.clone());
+                    }
+                }
+                let Some(outputs) = cl.output_types.as_ref() else {
+                    return Ok(());
+                };
+                for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
+                    if cl_in != tt_in {
+                        return Err(tt_in.clone())
+                    }
+                }
+                Ok(())
+            }
+            (t, _) => Err(t.clone()),
         }
     }
 }
@@ -458,6 +509,7 @@ impl FnDef {
         Ok(Closure {
             code: self.code,
             request_args: ClosurePartialArgs::convert(args, name)?,
+            output_types: None,
         })
     }
 }
@@ -663,7 +715,7 @@ struct SwitchCase {
 }
 
 #[derive(Clone, Debug)]
-struct Expr {
+pub struct Expr {
     #[allow(dead_code)]
     span: Range<usize>,
     cont: ExprCont,
