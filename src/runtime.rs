@@ -271,7 +271,7 @@ impl Context {
                     }
                 };
                 let arg_map = args
-                    .into_iter()
+                    .iter()
                     .zip(args_stack.into_iter().map(FnArg))
                     .map(|(cap, ins)|{
                         if let Err(type_check_error) = cap.check(&ins) {
