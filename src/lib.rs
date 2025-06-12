@@ -493,11 +493,12 @@ struct FnDef {
     scope: FnScope,
     code: Vec<Expr>,
     args: FnArgs,
+    output_types: Option<Vec<TypeTester>>,
 }
 
 impl FnDef {
     fn new(scope: FnScope, code: Vec<Expr>, args: FnArgs) -> Self {
-        FnDef { scope, code, args }
+        FnDef { scope, code, args, output_types: None }
     }
     pub fn into_closure(self, name: &str) -> Result<Closure> {
         let args = match self.args {
