@@ -101,6 +101,7 @@ impl Context {
                     let closure = Closure {
                         code,
                         request_args: ClosurePartialArgs::parse(args, span.clone())?,
+                        output_types: None,
                     };
                     push_expr!(E::Immediate(Value::Closure(Box::new(closure))));
                     Nothing
