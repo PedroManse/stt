@@ -510,7 +510,7 @@ impl FnDef {
         Ok(Closure {
             code: self.code,
             request_args: ClosurePartialArgs::convert(args, name)?,
-            output_types: None,
+            output_types: self.output_types
         })
     }
 }
