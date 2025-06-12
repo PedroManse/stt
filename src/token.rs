@@ -16,7 +16,7 @@ enum State {
     MakeNumber(String),
     MakeKeyword(String),
     MakeFnArgs(Vec<FnArgDef>, String),
-    MakeFnArgType(Vec<FnArgDef>, String, String),
+    MakeFnArgType{args: Vec<FnArgDef>, arg_name: String, type_buf: String, tag_count: usize},
     MakeChar,
     MakeCharEnd(char),
     MakeCharEndEsc(char),
@@ -186,17 +186,25 @@ impl Context {
                     }
                     MakeFnArgs(xs, String::new())
                 }
-                (MakeFnArgs(xs, buf), '<') => {
-                    MakeFnArgType(xs, buf, String::new())
+                (MakeFnArgs(args, arg_name), '<') => {
+                    MakeFnArgType{args, arg_name, type_buf: String::new(), tag_count: 0}
                 }
-                (MakeFnArgType(xs, buf, mut type_buf), c @ matches!(letter)) => {
+                (MakeFnArgType{args, arg_name, mut type_buf, tag_count}, c @ matches!(letter)) => {
                     type_buf.push(*c);
-                    MakeFnArgType(xs, buf, type_buf)
+                    MakeFnArgType{args, arg_name, type_buf, tag_count}
                 }
-                (MakeFnArgType(mut xs, buf, type_buf), '>') => {
-                    let x = FnArgDef::new_typed(buf, type_buf.parse()?);
-                    xs.push(x);
-                    MakeFnArgs(xs, String::new())
+                (MakeFnArgType{args, arg_name, mut type_buf, tag_count}, c @ '<') => {
+                    type_buf.push(*c);
+                    MakeFnArgType{args, arg_name, type_buf, tag_count: tag_count+1}
+                }
+                (MakeFnArgType{mut args, arg_name, type_buf, tag_count: 0}, '>') => {
+                    let x = FnArgDef::new_typed(arg_name, type_buf.parse()?);
+                    args.push(x);
+                    MakeFnArgs(args, String::new())
+                }
+                (MakeFnArgType{args, arg_name, mut type_buf, tag_count}, c @ '>') => {
+                    type_buf.push(*c);
+                    MakeFnArgType{args, arg_name, type_buf, tag_count: tag_count-1}
                 }
                 (MakeFnArgs(xs, mut buf), c @ matches!(arg_ident)) => {
                     buf.push(*c);
