@@ -60,9 +60,14 @@ syn match SttFnDefStart ") " contained nextgroup=SttFnDefArgsStartEmpty,SttFnDef
 syn match SttFnDefArgsAllStack "\*" contained
 
 " " parse [...] args
-syn match SttFnDefArgsStartArgs "\[\s*" contained nextgroup=SttFnDefArgsArg,SttFnDefArgsEnd
+" SttFnDefArgsStartArgs doesn't need to be contained because (fn) and closures
+" can start this
+syn match SttFnDefArgsStartArgs "\[\(\s\|\\n\)*" nextgroup=SttFnDefArgsArg,SttFnDefArgsEnd
 syn match SttFnDefArgsStartEmpty "\[\s*\]" contained
-syn match SttFnDefArgsArg "\<\w\+\> \?" nextgroup=SttFnDefArgsArg,SttFnDefArgsEnd contained
+syn match SttFnDefArgsArg "\<\w\+" nextgroup=SttFnDefArgsArgType,SttFnDefArgsArg contained
+syn match SttFnDefArgsArgType "<\s*" nextgroup=SttFnDefArgsArgTypeInsSimple,SFTC contained
+syn keyword SttFnDefArgsArgTypeInsSimple char string str num bool nextgroup=SttFnDefArgsArgTypeInsEnd contained
+syn match SttFnDefArgsArgTypeInsEnd "\s*>\s*" nextgroup=SttFnDefArgsArg,SttFnDefArgsEnd contained
 syn match SttFnDefArgsEnd "\]" contained
 
 " " highlight
@@ -72,6 +77,15 @@ hi def link     SttFnDef        Keyword
 hi def link     SttFnDefArgs        Keyword
 hi def link     SttFnDefArgsAllStack        Keyword
 hi def link     SttFnDefArgsArg        Keyword
+hi def link     SttFnDefArgsArgType Delimiter
+hi def link     SttFnDefArgsArgTypeInsSimple Number
+hi def link     SttFnDefArgsArgTypeInsEnd Delimiter
+
+" Typing matches
+syn match SFTC "array<\w\+>" nextgroup=SttFnDefArgsArgTypeInsEnd contained
+syn match SFTC "fn<\w\+>" nextgroup=SttFnDefArgsArgTypeInsEnd contained
+
+hi def link     SFTC Number
 
 " string
 syn region      SttString            start=+"+ end=+"+
