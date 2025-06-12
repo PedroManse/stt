@@ -413,14 +413,14 @@ impl FromStr for TypeTester {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Ok(match s {
             "char" => Self::Char,
-            "str" => Self::Str,
+            "string" | "str" => Self::Str,
             "num" => Self::Num,
             "bool" => Self::Bool,
-            "array" => Self::ArrayAny,
+            "list" | "array" => Self::ArrayAny,
             "map" => Self::MapAny,
             "result" => Self::ResultAny,
             "option" => Self::OptionAny,
-            "closure" => Self::ClosureAny,
+            "fn" | "closure" => Self::ClosureAny,
             // TODO: parse complex type or error out
             _ => return Err(StckError::UnknownType(s.to_string())),
         })
