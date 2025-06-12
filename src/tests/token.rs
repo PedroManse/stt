@@ -22,9 +22,17 @@ fn read_tokens() {
     let block = block.unwrap();
     use TokenCont as C;
 
-    let expected: Vec<Token> = vec![
+    let expected = [
         mkt!(1..5(C::Keyword(RawKeyword::Fn(FnScope::Local)))),
-        mkt!(6..15(C::FnArgs(vec!["a", "b", "c"].into_strings()))),
+        mkt!(
+            6..15(C::FnArgs(
+                ["a", "b", "c"]
+                    .into_iter()
+                    .map(String::from)
+                    .map(|s|FnArgDef::new(s, None))
+                    .collect()
+            ))
+        ),
         mkt!(16..24(C::Ident("fn-name".to_string()))),
         mkt!(
             24..41(C::Block(vec![
