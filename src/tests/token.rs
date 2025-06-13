@@ -29,7 +29,7 @@ fn read_tokens() {
                 ["a", "b", "c"]
                     .into_iter()
                     .map(String::from)
-                    .map(|s|FnArgDef::new(s, None))
+                    .map(|s| FnArgDef::new(s, None))
                     .collect()
             ))
         ),

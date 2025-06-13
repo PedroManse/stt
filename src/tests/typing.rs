@@ -6,13 +6,13 @@ const T_ERR: fn(TT) -> TR = TR::Err;
 
 #[test]
 fn test_simple_types() {
-    let closure_sum = Value::Closure(Box::new(super::Closure{
+    let closure_sum = Value::Closure(Box::new(super::Closure {
         code: vec![],
         request_args: ClosurePartialArgs::new(vec![
             FnArgDef::new("a".to_string(), Some(TT::Num)),
             FnArgDef::new("b".to_string(), Some(TT::Num)),
         ]),
-        output_types: Some(vec![TT::Num])
+        output_types: Some(vec![TT::Num]),
     }));
 
     let values = [
@@ -42,7 +42,6 @@ fn test_simple_types() {
     }
 }
 
-
 #[test]
 fn test_array_type() {
     let arr_of_num_type = TT::Array(Box::new(TT::Num));
@@ -52,17 +51,16 @@ fn test_array_type() {
     test_eq!(got: type_test, expected: T_OK);
 }
 
-
 #[test]
 fn test_closure_type() {
     let closure_sum_type = TT::Closure(vec![TT::Num, TT::Num], vec![TT::Num]);
-    let closure_sum = Value::Closure(Box::new(Closure{
+    let closure_sum = Value::Closure(Box::new(Closure {
         code: vec![],
         request_args: ClosurePartialArgs::new(vec![
             FnArgDef::new("a".to_string(), Some(TT::Num)),
             FnArgDef::new("b".to_string(), Some(TT::Num)),
         ]),
-        output_types: Some(vec![TT::Num])
+        output_types: Some(vec![TT::Num]),
     }));
     let type_test = closure_sum_type.check(&closure_sum);
     test_eq!(got: type_test, expected: T_OK);

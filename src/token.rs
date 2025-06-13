@@ -16,7 +16,12 @@ enum State {
     MakeNumber(String),
     MakeKeyword(String),
     MakeFnArgs(Vec<FnArgDef>, String),
-    MakeFnArgType{args: Vec<FnArgDef>, arg_name: String, type_buf: String, tag_count: usize},
+    MakeFnArgType {
+        args: Vec<FnArgDef>,
+        arg_name: String,
+        type_buf: String,
+        tag_count: usize,
+    },
     MakeChar,
     MakeCharEnd(char),
     MakeCharEndEsc(char),
@@ -189,25 +194,75 @@ impl Context {
                     }
                     MakeFnArgs(xs, String::new())
                 }
-                (MakeFnArgs(args, arg_name), '<') => {
-                    MakeFnArgType{args, arg_name, type_buf: String::new(), tag_count: 0}
-                }
-                (MakeFnArgType{args, arg_name, mut type_buf, tag_count}, c @ matches!(arg_type)) => {
+                (MakeFnArgs(args, arg_name), '<') => MakeFnArgType {
+                    args,
+                    arg_name,
+                    type_buf: String::new(),
+                    tag_count: 0,
+                },
+                (
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        mut type_buf,
+                        tag_count,
+                    },
+                    c @ matches!(arg_type),
+                ) => {
                     type_buf.push(*c);
-                    MakeFnArgType{args, arg_name, type_buf, tag_count}
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        type_buf,
+                        tag_count,
+                    }
                 }
-                (MakeFnArgType{args, arg_name, mut type_buf, tag_count}, c @ '<') => {
+                (
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        mut type_buf,
+                        tag_count,
+                    },
+                    c @ '<',
+                ) => {
                     type_buf.push(*c);
-                    MakeFnArgType{args, arg_name, type_buf, tag_count: tag_count+1}
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        type_buf,
+                        tag_count: tag_count + 1,
+                    }
                 }
-                (MakeFnArgType{mut args, arg_name, type_buf, tag_count: 0}, '>') => {
+                (
+                    MakeFnArgType {
+                        mut args,
+                        arg_name,
+                        type_buf,
+                        tag_count: 0,
+                    },
+                    '>',
+                ) => {
                     let x = FnArgDef::new_typed(arg_name, type_buf.parse()?);
                     args.push(x);
                     MakeFnArgs(args, String::new())
                 }
-                (MakeFnArgType{args, arg_name, mut type_buf, tag_count}, c @ '>') => {
+                (
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        mut type_buf,
+                        tag_count,
+                    },
+                    c @ '>',
+                ) => {
                     type_buf.push(*c);
-                    MakeFnArgType{args, arg_name, type_buf, tag_count: tag_count-1}
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        type_buf,
+                        tag_count: tag_count - 1,
+                    }
                 }
                 (MakeFnArgs(xs, mut buf), c @ matches!(arg_ident)) => {
                     buf.push(*c);

@@ -39,12 +39,8 @@ impl Context {
         rust_fns: HashMap<FnName, RustStckFn>,
     ) -> Self {
         let (stack, args) = match args_ins.cap {
-            FnArgsInsCap::AllStack(xs) => {
-                (Stack::new_with(xs), None)
-            }
-            FnArgsInsCap::Args(args) => {
-                (Stack::new(), Some(args))
-            }
+            FnArgsInsCap::AllStack(xs) => (Stack::new_with(xs), None),
+            FnArgsInsCap::Args(args) => (Stack::new(), Some(args)),
         };
         Self {
             fns,
@@ -273,7 +269,7 @@ impl Context {
                 let arg_map = args
                     .iter()
                     .zip(args_stack.into_iter().map(FnArg))
-                    .map(|(cap, ins)|{
+                    .map(|(cap, ins)| {
                         if let Err(type_check_error) = cap.check(&ins) {
                             Err(StckError::RTTypeError(type_check_error, Box::new(ins.0)))
                         } else {
