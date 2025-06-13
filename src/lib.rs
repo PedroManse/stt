@@ -123,7 +123,13 @@ pub enum StckError {
     InvalidPragma(String),
     #[error("Expected type: {0:?} got value {1:?}")]
     RTTypeError(TypeTester, Box<Value>),
-    #[error("Type {0} doesn't exist")]
+    #[error("Output of function `{fn_name}` error, Expected {expected:?} got {got:?}")]
+    RTOutputCountError {
+        fn_name: String,
+        expected: usize,
+        got: usize,
+    },
+    #[error("Type `{0}` doesn't exist")]
     UnknownType(String),
 }
 
@@ -247,7 +253,7 @@ impl ClosurePartialArgs {
 pub struct Closure {
     pub code: Vec<Expr>,
     pub request_args: ClosurePartialArgs,
-    pub output_types: Option<Vec<TypeTester>>,
+    pub output_types: Option<TypedOutputs>,
 }
 
 struct FullClosure {
@@ -477,7 +483,8 @@ impl TypeTester {
                     return Ok(());
                 };
                 for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
-                    if cl_in != tt_in {
+                    let ok = cl_in.as_ref().map(|c| c == tt_in).unwrap_or(true);
+                    if !ok {
                         return Err(tt_in.clone());
                     }
                 }
@@ -493,16 +500,62 @@ struct FnDef {
     scope: FnScope,
     code: Vec<Expr>,
     args: FnArgs,
-    output_types: Option<Vec<TypeTester>>,
+    output_types: Option<TypedOutputs>,
+}
+
+#[derive(Clone, Debug)]
+pub struct TypedOutputs {
+    outputs: Vec<Option<TypeTester>>,
+}
+
+pub enum TypedOutputError {
+    TypeError(TypeTester, Value),
+    OutputCountError { expected: usize, got: usize },
+}
+
+impl TypedOutputs {
+    fn iter(&self) -> impl Iterator<Item = &Option<TypeTester>> {
+        self.outputs.iter()
+    }
+    fn len(&self) -> usize {
+        self.outputs.len()
+    }
+    pub fn check(&self, values: &[Value]) -> OResult<(), TypedOutputError> {
+        if self.len() != values.len() {
+            return Err(TypedOutputError::OutputCountError {
+                expected: self.len(),
+                got: values.len(),
+            });
+        }
+        for (v, maybe_tt) in values.iter().zip(self.iter()) {
+            if let Some(Err(t)) = maybe_tt.as_ref().map(|tt| tt.check(v)) {
+                return Err(TypedOutputError::TypeError(t, v.clone()));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl From<Vec<FnArgDef>> for TypedOutputs {
+    fn from(value: Vec<FnArgDef>) -> Self {
+        TypedOutputs {
+            outputs: value.into_iter().map(|v| v.type_check).collect(),
+        }
+    }
 }
 
 impl FnDef {
-    fn new(scope: FnScope, code: Vec<Expr>, args: FnArgs) -> Self {
+    fn new(
+        scope: FnScope,
+        code: Vec<Expr>,
+        args: FnArgs,
+        output_types: Option<TypedOutputs>,
+    ) -> Self {
         FnDef {
             scope,
             code,
             args,
-            output_types: None,
+            output_types,
         }
     }
     pub fn into_closure(self, name: &str) -> Result<Closure> {
@@ -707,6 +760,7 @@ enum KeywordKind {
         scope: FnScope,
         code: Vec<Expr>,
         args: FnArgs,
+        out_args: Option<Vec<FnArgDef>>,
     },
     Switch {
         cases: Vec<SwitchCase>,

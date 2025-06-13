@@ -243,7 +243,7 @@ impl Context {
                     },
                     '>',
                 ) => {
-                    let x = FnArgDef::new_typed(arg_name, type_buf.parse()?);
+                    let x = FnArgDef::new_typed(arg_name, type_buf.trim().parse()?);
                     args.push(x);
                     MakeFnArgs(args, String::new())
                 }

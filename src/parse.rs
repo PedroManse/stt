@@ -16,8 +16,9 @@ enum State {
     },
 
     MakeFnArgs(FnScope),
-    MakeFnName(FnScope, FnArgs),
-    MakeFnBlock(FnScope, FnArgs, FnName),
+    MakeFnNameOrOutArgs(FnScope, FnArgs),
+    MakeFnName(FnScope, FnArgs, Vec<FnArgDef>),
+    MakeFnBlock(FnScope, FnArgs, FnName, Option<Vec<FnArgDef>>),
 
     MakeSwitch(Vec<SwitchCase>),
     MakeSwitchCode(Vec<SwitchCase>, Value),
@@ -172,13 +173,23 @@ impl Context {
                 }
 
                 (Nothing, Keyword(RawKeyword::Fn(scope))) => MakeFnArgs(scope),
-                (MakeFnArgs(scope), FnArgs(args)) => MakeFnName(scope, crate::FnArgs::Args(args)),
+                (MakeFnArgs(scope), FnArgs(args)) => {
+                    MakeFnNameOrOutArgs(scope, crate::FnArgs::Args(args))
+                }
                 (MakeFnArgs(scope), Ident(i)) => match i.as_str() {
-                    "*" => MakeFnName(scope, crate::FnArgs::AllStack),
+                    "*" => MakeFnNameOrOutArgs(scope, crate::FnArgs::AllStack),
                     x => panic!("Can only user param list or '*' as function arguments, not {x}"),
                 },
-                (MakeFnName(scope, args), Ident(name)) => MakeFnBlock(scope, args, name),
-                (MakeFnBlock(scope, args, name), Block(code)) => {
+                (MakeFnNameOrOutArgs(scope, args), FnArgs(out_args)) => {
+                    MakeFnName(scope, args, out_args)
+                }
+                (MakeFnNameOrOutArgs(scope, args), Ident(name)) => {
+                    MakeFnBlock(scope, args, name, None)
+                }
+                (MakeFnName(scope, args, out_args), Ident(name)) => {
+                    MakeFnBlock(scope, args, name, Some(out_args))
+                }
+                (MakeFnBlock(scope, args, name, out_args), Block(code)) => {
                     let mut inner_ctx = Context::new(code);
                     let code = inner_ctx.parse_block()?;
                     let fndef = E::Keyword(KeywordKind::FnDef {
@@ -186,6 +197,7 @@ impl Context {
                         scope,
                         code,
                         args,
+                        out_args,
                     });
                     push_expr!(fndef);
                     Nothing

@@ -197,10 +197,16 @@ impl Context {
                 scope,
                 code,
                 args,
+                out_args,
             } => {
                 self.fns.insert(
                     name.clone(),
-                    FnDef::new(scope.clone(), code.clone(), args.clone()),
+                    FnDef::new(
+                        scope.clone(),
+                        code.clone(),
+                        args.clone(),
+                        out_args.clone().map(TypedOutputs::from),
+                    ),
                 );
                 ControlFlow::Continue
             }
@@ -296,7 +302,24 @@ impl Context {
         if let FnScope::Global = user_fn.scope {
             self.vars.extend(fn_ctx.vars);
         }
-        Some(Ok(fn_ctx.stack.into_vec()))
+        let output = fn_ctx.stack.into_vec();
+        if let Some(out_tt) = &user_fn.output_types {
+            let err = match out_tt.check(&output) {
+                Ok(()) => None,
+                Err(TypedOutputError::TypeError(t, v)) => Some(StckError::RTTypeError(t, Box::new(v))),
+                Err(TypedOutputError::OutputCountError { expected, got }) => {
+                    Some(StckError::RTOutputCountError {
+                        fn_name: name.clone(),
+                        expected,
+                        got,
+                    })
+                }
+            };
+            if let Some(err) = err {
+                return Some(Err(err))
+            }
+        }
+        Some(Ok(output))
     }
 
     fn try_get_arg(&mut self, name: &ArgName) -> Option<Value> {
