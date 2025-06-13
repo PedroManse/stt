@@ -1,7 +1,10 @@
 (pragma set debug)
 (include stdlib)
 
-(fn) [ times<num> cl<closure> ] do-n-times {
+(fn) [ cl<fn> v ] @' { cl v @ }
+(fn) [ cl<fn> v ] [ result<array> ] @* { cl v @ arr$pack }
+
+(fn) [ times<num> cl< fn > ] [ mapped<array> ] do-n-times {
 	times
 	(while) { dup 0 = not } {
 		dup
@@ -12,8 +15,7 @@
 	drop times arr$pack-n arr$reverse
 }
 
-
-(fn) [ list<array> index<num> ] arr$get {
+(fn) [ list<array> index<num> ] [ T ] arr$get {
 	list arr$unpack
 		index - --
 	(while) {dup 0 = not} {
