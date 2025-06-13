@@ -478,7 +478,7 @@ impl TypeTester {
                 };
                 for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
                     if cl_in != tt_in {
-                        return Err(tt_in.clone())
+                        return Err(tt_in.clone());
                     }
                 }
                 Ok(())
@@ -498,7 +498,12 @@ struct FnDef {
 
 impl FnDef {
     fn new(scope: FnScope, code: Vec<Expr>, args: FnArgs) -> Self {
-        FnDef { scope, code, args, output_types: None }
+        FnDef {
+            scope,
+            code,
+            args,
+            output_types: None,
+        }
     }
     pub fn into_closure(self, name: &str) -> Result<Closure> {
         let args = match self.args {
@@ -510,7 +515,7 @@ impl FnDef {
         Ok(Closure {
             code: self.code,
             request_args: ClosurePartialArgs::convert(args, name)?,
-            output_types: self.output_types
+            output_types: self.output_types,
         })
     }
 }
