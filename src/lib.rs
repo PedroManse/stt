@@ -131,6 +131,8 @@ pub enum StckError {
     },
     #[error("Type `{0}` doesn't exist")]
     UnknownType(String),
+    #[error("Unexpected end of file while building token {0:?}")]
+    UnexpectedEOF(token::State),
 }
 
 #[derive(Clone, Debug)]
