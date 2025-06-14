@@ -306,7 +306,9 @@ impl Context {
         if let Some(out_tt) = &user_fn.output_types {
             let err = match out_tt.check(&output) {
                 Ok(()) => None,
-                Err(TypedOutputError::TypeError(t, v)) => Some(StckError::RTTypeError(t, Box::new(v))),
+                Err(TypedOutputError::TypeError(t, v)) => {
+                    Some(StckError::RTTypeError(t, Box::new(v)))
+                }
                 Err(TypedOutputError::OutputCountError { expected, got }) => {
                     Some(StckError::RTOutputCountError {
                         fn_name: name.clone(),
@@ -316,7 +318,7 @@ impl Context {
                 }
             };
             if let Some(err) = err {
-                return Some(Err(err))
+                return Some(Err(err));
             }
         }
         Some(Ok(output))
