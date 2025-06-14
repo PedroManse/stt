@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+### Tests
+
+### Typing
+* Both input and output argument lists' names are optional
+* Allowed for extra argument list in function definition for output types
+* Parsed typed input arguments
+* Tests for type checkers
+* Removed `StrVecIntoStringVec` trait from tests, no longer useful
+* Change FnName & ArgName to be simple String aliases
+* stck.vim update for simple types and partial support for composite types
+* Runtime execution of type checkers
+* Type system for simple and composite types
+
 ## 0.2.0
 * Restructure crate as lib and publish first version (#51)
 * Add rust hook function as callable in stck script (#47)
