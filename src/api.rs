@@ -66,7 +66,7 @@ pub fn parse_raw_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<Cod
 /// ```rust
 /// stck::api::execute_file("examples/test.stck");
 /// ```
-pub fn execute_file(path: impl AsRef<Path>) -> Result<()> {
+pub fn execute_file(path: impl AsRef<Path>) -> OResult<(), StckErrorCase> {
     let expr_block = get_project_code(path)?;
     execute_code(expr_block)?;
     Ok(())
@@ -81,7 +81,7 @@ pub fn execute_file(path: impl AsRef<Path>) -> Result<()> {
 /// let ctx = stck::api::execute_raw_code(code).unwrap();
 /// assert_eq!(ctx.get_stack()[0], stck::Value::Num(3));
 /// ```
-pub fn execute_raw_code(code: Code) -> Result<runtime::Context> {
+pub fn execute_raw_code(code: Code) -> OResult<runtime::Context, StckErrorCase> {
     execute_code(code)
 }
 
@@ -134,7 +134,7 @@ fn preproc_tokens_with_vars(
 }
 
 // step for runtime:
-fn execute_code(code: Code) -> Result<runtime::Context> {
+fn execute_code(code: Code) -> OResult<runtime::Context, StckErrorCase> {
     let mut executioner = runtime::Context::new();
     executioner.execute_entire_code(&code)?;
     Ok(executioner)

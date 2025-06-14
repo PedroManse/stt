@@ -10,7 +10,7 @@ mod tests;
 
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -19,6 +19,43 @@ use self::preproc::ProcCommand;
 
 type OResult<T, E> = std::result::Result<T, E>;
 pub type Result<T> = std::result::Result<T, StckError>;
+pub type ResultCtx<T> = std::result::Result<T, StckErrorCtx>;
+
+#[derive(thiserror::Error, Debug)]
+pub enum StckErrorCase {
+    #[error(transparent)]
+    Context(#[from] StckErrorCtx),
+    #[error(transparent)]
+    Bubble(#[from] StckError),
+}
+
+#[derive(Debug)]
+pub struct StckErrorCtx {
+    pub source: PathBuf,
+    pub span: Range<usize>,
+    pub kind: StckError,
+}
+
+impl StckErrorCtx {
+    fn into_case(self) -> StckErrorCase {
+        self.into()
+    }
+}
+
+impl StckError {
+    fn into_case(self) -> StckErrorCase {
+        self.into()
+    }
+}
+
+impl Display for StckErrorCtx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Error {}:{:?}\n {}", self.source.display(), self.span, self.kind)?;
+        Ok(())
+    }
+}
+
+impl std::error::Error for StckErrorCtx {}
 
 #[allow(private_interfaces)] // Allow private types since this should only be printed
 #[derive(thiserror::Error, Debug)]

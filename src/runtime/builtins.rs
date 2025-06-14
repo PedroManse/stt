@@ -83,6 +83,6 @@ pub(super) fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
             FmtError::MissingValue(c) => StckError::RTMissingValue(fmt_str, c),
             FmtError::UnknownStringFormat(c) => StckError::RTUnknownStringFormat(fmt_str, c),
             FmtError::WrongVariableForFormat(v, c) => StckError::RTWrongValueType(fmt_str, v, c),
-        }
+        }.into_case()
     })
 }

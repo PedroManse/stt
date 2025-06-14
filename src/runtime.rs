@@ -3,6 +3,7 @@ mod builtins;
 mod stack;
 use stack::*;
 use std::boxed::Box;
+pub type Result<T> = std::result::Result<T, StckErrorCase>;
 
 #[derive(Default, Debug)]
 pub struct Context {
@@ -76,9 +77,9 @@ impl Context {
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_code(&mut self, code: &[Expr], source: &Path) -> Result<ControlFlow> {
+    fn execute_code(&mut self, code: &[Expr], source: &Path) -> ResultCtx<ControlFlow> {
         for expr in code {
-            match self.execute_expr(expr, source)? {
+            match self.execute_expr_wrap(expr, source)? {
                 ControlFlow::Continue => {}
                 c => return Ok(c),
             }
@@ -105,7 +106,15 @@ impl Context {
         }?;
         match check {
             Value::Bool(b) if correct_size => Ok(b),
-            got => Err(StckError::WrongTypeOnCheck { got }),
+            got => Err(StckError::WrongTypeOnCheck { got }.into_case()),
+        }
+    }
+
+    fn execute_expr_wrap(&mut self, expr: &Expr, source: &Path) -> ResultCtx<ControlFlow> {
+        match self.execute_expr(expr, source) {
+            Ok(c)=>Ok(c),
+            Err(StckErrorCase::Bubble(e)) => Err(StckErrorCtx { source: source.to_path_buf(), span: expr.span.clone(), kind: e }),
+            Err(StckErrorCase::Context(c)) => Err(c)
         }
     }
 
@@ -113,7 +122,7 @@ impl Context {
         match &expr.cont {
             ExprCont::FnCall(name) => self.execute_fn(name, source)?,
             ExprCont::Keyword(kw) => {
-                return self.execute_kw(kw, source);
+                return self.execute_kw(kw, source).map_err(StckErrorCase::from);
             }
             ExprCont::Immediate(Value::Closure(cl)) => {
                 let cl = cl.clone();
@@ -166,7 +175,7 @@ impl Context {
                 let cmp = self.stack.pop().ok_or(StckError::RTSwitchCaseWithNoValue)?;
                 for case in cases {
                     if case.test == cmp {
-                        return self.execute_code(&case.code, source);
+                        return self.execute_code(&case.code, source).map_err(StckErrorCase::from);
                     }
                 }
                 match default {
@@ -177,7 +186,7 @@ impl Context {
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
                     if self.execute_check(&branch.check, source)? {
-                        return self.execute_code(&branch.code, source);
+                        return self.execute_code(&branch.code, source).map_err(StckErrorCase::from);
                     }
                 }
                 ControlFlow::Continue
@@ -218,7 +227,7 @@ impl Context {
         // and are always given precedence
         match self.try_execute_builtin(name.as_str(), source) {
             Ok(()) => return Ok(()),
-            Err(StckError::NoSuchBuiltin) => {}
+            Err(StckErrorCase::Bubble(StckError::NoSuchBuiltin)) => {}
             Err(e) => return Err(e),
         };
 
@@ -232,7 +241,7 @@ impl Context {
             self.stack.pushn(rets?);
         } else if let Some(()) = self.try_execute_rust_hook(name, source) {
         } else {
-            return Err(StckError::MissingIdent(name.clone()));
+            return Err(StckError::MissingIdent(name.clone()).into_case());
         }
         Ok(())
     }
@@ -269,7 +278,7 @@ impl Context {
                             name: name.as_str().to_string(),
                             got: self.stack.0.clone(),
                             needs: user_fn.args.clone().into_needs(),
-                        }));
+                        }.into_case()));
                     }
                 };
                 let arg_map = args
@@ -284,7 +293,7 @@ impl Context {
                     })
                     .collect::<OResult<_, StckError>>();
                 let arg_map = match arg_map {
-                    Err(e) => return Some(Err(e)),
+                    Err(e) => return Some(Err(e.into_case())),
                     Ok(a) => a,
                 };
                 FnArgsInsCap::Args(arg_map)
@@ -296,7 +305,7 @@ impl Context {
 
         // handle (return) kw and RT errors inside functions
         if let Err(e) = fn_ctx.execute_code(&user_fn.code, source) {
-            return Some(Err(e));
+            return Some(Err(e.into_case()));
         };
 
         if let FnScope::Global = user_fn.scope {
@@ -318,7 +327,7 @@ impl Context {
                 }
             };
             if let Some(err) = err {
-                return Some(Err(err));
+                return Some(Err(err.into_case()));
             }
         }
         Some(Ok(output))
@@ -427,7 +436,7 @@ impl Context {
                     (Str(l), Str(r)) => l == r,
                     (Bool(l), Bool(r)) => l == r,
                     (l, r) => {
-                        return Err(StckError::RTCompareError { this: l, that: r });
+                        return Err(StckError::RTCompareError { this: l, that: r }.into_case());
                     }
                 };
                 self.stack.push_this(eq);
@@ -441,7 +450,7 @@ impl Context {
                     (Str(l), Str(r)) => l > r,
                     (Bool(l), Bool(r)) => l & !r,
                     (l, r) => {
-                        return Err(StckError::RTCompareError { this: l, that: r });
+                        return Err(StckError::RTCompareError { this: l, that: r }.into_case());
                     }
                 };
                 self.stack.push_this(eq);
@@ -488,7 +497,7 @@ impl Context {
                 )?;
                 match self.vars.get(&name) {
                     None => {
-                        return Err(StckError::NoSuchVariable(name));
+                        return Err(StckError::NoSuchVariable(name).into_case());
                     }
                     Some(v) => {
                         self.stack.push(v.clone());
@@ -503,13 +512,13 @@ impl Context {
                     Value::Result(r) => {
                         match *r {
                             Err(error) => {
-                                return Err(StckError::RTUnwrapResultBuiltinFailed { error });
+                                return Err(StckError::RTUnwrapResultBuiltinFailed { error }.into_case());
                             }
                             Ok(o) => self.stack.push_this(o),
                         };
                     }
                     Value::Option(o) => match o {
-                        None => return Err(StckError::RTUnwrapOptionBuiltinFailed),
+                        None => return Err(StckError::RTUnwrapOptionBuiltinFailed.into_case()),
                         Some(s) => self.stack.push_this(*s),
                     },
                     e => {
@@ -519,7 +528,7 @@ impl Context {
                             this_arg: "Monad",
                             got: Box::new(e),
                             expected: "Result or Option",
-                        });
+                        }.into_case());
                     }
                 }
             }
@@ -725,7 +734,7 @@ impl Context {
             "debug$fns" => eprintln!("{:?}", self.fns),
 
             _ => {
-                return Err(StckError::NoSuchBuiltin);
+                return Err(StckError::NoSuchBuiltin.into_case());
             }
         };
         Ok(())
