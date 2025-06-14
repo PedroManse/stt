@@ -138,7 +138,7 @@ pub enum StckError {
     #[error("Can only user param list or '*' as function arguments, not {0}")]
     WrongParamList(String),
     #[error("Parser: State {0:?} doesn't accept token {1:?}")]
-    CantParseToken(parse::State, TokenCont)
+    CantParseToken(parse::State, Box<TokenCont>),
 }
 
 #[derive(Clone, Debug)]

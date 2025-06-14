@@ -178,7 +178,7 @@ impl Context {
                 }
                 (MakeFnArgs(scope), Ident(i)) => match i.as_str() {
                     "*" => MakeFnNameOrOutArgs(scope, crate::FnArgs::AllStack),
-                    _ => return Err(StckError::WrongParamList(i))
+                    _ => return Err(StckError::WrongParamList(i)),
                 },
                 (MakeFnNameOrOutArgs(scope, args), FnArgs(out_args)) => {
                     MakeFnName(scope, args, out_args)
@@ -217,7 +217,7 @@ impl Context {
                 }
 
                 (s, t) => {
-                    return Err(StckError::CantParseToken(s, t));
+                    return Err(StckError::CantParseToken(s, Box::new(t)));
                 }
             }
         }
