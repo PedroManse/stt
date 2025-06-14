@@ -131,6 +131,14 @@ pub enum StckError {
     },
     #[error("Type `{0}` doesn't exist")]
     UnknownType(String),
+    #[error("Unexpected end of file while building token {0:?}")]
+    UnexpectedEOF(token::State),
+    #[error("Tokenizer: No impl for {0:?} with {1:?}")]
+    CantTokenizerChar(token::State, char),
+    #[error("Can only user param list or '*' as function arguments, not {0}")]
+    WrongParamList(String),
+    #[error("Parser: State {0:?} doesn't accept token {1:?}")]
+    CantParseToken(parse::State, Box<TokenCont>),
 }
 
 #[derive(Clone, Debug)]
@@ -735,7 +743,7 @@ impl From<Closure> for Value {
 }
 
 #[derive(Clone, Debug)]
-struct CondBranch {
+pub struct CondBranch {
     check: Vec<Expr>,
     code: Vec<Expr>,
 }
@@ -769,7 +777,7 @@ enum KeywordKind {
 }
 
 #[derive(Clone, Debug)]
-struct SwitchCase {
+pub struct SwitchCase {
     test: Value,
     code: Vec<Expr>,
 }

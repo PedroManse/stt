@@ -6,7 +6,7 @@ pub struct Context {
 }
 
 #[derive(Debug)]
-enum State {
+pub enum State {
     Nothing,
 
     MakeIfs(Vec<CondBranch>),
@@ -178,7 +178,7 @@ impl Context {
                 }
                 (MakeFnArgs(scope), Ident(i)) => match i.as_str() {
                     "*" => MakeFnNameOrOutArgs(scope, crate::FnArgs::AllStack),
-                    x => panic!("Can only user param list or '*' as function arguments, not {x}"),
+                    _ => return Err(StckError::WrongParamList(i)),
                 },
                 (MakeFnNameOrOutArgs(scope, args), FnArgs(out_args)) => {
                     MakeFnName(scope, args, out_args)
@@ -217,7 +217,7 @@ impl Context {
                 }
 
                 (s, t) => {
-                    panic!("Parser: State {s:?} doesn't accept token {t:?}")
+                    return Err(StckError::CantParseToken(s, Box::new(t)));
                 }
             }
         }

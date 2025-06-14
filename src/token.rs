@@ -7,7 +7,7 @@ pub struct Context {
 }
 
 #[derive(Debug)]
-enum State {
+pub enum State {
     Nothing,
     OnComment,
     MakeIdent(String),
@@ -289,11 +289,22 @@ impl Context {
                 }
 
                 (s, c) => {
-                    panic!("Tokenizer: No impl for {s:?} with {c:?}");
+                    return Err(StckError::CantTokenizerChar(s, *c));
                 }
             }
         }
         if self.at_eof() {
+            match state {
+                Nothing | OnComment => {}
+                MakeIdent(s) => {
+                    self.push_token(&mut out, Ident(s));
+                }
+                MakeNumber(buf) => {
+                    let num = buf.parse()?;
+                    self.push_token(&mut out, Number(num));
+                }
+                s => return Err(StckError::UnexpectedEOF(s)),
+            }
             self.last_token_pos = self.point;
             self.push_token(&mut out, EndOfBlock);
             Ok(out)
