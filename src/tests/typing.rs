@@ -2,7 +2,7 @@ use super::*;
 use TypeTester as TT;
 type TR = std::result::Result<(), TypeTester>;
 const T_OK: TR = TR::Ok(());
-const T_ERR: fn(TT) -> TR = TR::Err;
+const T_ERR: fn(&TT) -> TR = |d| TR::Err(d.clone());
 
 #[test]
 fn test_simple_types() {
@@ -12,7 +12,9 @@ fn test_simple_types() {
             FnArgDef::new("a".to_string(), Some(TT::Num)),
             FnArgDef::new("b".to_string(), Some(TT::Num)),
         ]),
-        output_types: Some(vec![TT::Num]),
+        output_types: Some(TypedOutputs {
+            outputs: vec![Some(TT::Num)],
+        }),
     }));
 
     let values = [
@@ -37,8 +39,17 @@ fn test_simple_types() {
         TT::Char,
         TT::Bool,
     ];
-    for (tt, vl) in types.iter().zip(values) {
-        test_eq!(got: tt.check(&vl), expected: T_OK);
+
+    for (tt, vl) in types.iter().zip(values.iter()) {
+        test_eq!(got: tt.check(vl), expected: T_OK);
+    }
+
+    for (tt_index, tt) in types.iter().enumerate() {
+        for (v_index, v) in values.iter().enumerate() {
+            if v_index != tt_index {
+                test_eq!(got: tt.check(v), expected: T_ERR(tt))
+            }
+        }
     }
 }
 
@@ -60,7 +71,9 @@ fn test_closure_type() {
             FnArgDef::new("a".to_string(), Some(TT::Num)),
             FnArgDef::new("b".to_string(), Some(TT::Num)),
         ]),
-        output_types: Some(vec![TT::Num]),
+        output_types: Some(TypedOutputs {
+            outputs: vec![Some(TT::Num)],
+        }),
     }));
     let type_test = closure_sum_type.check(&closure_sum);
     test_eq!(got: type_test, expected: T_OK);
