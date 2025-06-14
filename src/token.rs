@@ -7,7 +7,7 @@ pub struct Context {
 }
 
 #[derive(Debug)]
-enum State {
+pub enum State {
     Nothing,
     OnComment,
     MakeIdent(String),
@@ -289,7 +289,7 @@ impl Context {
                 }
 
                 (s, c) => {
-                    panic!("Tokenizer: No impl for {s:?} with {c:?}");
+                    return Err(StckError::CantTokenizerChar(s, *c));
                 }
             }
         }
