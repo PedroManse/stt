@@ -5,7 +5,7 @@ use std::process::Command;
 #[cfg(test)]
 pub(super) fn sh(shell_cmd: &str) -> OResult<isize, String> {
     eprintln!("[CMD] {shell_cmd}");
-    Ok(1)
+    Ok(0)
 }
 
 #[cfg(not(test))]
