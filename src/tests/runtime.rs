@@ -30,7 +30,8 @@ fn rust_hook() -> Result<(), StckErrorCase> {
 
 #[test]
 fn closure_parent_args() -> Result<(), StckErrorCase> {
-    let ctx = execute_string("
+    let ctx = execute_string(
+        "
 (fn) [ i<num> ] [ <num> ] double { i 2 * }
 (fn) [ first<fn> seccond<fn> ] [ joint<fn> ] join {
     [ v ]{ first seccond v @ @ }
@@ -48,10 +49,11 @@ fn closure_parent_args() -> Result<(), StckErrorCase> {
 }
 
 3 @ 4 @ '_' @
-", "Test nested arguments")?;
+",
+        "Test nested arguments",
+    )?;
     let stack = ctx.get_stack();
     let expected_stack = [Value::Num(8), Value::Num(-1)];
     test_eq!(got: stack, expected: expected_stack);
     Ok(())
 }
-
