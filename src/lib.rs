@@ -465,7 +465,14 @@ pub enum FnScope {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum TypedFnPart {
+    Typed(Vec<TypeTester>),
+    Any,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum TypeTester {
+    Any,
     Char,
     Str,
     Num,
@@ -479,13 +486,20 @@ pub enum TypeTester {
     Map(Box<TypeTester>),
     Result(Box<(TypeTester, TypeTester)>),
     Option(Box<TypeTester>),
-    Closure(Vec<TypeTester>, Vec<TypeTester>),
+    Closure(TypedFnPart, TypedFnPart),
+}
+
+fn parse_type_list(cont: &str) -> Result<Vec<TypeTester>> {
+    cont.split_whitespace()
+        .map(TypeTester::from_str)
+        .collect::<Result<Vec<_>>>()
 }
 
 impl FromStr for TypeTester {
     type Err = StckError;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Ok(match s {
+            "?" => Self::Any,
             "char" => Self::Char,
             "string" | "str" => Self::Str,
             "num" => Self::Num,
@@ -495,8 +509,37 @@ impl FromStr for TypeTester {
             "result" => Self::ResultAny,
             "option" => Self::OptionAny,
             "fn" | "closure" => Self::ClosureAny,
-            // TODO: parse complex type or error out
-            _ => return Err(StckError::UnknownType(s.to_string())),
+            otherwise => {
+                let fndef_inputs = otherwise
+                    .strip_prefix("fn<")
+                    .and_then(|tx| tx.strip_suffix('>'))
+                    .filter(|tx| !tx.contains(">"))
+                    .and_then(|tx| {
+                        parse_type_list(tx).ok()
+                            .map(|ts| TypeTester::Closure(TypedFnPart::Typed(ts), TypedFnPart::Any))
+                    });
+                let fndef_inputs_outputs = otherwise
+                    .strip_prefix("fn<")
+                    .and_then(|tx| tx.strip_suffix('>'))
+                    .filter(|tx| tx.contains(">"))
+                    .and_then(|tx| {
+                        let (ins, outs) = tx.split_once(">")?;
+                        let outs = outs.strip_prefix('<')?;
+                        let Ok(ins) = parse_type_list(ins) else {
+                            return None;
+                        };
+                        let Ok(outs) = parse_type_list(outs) else {
+                            return None;
+                        };
+                        Some(TypeTester::Closure(
+                            TypedFnPart::Typed(ins),
+                            TypedFnPart::Typed(outs),
+                        ))
+                    });
+                let parses = fndef_inputs
+                    .or(fndef_inputs_outputs);
+                return parses.ok_or(StckError::UnknownType(s.to_string()))
+            }
         })
     }
 }
@@ -504,6 +547,7 @@ impl FromStr for TypeTester {
 impl TypeTester {
     pub fn check(&self, v: &Value) -> OResult<(), TypeTester> {
         match (self, v) {
+            (Self::Any, _) => Ok(()),
             (Self::Char, Value::Char(_)) => Ok(()),
             (Self::Str, Value::Str(_)) => Ok(()),
             (Self::Num, Value::Num(_)) => Ok(()),
@@ -535,25 +579,31 @@ impl TypeTester {
             (Self::Option(_), Value::Option(None)) => Ok(()),
             (Self::Option(tt), Value::Option(Some(v))) => tt.check(v),
             (Self::Closure(ttinput, ttoutput), Value::Closure(cl)) => {
-                let outs = cl
-                    .request_args
-                    .next
-                    .iter()
-                    .map(|arg_def| &arg_def.type_check)
-                    .zip(ttinput);
-                for (cl_req, tt_req) in outs {
-                    let ok = cl_req.as_ref().is_none_or(|c| c == tt_req);
-                    if !ok {
-                        return Err(tt_req.clone());
+                if let TypedFnPart::Typed(ttinput) = ttinput {
+                    let outs = cl
+                        .request_args
+                        .next
+                        .iter()
+                        .map(|arg_def| &arg_def.type_check)
+                        .zip(ttinput);
+                    for (cl_req, tt_req) in outs {
+                        // part to test VTC
+                        let ok = cl_req.as_ref().is_none_or(|c| c == tt_req);
+                        if !ok {
+                            return Err(tt_req.clone());
+                        }
                     }
                 }
-                let Some(outputs) = cl.output_types.as_ref() else {
-                    return Ok(());
-                };
-                for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
-                    let ok = cl_in.as_ref().is_none_or(|c| c == tt_in);
-                    if !ok {
-                        return Err(tt_in.clone());
+                if let TypedFnPart::Typed(ttoutput) = ttoutput {
+                    // part to test VTC
+                    let Some(outputs) = cl.output_types.as_ref() else {
+                        return Ok(());
+                    };
+                    for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
+                        let ok = cl_in.as_ref().is_none_or(|c| c == tt_in);
+                        if !ok {
+                            return Err(tt_in.clone());
+                        }
                     }
                 }
                 Ok(())
