@@ -515,7 +515,8 @@ impl FromStr for TypeTester {
                     .and_then(|tx| tx.strip_suffix('>'))
                     .filter(|tx| !tx.contains(">"))
                     .and_then(|tx| {
-                        parse_type_list(tx).ok()
+                        parse_type_list(tx)
+                            .ok()
                             .map(|ts| TypeTester::Closure(TypedFnPart::Typed(ts), TypedFnPart::Any))
                     });
                 let fndef_inputs_outputs = otherwise
@@ -536,9 +537,8 @@ impl FromStr for TypeTester {
                             TypedFnPart::Typed(outs),
                         ))
                     });
-                let parses = fndef_inputs
-                    .or(fndef_inputs_outputs);
-                return parses.ok_or(StckError::UnknownType(s.to_string()))
+                let parses = fndef_inputs.or(fndef_inputs_outputs);
+                return parses.ok_or(StckError::UnknownType(s.to_string()));
             }
         })
     }
@@ -632,6 +632,12 @@ pub enum TypedOutputError {
 }
 
 impl TypedOutputs {
+    #[must_use]
+    fn new(v: Vec<FnArgDef>) -> Self {
+        Self {
+            outputs: v.into_iter().map(|a| a.type_check).collect(),
+        }
+    }
     fn iter(&self) -> impl Iterator<Item = &Option<TypeTester>> {
         self.outputs.iter()
     }
