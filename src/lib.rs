@@ -265,6 +265,9 @@ pub struct ClosurePartialArgs {
 }
 
 impl ClosurePartialArgs {
+    fn set_parent(&self, args: HashMap<String, FnArg>) -> OResult<(), HashMap<ArgName, FnArg>> {
+        self.parent_args.set(args)
+    }
     pub fn new(mut arg_list: Vec<FnArgDef>) -> Self {
         arg_list.reverse();
         ClosurePartialArgs {
@@ -315,6 +318,12 @@ struct FullClosure {
 }
 
 impl Closure {
+    pub fn set_parent_args(
+        &self,
+        args: HashMap<String, FnArg>,
+    ) -> OResult<(), HashMap<String, FnArg>> {
+        self.request_args.set_parent(args)
+    }
     fn fill(mut self, value: Value) -> Result<ClosureCurry> {
         if let Err(r) = self.request_args.fill(value) {
             return Err(match r {
@@ -383,7 +392,7 @@ enum FnArgsInsCap {
 #[derive(Debug, Default)]
 pub struct Stack(Vec<Value>);
 #[derive(Debug, Clone)]
-struct FnArg(Value);
+pub struct FnArg(pub Value);
 
 impl Stack {
     fn new_with(v: Vec<Value>) -> Self {
