@@ -222,7 +222,11 @@ impl<'p> Context<'p> {
                 }
 
                 (s, t) => {
-                    return Err(StckError::CantParseToken(s, Box::new(t), self.source.to_path_buf()));
+                    return Err(StckError::CantParseToken(
+                        s,
+                        Box::new(t),
+                        self.source.to_path_buf(),
+                    ));
                 }
             };
         }

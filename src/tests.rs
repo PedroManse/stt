@@ -1,7 +1,7 @@
+mod parse;
 mod runtime;
 mod token;
 mod typing;
-mod parse;
 
 // like assert_eq but shows `got` and `expected`
 macro_rules! test_eq {

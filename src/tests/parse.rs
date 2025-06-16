@@ -15,10 +15,13 @@ fn parse_tokens() -> Result<(), crate::StckErrorCase> {
     let expr = crate::api::parse_raw_tokens(token_block)?;
     test_eq!(got: expr.source, expected: PathBuf::from(text_name));
     test_eq!(got: expr.expr_count(), expected: 1);
-    use crate::{Expr, ExprCont::{Keyword, FnCall, Immediate}};
+    use crate::{
+        Expr,
+        ExprCont::{FnCall, Immediate, Keyword},
+    };
     let expr_expected: Vec<crate::Expr> = vec![Expr {
         span: 0..76,
-        cont: Keyword(KeywordKind::FnDef{
+        cont: Keyword(KeywordKind::FnDef {
             name: "fn-name".to_string(),
             scope: crate::FnScope::Local,
             code: vec![

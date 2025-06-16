@@ -112,9 +112,13 @@ impl Context {
 
     fn execute_expr_wrap(&mut self, expr: &Expr, source: &Path) -> ResultCtx<ControlFlow> {
         match self.execute_expr(expr, source) {
-            Ok(c)=>Ok(c),
-            Err(StckErrorCase::Bubble(e)) => Err(StckErrorCtx { source: source.to_path_buf(), span: expr.span.clone(), kind: e }),
-            Err(StckErrorCase::Context(c)) => Err(c)
+            Ok(c) => Ok(c),
+            Err(StckErrorCase::Bubble(e)) => Err(StckErrorCtx {
+                source: source.to_path_buf(),
+                span: expr.span.clone(),
+                kind: e,
+            }),
+            Err(StckErrorCase::Context(c)) => Err(c),
         }
     }
 
@@ -175,7 +179,9 @@ impl Context {
                 let cmp = self.stack.pop().ok_or(StckError::RTSwitchCaseWithNoValue)?;
                 for case in cases {
                     if case.test == cmp {
-                        return self.execute_code(&case.code, source).map_err(StckErrorCase::from);
+                        return self
+                            .execute_code(&case.code, source)
+                            .map_err(StckErrorCase::from);
                     }
                 }
                 match default {
@@ -186,7 +192,9 @@ impl Context {
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
                     if self.execute_check(&branch.check, source)? {
-                        return self.execute_code(&branch.code, source).map_err(StckErrorCase::from);
+                        return self
+                            .execute_code(&branch.code, source)
+                            .map_err(StckErrorCase::from);
                     }
                 }
                 ControlFlow::Continue
@@ -278,7 +286,8 @@ impl Context {
                             name: name.as_str().to_string(),
                             got: self.stack.0.clone(),
                             needs: user_fn.args.clone().into_needs(),
-                        }.into_case()));
+                        }
+                        .into_case()));
                     }
                 };
                 let arg_map = args
@@ -512,7 +521,9 @@ impl Context {
                     Value::Result(r) => {
                         match *r {
                             Err(error) => {
-                                return Err(StckError::RTUnwrapResultBuiltinFailed { error }.into_case());
+                                return Err(
+                                    StckError::RTUnwrapResultBuiltinFailed { error }.into_case()
+                                );
                             }
                             Ok(o) => self.stack.push_this(o),
                         };
@@ -528,7 +539,8 @@ impl Context {
                             this_arg: "Monad",
                             got: Box::new(e),
                             expected: "Result or Option",
-                        }.into_case());
+                        }
+                        .into_case());
                     }
                 }
             }

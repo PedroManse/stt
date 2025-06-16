@@ -1,4 +1,4 @@
-use stck::{api::*, StckErrorCase};
+use stck::{StckErrorCase, api::*};
 
 #[derive(PartialEq)]
 enum StckMode {

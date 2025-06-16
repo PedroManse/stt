@@ -1,5 +1,5 @@
-use crate::*;
 use super::*;
+use crate::*;
 macro_rules! mkt {
     ($from:literal .. $to:literal $cont:expr) => {
         Token {

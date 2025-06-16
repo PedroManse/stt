@@ -50,7 +50,13 @@ impl StckError {
 
 impl Display for StckErrorCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error {}:{:?}\n {}", self.source.display(), self.span, self.kind)?;
+        write!(
+            f,
+            "Error {}:{:?}\n {}",
+            self.source.display(),
+            self.span,
+            self.kind
+        )?;
         Ok(())
     }
 }
