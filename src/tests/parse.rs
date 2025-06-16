@@ -11,7 +11,7 @@ fn parse_tokens() -> Result<(), crate::StckErrorCase> {
 (fn) [ typed<num> in_puts ] [ sum<num> ] fn-name {
     inputs typed 0 - -
 }";
-    let token_block = crate::api::get_tokens_str(text, text_name.to_string())?;
+    let token_block = crate::api::get_tokens_str(text, text_name)?;
     let expr = crate::api::parse_raw_tokens(token_block)?;
     test_eq!(got: expr.source, expected: PathBuf::from(text_name));
     test_eq!(got: expr.expr_count(), expected: 1);

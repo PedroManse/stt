@@ -126,18 +126,17 @@ impl Context {
         match &expr.cont {
             ExprCont::FnCall(name) => self.execute_fn(name, source)?,
             ExprCont::Keyword(kw) => {
-                return self.execute_kw(kw, source).map_err(StckErrorCase::from);
+                return self.execute_kw(kw, source);
             }
             ExprCont::Immediate(Value::Closure(cl)) => {
                 let cl = cl.clone();
                 if let Some(args) = &self.args {
-                    cl.request_args
-                        .parent_args
-                        .set(args.clone())
-                        .map_err(|old| StckError::DEVResettingParentValuesForClosure {
+                    cl.set_parent_args(args.clone()).map_err(|old| {
+                        StckError::DEVResettingParentValuesForClosure {
                             closure_args: Box::new(cl.request_args.clone()),
                             parent_args: old,
-                        })?;
+                        }
+                    })?;
                 }
                 self.stack.push(Value::Closure(cl))
             }
