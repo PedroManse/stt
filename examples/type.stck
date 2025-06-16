@@ -4,7 +4,7 @@
 (fn) [ cl<fn> v ] @' { cl v @ }
 (fn) [ cl<fn> v ] [ result<array> ] @* { cl v @ arr$pack }
 
-(fn) [ times<num> cl< fn<num><num> > ] [ mapped<array> ] do-n-times {
+(fn) [ times<num> cl< fn<num><?> > ] [ mapped<array> ] do-n-times {
 	times
 	(while) { dup 0 = not } {
 		dup
@@ -28,7 +28,7 @@
 	"out" get
 }
 
-(fn) [ a<num> ] [ s<str> ] stn { "hi" }
+(fn) [ a<num> ] [ <str> <str>] stn { "hi" }
 (fn) [ s<str> ] [ n<num> ] nts { 10 }
 10 (@stn) do-n-times
 
