@@ -33,7 +33,7 @@ pub enum StckErrorCase {
 pub struct StckErrorCtx {
     pub source: PathBuf,
     pub span: Range<usize>,
-    pub kind: StckError,
+    pub kind: Box<StckError>,
 }
 
 impl StckErrorCtx {

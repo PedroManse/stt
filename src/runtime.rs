@@ -116,7 +116,7 @@ impl Context {
             Err(StckErrorCase::Bubble(e)) => Err(StckErrorCtx {
                 source: source.to_path_buf(),
                 span: expr.span.clone(),
-                kind: e,
+                kind: Box::new(e),
             }),
             Err(StckErrorCase::Context(c)) => Err(c),
         }
