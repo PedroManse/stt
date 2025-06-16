@@ -552,7 +552,7 @@ impl FromStr for TypeTester {
                 let fndef_inputs = otherwise
                     .strip_prefix("fn<")
                     .and_then(|tx| tx.strip_suffix('>'))
-                    .filter(|tx| !tx.contains(">"))
+                    .filter(|tx| !tx.contains('>'))
                     .and_then(|tx| {
                         parse_type_list(tx)
                             .ok()
@@ -561,9 +561,9 @@ impl FromStr for TypeTester {
                 let fndef_inputs_outputs = otherwise
                     .strip_prefix("fn<")
                     .and_then(|tx| tx.strip_suffix('>'))
-                    .filter(|tx| tx.contains(">"))
+                    .filter(|tx| tx.contains('>'))
                     .and_then(|tx| {
-                        let (ins, outs) = tx.split_once(">")?;
+                        let (ins, outs) = tx.split_once('>')?;
                         let outs = outs.strip_prefix('<')?;
                         let Ok(ins) = parse_type_list(ins) else {
                             return None;

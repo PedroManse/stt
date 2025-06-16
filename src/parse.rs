@@ -102,7 +102,9 @@ impl<'p> Context<'p> {
                 }
 
                 (Nothing, FnArgs(args)) => MakeClosureBlockOrOutArgs(args),
-                (MakeClosureBlockOrOutArgs(args), FnArgs(outs)) => MakeClosureBlock(args, Some(outs)),
+                (MakeClosureBlockOrOutArgs(args), FnArgs(outs)) => {
+                    MakeClosureBlock(args, Some(outs))
+                }
                 (MakeClosureBlockOrOutArgs(args), cont @ Block(_)) => {
                     self.unget(Token {
                         cont,
