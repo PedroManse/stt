@@ -234,6 +234,7 @@ impl FnArgDef {
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub enum FnArgs {
     Args(Vec<FnArgDef>),
@@ -780,12 +781,14 @@ impl From<Closure> for Value {
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct CondBranch {
     check: Vec<Expr>,
     code: Vec<Expr>,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 enum KeywordKind {
     IntoClosure {
@@ -814,12 +817,14 @@ enum KeywordKind {
     },
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct SwitchCase {
     test: Value,
     code: Vec<Expr>,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Expr {
     #[allow(dead_code)]
@@ -827,6 +832,7 @@ pub struct Expr {
     cont: ExprCont,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 enum ExprCont {
     Immediate(Value),
