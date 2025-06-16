@@ -44,7 +44,7 @@ pub fn get_tokens_str(cont: &str, content_name: impl AsRef<Path>) -> Result<Toke
 /// ```
 pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
     let TokenBlock { tokens, source } = get_tokens(path)?;
-    let mut parser = parse::Context::new(tokens);
+    let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
     Ok(Code { exprs, source })
 }
@@ -57,7 +57,7 @@ pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
 /// assert_eq!(code.expr_count(), 2);
 /// ```
 pub fn parse_raw_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<Code> {
-    let mut parser = parse::Context::new(tokens);
+    let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
     Ok(Code { exprs, source })
 }
