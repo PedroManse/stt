@@ -8,6 +8,7 @@ pub use runtime::Context;
 #[cfg(test)]
 mod tests;
 
+use colored::Colorize;
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display};
@@ -30,15 +31,34 @@ pub enum StckErrorCase {
 }
 
 #[derive(Debug)]
+pub struct ErrCtx {
+    source: PathBuf,
+    expr: Box<Expr>,
+}
+
+#[derive(Debug)]
 pub struct StckErrorCtx {
-    pub source: PathBuf,
-    pub span: Range<usize>,
+    pub ctx: ErrCtx,
     pub kind: Box<StckError>,
+    pub stack: Vec<ErrCtx>,
+}
+
+impl ErrCtx {
+    pub fn new(source: &Path, expr: &Expr) -> Self {
+        Self {
+            source: source.to_path_buf(),
+            expr: Box::new(expr.clone()),
+        }
+    }
 }
 
 impl StckErrorCtx {
     fn into_case(self) -> StckErrorCase {
         self.into()
+    }
+    fn append_stack(mut self, ctx: ErrCtx) -> Self {
+        self.stack.push(ctx);
+        self
     }
 }
 
@@ -50,14 +70,32 @@ impl StckError {
 
 impl Display for StckErrorCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{} doing {}", "Error".red(), self.ctx)?;
+        writeln!(f, "{}", self.kind)?;
+        for ctx in &self.stack {
+            writeln!(f, "{} {}", ">".bright_blue(), ctx)?;
+        }
+        Ok(())
+    }
+}
+
+struct SourceSpan<'s>(&'s Range<usize>);
+
+impl Display for SourceSpan<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}..{}", self.0.start, self.0.end)
+    }
+}
+
+impl Display for ErrCtx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Error {}:{:?}\n {}",
-            self.source.display(),
-            self.span,
-            self.kind
-        )?;
-        Ok(())
+            "{:?} in {}:{}",
+            self.expr.cont,
+            self.source.display().to_string().bright_black(),
+            SourceSpan(&self.expr.span).to_string().bright_magenta()
+        )
     }
 }
 

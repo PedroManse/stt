@@ -81,7 +81,7 @@ impl Context {
 
     fn execute_code(&mut self, code: &[Expr], source: &Path) -> ResultCtx<ControlFlow> {
         for expr in code {
-            match self.execute_expr_wrap(expr, source)? {
+            match self.execute_expr(expr, source)? {
                 ControlFlow::Continue => {}
                 c => return Ok(c),
             }
@@ -112,19 +112,21 @@ impl Context {
         }
     }
 
-    fn execute_expr_wrap(&mut self, expr: &Expr, source: &Path) -> ResultCtx<ControlFlow> {
-        match self.execute_expr(expr, source) {
+    fn execute_expr(&mut self, expr: &Expr, source: &Path) -> ResultCtx<ControlFlow> {
+        match self.execute_expr_internal(expr, source) {
             Ok(c) => Ok(c),
             Err(StckErrorCase::Bubble(e)) => Err(StckErrorCtx {
-                source: source.to_path_buf(),
-                span: expr.span.clone(),
+                ctx: ErrCtx::new(source, &expr),
                 kind: Box::new(e),
+                stack: vec![],
             }),
-            Err(StckErrorCase::Context(c)) => Err(c),
+            Err(StckErrorCase::Context(c)) => {
+                Err(c.append_stack(ErrCtx::new(source, &expr)))
+            },
         }
     }
 
-    fn execute_expr(&mut self, expr: &Expr, source: &Path) -> Result<ControlFlow> {
+    fn execute_expr_internal(&mut self, expr: &Expr, source: &Path) -> Result<ControlFlow> {
         match &expr.cont {
             ExprCont::FnCall(name) => self.execute_fn(name, source)?,
             ExprCont::Keyword(kw) => {

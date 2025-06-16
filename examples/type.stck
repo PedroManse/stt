@@ -28,11 +28,18 @@
 	"out" get
 }
 
-10 [ x<num> ]{
-	10 [ y<num> ]{
-		x -- 10 * y -- +
-	} do-n-times
-} do-n-times
+# 10 [ a<num> ][ <str> ] { a "%d" %% } do-n-times prt
 
-dup
-	[ _<array> ]{} type$array-check
+(fn) [][] c {
+	dowamdwa
+}
+
+(fn) [][] b {
+	c
+}
+
+(fn) [][] a {
+	b
+}
+
+a
