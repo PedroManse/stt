@@ -1,6 +1,6 @@
 use stck::{StckErrorCase, api::*};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 enum StckMode {
     Normal,
     Debug,

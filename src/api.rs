@@ -1,9 +1,9 @@
 //! # This module exposes the steps of the pipeline for file execution
 //! The steps are:
-//! 1. Parsing and preprocessing the file into tokens, avaliable with [get_tokens]
-//! 2. Pre-processing the file, also avaliable with [get_tokens]
-//! 3. Parsing the tokens into code, avaliable with [get_project_code]
-//! 4. Executing the code, avaliable with [execute_file]
+//! 1. Parsing and preprocessing the file into tokens, avaliable with [`get_tokens`]
+//! 2. Pre-processing the file, also avaliable with [`get_tokens`]
+//! 3. Parsing the tokens into code, avaliable with [`get_project_code`]
+//! 4. Executing the code, avaliable with [`execute_file`]
 //!
 //! Each step executes the previous one aswell to forbid jump pipeline steps
 //!
@@ -46,7 +46,7 @@ pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
     let TokenBlock { tokens, source } = get_tokens(path)?;
     let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
-    Ok(Code { exprs, source })
+    Ok(Code { source, exprs })
 }
 
 /// # Parse expressions from tokens
@@ -59,7 +59,7 @@ pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
 pub fn parse_raw_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<Code> {
     let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
-    Ok(Code { exprs, source })
+    Ok(Code { source, exprs })
 }
 
 /// # Execute code from file
@@ -68,7 +68,7 @@ pub fn parse_raw_tokens(TokenBlock { tokens, source }: TokenBlock) -> Result<Cod
 /// ```
 pub fn execute_file(path: impl AsRef<Path>) -> OResult<(), StckErrorCase> {
     let expr_block = get_project_code(path)?;
-    execute_code(expr_block)?;
+    execute_code(&expr_block)?;
     Ok(())
 }
 
@@ -78,10 +78,10 @@ pub fn execute_file(path: impl AsRef<Path>) -> OResult<(), StckErrorCase> {
 /// # assert_eq!(token_block.token_count(), 3);
 /// let code = stck::api::parse_raw_tokens(token_block).unwrap();
 /// # assert_eq!(code.expr_count(), 3);
-/// let ctx = stck::api::execute_raw_code(code).unwrap();
+/// let ctx = stck::api::execute_raw_code(&code).unwrap();
 /// assert_eq!(ctx.get_stack()[0], stck::Value::Num(3));
 /// ```
-pub fn execute_raw_code(code: Code) -> OResult<runtime::Context, StckErrorCase> {
+pub fn execute_raw_code(code: &Code) -> OResult<runtime::Context, StckErrorCase> {
     execute_code(code)
 }
 
@@ -119,7 +119,7 @@ fn preproc_tokens(
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     let tokens = preprocessor.parse_clean(tokens)?;
-    Ok(TokenBlock { tokens, source })
+    Ok(TokenBlock { source, tokens })
 }
 
 fn preproc_tokens_with_vars(
@@ -130,12 +130,12 @@ fn preproc_tokens_with_vars(
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     let tokens = preprocessor.parse(tokens, vars)?;
-    Ok(TokenBlock { tokens, source })
+    Ok(TokenBlock { source, tokens })
 }
 
 // step for runtime:
-fn execute_code(code: Code) -> OResult<runtime::Context, StckErrorCase> {
+fn execute_code(code: &Code) -> OResult<runtime::Context, StckErrorCase> {
     let mut executioner = runtime::Context::new();
-    executioner.execute_entire_code(&code)?;
+    executioner.execute_entire_code(code)?;
     Ok(executioner)
 }

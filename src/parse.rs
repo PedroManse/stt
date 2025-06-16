@@ -139,7 +139,7 @@ impl<'p> Context<'p> {
                             cont,
                             span: span.clone(),
                         }),
-                    };
+                    }
                     push_expr!(E::Keyword(KeywordKind::Switch {
                         cases,
                         default: None,
@@ -172,7 +172,7 @@ impl<'p> Context<'p> {
                             cont,
                             span: span.clone(),
                         }),
-                    };
+                    }
                     push_expr!(E::Keyword(KeywordKind::Ifs { branches }));
                     Nothing
                 }

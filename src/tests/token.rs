@@ -11,6 +11,7 @@ macro_rules! mkt {
 
 #[test]
 fn read_tokens() {
+    use TokenCont as C;
     let text = "
 (fn) [ a b c ] fn-name {
     a b c + +
@@ -21,7 +22,6 @@ fn read_tokens() {
     let block = ctx.tokenize_block();
     assert!(block.is_ok());
     let block = block.unwrap();
-    use TokenCont as C;
 
     let expected = [
         mkt!(1..5(C::Keyword(RawKeyword::Fn(FnScope::Local)))),
