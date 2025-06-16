@@ -116,13 +116,11 @@ impl Context {
         match self.execute_expr_internal(expr, source) {
             Ok(c) => Ok(c),
             Err(StckErrorCase::Bubble(e)) => Err(StckErrorCtx {
-                ctx: ErrCtx::new(source, &expr),
+                ctx: ErrCtx::new(source, expr),
                 kind: Box::new(e),
                 stack: vec![],
             }),
-            Err(StckErrorCase::Context(c)) => {
-                Err(c.append_stack(ErrCtx::new(source, &expr)))
-            },
+            Err(StckErrorCase::Context(c)) => Err(c.append_stack(ErrCtx::new(source, expr))),
         }
     }
 

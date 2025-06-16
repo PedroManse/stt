@@ -44,6 +44,7 @@ pub struct StckErrorCtx {
 }
 
 impl ErrCtx {
+    #[must_use]
     pub fn new(source: &Path, expr: &Expr) -> Self {
         Self {
             source: source.to_path_buf(),
