@@ -1,4 +1,4 @@
-use stck::{Result, api::*};
+use stck::{StckErrorCase, api::*};
 
 #[derive(PartialEq)]
 enum StckMode {
@@ -9,7 +9,7 @@ enum StckMode {
     PrintProccCode,
 }
 
-fn execute(mode: StckMode, file_path: String) -> Result<()> {
+fn execute(mode: StckMode, file_path: String) -> Result<(), StckErrorCase> {
     use StckMode as M;
     match mode {
         M::Normal => {
@@ -53,7 +53,7 @@ fn main() {
         StckMode::Normal
     };
     if let Err(e) = execute(mode, file_path.clone()) {
-        eprintln!("[ERROR] executing {file_path}:\n  {e}");
+        eprintln!("{e}");
         std::process::exit(1);
     }
 }

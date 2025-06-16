@@ -10,7 +10,7 @@ mod tests;
 
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -19,6 +19,49 @@ use self::preproc::ProcCommand;
 
 type OResult<T, E> = std::result::Result<T, E>;
 pub type Result<T> = std::result::Result<T, StckError>;
+pub type ResultCtx<T> = std::result::Result<T, StckErrorCtx>;
+
+#[derive(thiserror::Error, Debug)]
+pub enum StckErrorCase {
+    #[error(transparent)]
+    Context(#[from] StckErrorCtx),
+    #[error(transparent)]
+    Bubble(#[from] StckError),
+}
+
+#[derive(Debug)]
+pub struct StckErrorCtx {
+    pub source: PathBuf,
+    pub span: Range<usize>,
+    pub kind: Box<StckError>,
+}
+
+impl StckErrorCtx {
+    fn into_case(self) -> StckErrorCase {
+        self.into()
+    }
+}
+
+impl StckError {
+    fn into_case(self) -> StckErrorCase {
+        self.into()
+    }
+}
+
+impl Display for StckErrorCtx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Error {}:{:?}\n {}",
+            self.source.display(),
+            self.span,
+            self.kind
+        )?;
+        Ok(())
+    }
+}
+
+impl std::error::Error for StckErrorCtx {}
 
 #[allow(private_interfaces)] // Allow private types since this should only be printed
 #[derive(thiserror::Error, Debug)]
@@ -135,12 +178,13 @@ pub enum StckError {
     UnexpectedEOF(token::State),
     #[error("Tokenizer: No impl for {0:?} with {1:?}")]
     CantTokenizerChar(token::State, char),
-    #[error("Can only user param list or '*' as function arguments, not {0}")]
-    WrongParamList(String),
-    #[error("Parser: State {0:?} doesn't accept token {1:?}")]
-    CantParseToken(parse::State, Box<TokenCont>),
+    #[error("Parser in file {path}: Can only user param list or '*' as function arguments, not {0}", path=_1.display())]
+    WrongParamList(String, PathBuf),
+    #[error("Parser in file {path}: State {0:?} doesn't accept token {1:?}", path=_2.display())]
+    CantParseToken(parse::State, Box<TokenCont>, PathBuf),
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Code {
     source: PathBuf,
@@ -196,6 +240,7 @@ impl FnArgDef {
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub enum FnArgs {
     Args(Vec<FnArgDef>),
@@ -742,12 +787,14 @@ impl From<Closure> for Value {
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct CondBranch {
     check: Vec<Expr>,
     code: Vec<Expr>,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 enum KeywordKind {
     IntoClosure {
@@ -776,12 +823,14 @@ enum KeywordKind {
     },
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct SwitchCase {
     test: Value,
     code: Vec<Expr>,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Expr {
     #[allow(dead_code)]
@@ -789,6 +838,7 @@ pub struct Expr {
     cont: ExprCont,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 enum ExprCont {
     Immediate(Value),

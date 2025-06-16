@@ -84,5 +84,6 @@ pub(super) fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
             FmtError::UnknownStringFormat(c) => StckError::RTUnknownStringFormat(fmt_str, c),
             FmtError::WrongVariableForFormat(v, c) => StckError::RTWrongValueType(fmt_str, v, c),
         }
+        .into_case()
     })
 }
