@@ -15,6 +15,7 @@ pub struct Context {
 }
 
 impl Context {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             fns: HashMap::new(),
@@ -29,6 +30,7 @@ impl Context {
         self.rust_fns.insert(rnf.name.clone(), rnf)
     }
 
+    #[must_use]
     pub fn get_stack(&self) -> &[Value] {
         &self.stack.0
     }
@@ -44,10 +46,10 @@ impl Context {
             FnArgsInsCap::Args(args) => (Stack::new(), Some(args)),
         };
         Self {
-            fns,
             vars,
-            args,
+            fns,
             stack,
+            args,
             rust_fns,
         }
     }
@@ -138,13 +140,13 @@ impl Context {
                         }
                     })?;
                 }
-                self.stack.push(Value::Closure(cl))
+                self.stack.push(Value::Closure(cl));
             }
             ExprCont::Immediate(v) => self.stack.push(v.clone()),
             ExprCont::IncludedCode(Code { source, exprs }) => {
                 self.execute_code(exprs, source)?;
             }
-        };
+        }
         Ok(ControlFlow::Continue)
     }
 
@@ -203,7 +205,7 @@ impl Context {
                     match self.execute_code(code, source)? {
                         ControlFlow::Break => break,
                         ControlFlow::Return => return Ok(ControlFlow::Return),
-                        _ => {}
+                        ControlFlow::Continue => {}
                     }
                 }
                 ControlFlow::Continue
@@ -236,7 +238,7 @@ impl Context {
             Ok(()) => return Ok(()),
             Err(StckErrorCase::Bubble(StckError::NoSuchBuiltin)) => {}
             Err(e) => return Err(e),
-        };
+        }
 
         if let Some(arg) = self.try_get_arg(name) {
             // try_get_arg should not pop from the stack and has higher precedence than user-defined funcs.
@@ -278,16 +280,13 @@ impl Context {
 
         let args = match &user_fn.args {
             FnArgs::Args(args) => {
-                let args_stack = match self.stack.popn(args.len()) {
-                    Some(xs) => xs,
-                    None => {
-                        return Some(Err(StckError::RTUserFnMissingArgs {
-                            name: name.as_str().to_string(),
-                            got: self.stack.0.clone(),
-                            needs: user_fn.args.clone().into_needs(),
-                        }
-                        .into_case()));
+                let Some(args_stack) = self.stack.popn(args.len()) else {
+                    return Some(Err(StckError::RTUserFnMissingArgs {
+                        name: name.as_str().to_string(),
+                        got: self.stack.0.clone(),
+                        needs: user_fn.args.clone().into_needs(),
                     }
+                    .into_case()));
                 };
                 let arg_map = args
                     .iter()
@@ -314,7 +313,7 @@ impl Context {
         // handle (return) kw and RT errors inside functions
         if let Err(e) = fn_ctx.execute_code(&user_fn.code, source) {
             return Some(Err(e.into_case()));
-        };
+        }
 
         if let FnScope::Global = user_fn.scope {
             self.vars.extend(fn_ctx.vars);
@@ -364,7 +363,7 @@ impl Context {
                     .pop_this(Value::get_str)
                     .expect("`print` needs [string]")
                     .expect("`print`'s [string] needs to be a string");
-                print!("{}", cont);
+                print!("{cont}");
             }
             "sys$exit" => {
                 let code = stack_pop!(
@@ -456,7 +455,7 @@ impl Context {
                 let eq = match (lhs, rhs) {
                     (Num(l), Num(r)) => l > r,
                     (Str(l), Str(r)) => l > r,
-                    (Bool(l), Bool(r)) => l & !r,
+                    (Bool(l), Bool(r)) => l && !r,
                     (l, r) => {
                         return Err(StckError::RTCompareError { this: l, that: r }.into_case());
                     }
@@ -510,23 +509,21 @@ impl Context {
                     Some(v) => {
                         self.stack.push(v.clone());
                     }
-                };
+                }
             }
 
             // seq error handeling
             "!" => {
                 let may = stack_pop!((self.stack) -> * as "Monad" for fn_name)?;
                 match may {
-                    Value::Result(r) => {
-                        match *r {
-                            Err(error) => {
-                                return Err(
-                                    StckError::RTUnwrapResultBuiltinFailed { error }.into_case()
-                                );
-                            }
-                            Ok(o) => self.stack.push_this(o),
-                        };
-                    }
+                    Value::Result(r) => match *r {
+                        Err(error) => {
+                            return Err(
+                                StckError::RTUnwrapResultBuiltinFailed { error }.into_case()
+                            );
+                        }
+                        Ok(o) => self.stack.push_this(o),
+                    },
                     Value::Option(o) => match o {
                         None => return Err(StckError::RTUnwrapOptionBuiltinFailed.into_case()),
                         Some(s) => self.stack.push_this(*s),
@@ -663,7 +660,7 @@ impl Context {
                 let arr = stack_pop!((self.stack) -> arr as "array" for fn_name)?;
                 let arr = arr
                     .into_iter()
-                    .map(|i| i.get_str())
+                    .map(super::Value::get_str)
                     .collect::<OResult<Vec<_>, _>>()
                     .map_err(|got| StckError::WrongTypeForBuiltin {
                         for_fn: fn_name.to_string(),
@@ -747,7 +744,7 @@ impl Context {
             _ => {
                 return Err(StckError::NoSuchBuiltin.into_case());
             }
-        };
+        }
         Ok(())
     }
 }

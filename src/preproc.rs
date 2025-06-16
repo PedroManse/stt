@@ -65,9 +65,9 @@ impl<'p> Context<'p> {
                     out.push(included_tokens);
                 }
                 TokenCont::Keyword(RawKeyword::Pragma { command }) => {
-                    manage_pragma(&mut if_stack, command, proc_vars, span)?;
+                    manage_pragma(&mut if_stack, &command, proc_vars, span)?;
                 }
-                x if if_stack.last().map(|s| s.reading).unwrap_or(true) => {
+                x if if_stack.last().is_none_or(|s| s.reading) => {
                     out.push(Token { cont: x, span });
                 }
                 _ => {} // ignore code in IgnoringIf or IgnoringElse status
@@ -79,11 +79,11 @@ impl<'p> Context<'p> {
 
 fn manage_pragma(
     if_stack: &mut Vec<ProcStatus>,
-    command: String,
+    command: &str,
     proc_vars: &mut HashSet<String>,
     span: Range<usize>,
 ) -> Result<()> {
-    let is_reading = if_stack.last().map(|s| s.reading).unwrap_or(true);
+    let is_reading = if_stack.last().is_none_or(|s| s.reading);
     let proc_cmd = execute_command(command, proc_vars)?;
     match proc_cmd {
         ProcChange::Keep => {}
@@ -105,12 +105,12 @@ fn manage_pragma(
             }
             s => return Err(StckError::CantElseCurrentSection(span, s)),
         },
-    };
+    }
     Ok(())
 }
 
-fn execute_command(command: String, proc_vars: &mut HashSet<String>) -> Result<ProcChange> {
-    let cmd_parts: Vec<&str> = command.split(" ").collect();
+fn execute_command(command: &str, proc_vars: &mut HashSet<String>) -> Result<ProcChange> {
+    let cmd_parts: Vec<&str> = command.split(' ').collect();
     Ok(match cmd_parts.as_slice() {
         ["if", v] => ProcChange::PushIf {
             reading: proc_vars.contains(*v),
@@ -121,7 +121,7 @@ fn execute_command(command: String, proc_vars: &mut HashSet<String>) -> Result<P
         ["else"] => ProcChange::PushElse,
         ["end", "if"] => ProcChange::Pop,
         ["set", v] => {
-            proc_vars.insert(v.to_string());
+            proc_vars.insert((*v).to_string());
             ProcChange::Keep
         }
         ["unset", v] => {

@@ -217,6 +217,7 @@ impl FnArgDef {
             type_check: Some(type_check),
         }
     }
+    #[must_use]
     pub fn new(name: String, type_check: Option<TypeTester>) -> Self {
         Self { name, type_check }
     }
@@ -259,21 +260,22 @@ enum ClosureFillError {
 
 #[derive(Clone, Debug)]
 pub struct ClosurePartialArgs {
-    next_args: Vec<FnArgDef>,
-    filled_args: Vec<(ArgName, Value)>,
-    parent_args: OnceCell<HashMap<ArgName, FnArg>>,
+    next: Vec<FnArgDef>,
+    filled: Vec<(ArgName, Value)>,
+    parent: OnceCell<HashMap<ArgName, FnArg>>,
 }
 
 impl ClosurePartialArgs {
     fn set_parent(&self, args: HashMap<String, FnArg>) -> OResult<(), HashMap<ArgName, FnArg>> {
-        self.parent_args.set(args)
+        self.parent.set(args)
     }
+    #[must_use]
     pub fn new(mut arg_list: Vec<FnArgDef>) -> Self {
         arg_list.reverse();
         ClosurePartialArgs {
-            filled_args: Vec::with_capacity(arg_list.len()),
-            next_args: arg_list,
-            parent_args: OnceCell::new(),
+            filled: Vec::with_capacity(arg_list.len()),
+            next: arg_list,
+            parent: OnceCell::new(),
         }
     }
     pub fn parse(arg_list: Vec<FnArgDef>, span: Range<usize>) -> Result<Self> {
@@ -293,15 +295,15 @@ impl ClosurePartialArgs {
         }
     }
     fn fill(&mut self, value: Value) -> OResult<(), ClosureFillError> {
-        let next = self.next_args.pop().ok_or(ClosureFillError::OutOfBound)?;
+        let next = self.next.pop().ok_or(ClosureFillError::OutOfBound)?;
         if let Err(tt) = next.check_raw(&value) {
             return Err(ClosureFillError::TypeError(tt, value));
         }
-        self.filled_args.push((next.take_name(), value));
+        self.filled.push((next.take_name(), value));
         Ok(())
     }
     fn is_full(&self) -> bool {
-        self.next_args.is_empty()
+        self.next.is_empty()
     }
 }
 
@@ -334,15 +336,15 @@ impl Closure {
             });
         }
         Ok(if self.request_args.is_full() {
-            let args = if let Some(parent_args) = self.request_args.parent_args.get() {
+            let args = if let Some(parent_args) = self.request_args.parent.get() {
                 let mut closure_args = parent_args.clone();
-                for (k, v) in self.request_args.filled_args {
+                for (k, v) in self.request_args.filled {
                     closure_args.insert(k, FnArg(v));
                 }
                 closure_args
             } else {
                 self.request_args
-                    .filled_args
+                    .filled
                     .into_iter()
                     .map(|(k, v)| (k, FnArg(v)))
                     .collect()
@@ -363,6 +365,7 @@ impl PartialEq for Closure {
 }
 
 impl FnArgs {
+    #[must_use]
     pub fn into_vec(self) -> Vec<FnArgDef> {
         match self {
             FnArgs::AllStack => vec![],
@@ -370,6 +373,7 @@ impl FnArgs {
         }
     }
 
+    #[must_use]
     pub fn into_needs(self) -> Vec<String> {
         match self {
             FnArgs::AllStack => vec![],
@@ -402,10 +406,10 @@ impl Stack {
         Self(Vec::new())
     }
     pub fn push(&mut self, v: Value) {
-        self.0.push(v)
+        self.0.push(v);
     }
     pub fn push_this(&mut self, v: impl Into<Value>) {
-        self.0.push(v.into())
+        self.0.push(v.into());
     }
     pub fn pushn(&mut self, mut vs: Vec<Value>) {
         self.0.append(&mut vs);
@@ -425,9 +429,11 @@ impl Stack {
     fn into_vec(self) -> Vec<Value> {
         self.0
     }
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -531,12 +537,12 @@ impl TypeTester {
             (Self::Closure(ttinput, ttoutput), Value::Closure(cl)) => {
                 let outs = cl
                     .request_args
-                    .next_args
+                    .next
                     .iter()
                     .map(|arg_def| &arg_def.type_check)
                     .zip(ttinput);
                 for (cl_req, tt_req) in outs {
-                    let ok = cl_req.as_ref().map(|c| c == tt_req).unwrap_or(true);
+                    let ok = cl_req.as_ref().is_none_or(|c| c == tt_req);
                     if !ok {
                         return Err(tt_req.clone());
                     }
@@ -545,7 +551,7 @@ impl TypeTester {
                     return Ok(());
                 };
                 for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
-                    let ok = cl_in.as_ref().map(|c| c == tt_in).unwrap_or(true);
+                    let ok = cl_in.as_ref().is_none_or(|c| c == tt_in);
                     if !ok {
                         return Err(tt_in.clone());
                     }
@@ -897,8 +903,8 @@ pub enum TokenCont {
 
 /// # Array of tokens and their source
 ///
-/// Usually created by [api::get_tokens] for files or [api::get_tokens_str] for raw strings.
-/// The token array ends with a [TokenCont::EndOfBlock] token, to indicate either the end of the
+/// Usually created by [`api::get_tokens`] for files or [`api::get_tokens_str`] for raw strings.
+/// The token array ends with a [`TokenCont::EndOfBlock`] token, to indicate either the end of the
 /// source string or a `}` that closed the code block
 #[derive(Debug, PartialEq)]
 pub struct TokenBlock {
@@ -907,14 +913,15 @@ pub struct TokenBlock {
 }
 
 impl TokenBlock {
+    #[must_use]
     pub fn token_count(&self) -> usize {
-        self.tokens.len() - (if self.last_is_eof() { 1 } else { 0 })
+        self.tokens.len() - usize::from(self.last_is_eof())
     }
+    #[must_use]
     pub fn last_is_eof(&self) -> bool {
         self.tokens
             .last()
-            .map(|e| matches!(e.cont, TokenCont::EndOfBlock))
-            .unwrap_or(false)
+            .is_some_and(|e| matches!(e.cont, TokenCont::EndOfBlock))
     }
 }
 
@@ -931,7 +938,7 @@ impl RustStckFn {
         RustStckFn { name, code }
     }
     fn call(&self, ctx: &mut runtime::Context, source: &Path) {
-        (self.code)(ctx, source)
+        (self.code)(ctx, source);
     }
 }
 

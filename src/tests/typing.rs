@@ -20,8 +20,8 @@ fn test_simple_types() {
 
     let values = [
         Value::Num(0),
-        Value::Str("".to_string()),
-        Value::Array(vec![Value::Num(0), Value::Str("".to_string())]),
+        Value::Str(String::new()),
+        Value::Array(vec![Value::Num(0), Value::Str(String::new())]),
         closure_sum,
         Value::Option(Some(Box::new(Value::Num(0)))),
         Value::Result(Box::new(Ok(Value::Num(0)))),
@@ -48,7 +48,7 @@ fn test_simple_types() {
     for (tt_index, tt) in types.iter().enumerate() {
         for (v_index, v) in values.iter().enumerate() {
             if v_index != tt_index {
-                test_eq!(got: tt.check(v), expected: T_ERR(tt))
+                test_eq!(got: tt.check(v), expected: T_ERR(tt));
             }
         }
     }

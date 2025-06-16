@@ -6,6 +6,10 @@ use super::*;
 
 #[test]
 fn parse_tokens() -> Result<(), crate::StckErrorCase> {
+    use crate::{
+        Expr,
+        ExprCont::{FnCall, Immediate, Keyword},
+    };
     let text_name = "parse_tokens test";
     let text = "
 (fn) [ typed<num> in_puts ] [ sum<num> ] fn-name {
@@ -15,10 +19,6 @@ fn parse_tokens() -> Result<(), crate::StckErrorCase> {
     let expr = crate::api::parse_raw_tokens(token_block)?;
     test_eq!(got: expr.source, expected: PathBuf::from(text_name));
     test_eq!(got: expr.expr_count(), expected: 1);
-    use crate::{
-        Expr,
-        ExprCont::{FnCall, Immediate, Keyword},
-    };
     let expr_expected: Vec<crate::Expr> = vec![Expr {
         span: 0..76,
         cont: Keyword(KeywordKind::FnDef {
