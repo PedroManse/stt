@@ -237,7 +237,8 @@ impl Code {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone)]
 pub struct FnArgDef {
     name: String,
     type_check: Option<TypeTester>,
@@ -292,6 +293,7 @@ enum ClosureCurry {
     Partial(Closure),
 }
 
+#[derive(Debug)]
 enum ClosureFillError {
     OutOfBound,
     TypeError(TypeTester, Value),
@@ -503,13 +505,29 @@ pub enum FnScope {
     Isolated, // fully isolated
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone)]
 pub enum TypedFnPart {
     Typed(Vec<TypeTester>),
     Any,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(PartialEq)]
+pub enum TypeTesterEq {
+    Any,
+    Char,
+    Str,
+    Num,
+    Bool,
+    Array,
+    Map,
+    Result,
+    Option,
+    Closure,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone)]
 pub enum TypeTester {
     Any,
     Char,
@@ -584,6 +602,27 @@ impl FromStr for TypeTester {
 }
 
 impl TypeTester {
+    #[must_use]
+    fn as_eq(&self) -> TypeTesterEq {
+        match self {
+            Self::Any => TypeTesterEq::Any,
+            Self::Char => TypeTesterEq::Char,
+            Self::Str => TypeTesterEq::Str,
+            Self::Num => TypeTesterEq::Num,
+            Self::Bool => TypeTesterEq::Bool,
+            Self::Array(..) | Self::ArrayAny => TypeTesterEq::Array,
+            Self::Map(..) | Self::MapAny => TypeTesterEq::Map,
+            Self::Result(..) | Self::ResultAny => TypeTesterEq::Result,
+            Self::Option(..) | Self::OptionAny => TypeTesterEq::Option,
+            Self::Closure(..) | Self::ClosureAny => TypeTesterEq::Closure,
+        }
+    }
+    #[must_use]
+    pub fn check_type(&self, v: &TypeTester) -> bool {
+        self.as_eq() == TypeTester::Any.as_eq()
+            || v.as_eq() == TypeTester::Any.as_eq()
+            || self.as_eq() == v.as_eq()
+    }
     pub fn check(&self, v: &Value) -> OResult<(), TypeTester> {
         match (self, v) {
             (Self::Any, _) => Ok(()),
@@ -627,7 +666,7 @@ impl TypeTester {
                         .zip(ttinput);
                     for (cl_req, tt_req) in outs {
                         // part to test VTC
-                        let ok = cl_req.as_ref().is_none_or(|c| c == tt_req);
+                        let ok = cl_req.as_ref().is_none_or(|c| tt_req.check_type(c));
                         if !ok {
                             return Err(tt_req.clone());
                         }
@@ -639,7 +678,7 @@ impl TypeTester {
                         return Ok(());
                     };
                     for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
-                        let ok = cl_in.as_ref().is_none_or(|c| c == tt_in);
+                        let ok = cl_in.as_ref().is_none_or(|c| tt_in.check_type(c));
                         if !ok {
                             return Err(tt_in.clone());
                         }
@@ -977,13 +1016,15 @@ pub enum RawKeyword {
     Break,
 }
 
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Token {
     cont: TokenCont,
     span: Range<usize>,
 }
 
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub enum TokenCont {
     Char(char),
     Ident(String),
@@ -1001,7 +1042,8 @@ pub enum TokenCont {
 /// Usually created by [`api::get_tokens`] for files or [`api::get_tokens_str`] for raw strings.
 /// The token array ends with a [`TokenCont::EndOfBlock`] token, to indicate either the end of the
 /// source string or a `}` that closed the code block
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct TokenBlock {
     source: PathBuf,
     tokens: Vec<Token>,
