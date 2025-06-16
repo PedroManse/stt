@@ -1,4 +1,5 @@
 use super::*;
+use crate::*;
 use TypeTester as TT;
 type TR = std::result::Result<(), TypeTester>;
 const T_OK: TR = TR::Ok(());
@@ -6,7 +7,7 @@ const T_ERR: fn(&TT) -> TR = |d| TR::Err(d.clone());
 
 #[test]
 fn test_simple_types() {
-    let closure_sum = Value::Closure(Box::new(super::Closure {
+    let closure_sum = Value::Closure(Box::new(crate::Closure {
         code: vec![],
         request_args: ClosurePartialArgs::new(vec![
             FnArgDef::new("a".to_string(), Some(TT::Num)),
