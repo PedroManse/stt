@@ -172,12 +172,13 @@ pub enum StckError {
     UnexpectedEOF(token::State),
     #[error("Tokenizer: No impl for {0:?} with {1:?}")]
     CantTokenizerChar(token::State, char),
-    #[error("Can only user param list or '*' as function arguments, not {0}")]
-    WrongParamList(String),
-    #[error("Parser: State {0:?} doesn't accept token {1:?}")]
-    CantParseToken(parse::State, Box<TokenCont>),
+    #[error("Parser in file {path}: Can only user param list or '*' as function arguments, not {0}", path=_1.display())]
+    WrongParamList(String, PathBuf),
+    #[error("Parser in file {path}: State {0:?} doesn't accept token {1:?}", path=_2.display())]
+    CantParseToken(parse::State, Box<TokenCont>, PathBuf),
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Code {
     source: PathBuf,
