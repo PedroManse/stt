@@ -28,8 +28,8 @@
 	"out" get
 }
 
-
 (fn) [ a<num> ] [ s<str> ] stn { "hi" }
 (fn) [ s<str> ] [ n<num> ] nts { 10 }
 10 (@stn) do-n-times
 
+10 [ a<num> ][ <str> ] { a "%d" %% } do-n-times prt
