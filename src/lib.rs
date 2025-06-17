@@ -1,10 +1,10 @@
 pub mod api;
+mod display;
 pub mod error;
 mod parse;
 mod preproc;
 mod runtime;
 mod token;
-use colored::Colorize;
 use error::*;
 pub use runtime::Context;
 type OResult<T, E> = std::result::Result<T, E>;
@@ -14,7 +14,7 @@ mod tests;
 
 use std::cell::OnceCell;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -50,12 +50,6 @@ impl<'p> IntoIterator for &'p Code {
 pub struct FnArgDef {
     name: String,
     type_check: Option<TypeTester>,
-}
-
-impl Display for FnArgDef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
-    }
 }
 
 impl FnArgDef {
@@ -100,31 +94,6 @@ impl FnArgDef {
 pub enum FnArgs {
     Args(Vec<FnArgDef>),
     AllStack,
-}
-
-struct DisplayArgs<'a>(&'a [FnArgDef]);
-
-impl Display for DisplayArgs<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[ ")?;
-        for arg in self.0 {
-            if let Some(tt) = &arg.type_check {
-                write!(f, "{arg}<{}> ", tt.to_string().underline().blue())?;
-            } else {
-                write!(f, "{arg} ")?;
-            }
-        }
-        write!(f, "]")
-    }
-}
-
-impl Display for FnArgs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::AllStack => write!(f, "the stack"),
-            Self::Args(args) => write!(f, "{}", DisplayArgs(args)),
-        }
-    }
 }
 
 enum ClosureCurry {
@@ -263,11 +232,6 @@ impl FnArgs {
 }
 
 #[derive(Clone, Debug)]
-struct FnArgsIns {
-    cap: FnArgsInsCap,
-}
-
-#[derive(Clone, Debug)]
 enum FnArgsInsCap {
     Args(HashMap<ArgName, FnArg>),
     AllStack(Vec<Value>),
@@ -344,36 +308,11 @@ pub enum FnScope {
     Isolated, // fully isolated
 }
 
-impl Display for FnScope {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FnScope::Local => Ok(()),
-            FnScope::Global => f.write_str("*"),
-            FnScope::Isolated => f.write_str("-"),
-        }
-    }
-}
-
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 pub enum TypedFnPart {
     Typed(Vec<TypeTester>),
     Any,
-}
-
-impl Display for TypedFnPart {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TypedFnPart::Typed(args) => {
-                write!(f, " ")?;
-                for arg in args {
-                    write!(f, "{} ", arg.to_string().underline().blue())?;
-                }
-                Ok(())
-            }
-            TypedFnPart::Any => write!(f, "?"),
-        }
-    }
 }
 
 #[derive(PartialEq)]
@@ -408,29 +347,6 @@ pub enum TypeTester {
     Result(Box<(TypeTester, TypeTester)>),
     Option(Box<TypeTester>),
     Closure(TypedFnPart, TypedFnPart),
-}
-
-impl Display for TypeTester {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use TypeTester::*;
-        match self {
-            Any => write!(f, "?"),
-            Char => write!(f, "char"),
-            Str => write!(f, "str"),
-            Num => write!(f, "num"),
-            Bool => write!(f, "bool"),
-            ArrayAny => write!(f, "array"),
-            MapAny => write!(f, "map"),
-            ResultAny => write!(f, "result"),
-            OptionAny => write!(f, "option"),
-            ClosureAny => write!(f, "fn"),
-            Array(t) => write!(f, "array<{t}>"),
-            Map(v) => write!(f, "map<{v}>"),
-            Option(t) => write!(f, "option<{t}>"),
-            Result(tt) => write!(f, "result<{}><{}>", tt.0, tt.1),
-            Closure(tin, tout) => write!(f, "fn<{tin}><{tout}>"),
-        }
-    }
 }
 
 fn parse_type_list(cont: &str) -> Result<Vec<TypeTester>> {
@@ -882,64 +798,6 @@ pub enum ExprCont {
     IncludedCode(Code),
 }
 
-impl Display for ExprCont {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Immediate(Value::Closure(cl)) => {
-                write!(f, "instantiate Closure at {cl:p}")
-            }
-            Self::Immediate(v) => {
-                write!(f, "Push value {v:?}")
-            }
-            Self::FnCall(fn_name) => {
-                write!(f, "Execute `{}`", fn_name.bright_yellow())
-            }
-            Self::IncludedCode(code) => {
-                write!(
-                    f,
-                    "Included file {}",
-                    code.source.display().to_string().green()
-                )
-            }
-            Self::Keyword(k) => {
-                write!(f, "Keyword: ")?;
-                match k {
-                    KeywordKind::Break => write!(f, "Break"),
-                    KeywordKind::Return => write!(f, "Return"),
-                    KeywordKind::IntoClosure { fn_name } => write!(f, "`{fn_name}` into Closure"),
-                    KeywordKind::Ifs { .. } => write!(f, "If"),
-                    KeywordKind::BubbleError => write!(f, "Bubble error"),
-                    KeywordKind::While { .. } => write!(f, "While"),
-                    KeywordKind::FnDef {
-                        name,
-                        scope,
-                        args,
-                        out_args: Some(out_args),
-                        ..
-                    } => write!(
-                        f,
-                        "Define fn{scope} `{}` as {args} → {}",
-                        name.bright_yellow(),
-                        DisplayArgs(out_args)
-                    ),
-                    KeywordKind::FnDef {
-                        name,
-                        scope,
-                        args,
-                        out_args: None,
-                        ..
-                    } => write!(
-                        f,
-                        "Define fn{scope} `{}` consuming {args}",
-                        name.bright_yellow()
-                    ),
-                    KeywordKind::Switch { .. } => write!(f, "Switch"),
-                }
-            }
-        }
-    }
-}
-
 pub enum ControlFlow {
     Continue,
     Break,
@@ -1019,77 +877,6 @@ impl TokenBlock {
     #[must_use]
     pub fn get(&self, index: usize) -> Option<&Token> {
         self.tokens.get(index)
-    }
-}
-
-/// # The list of line breaks from a file
-///
-/// Used to make a [`LineRange`] with [line range](`LineSpan::line_range`)
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone, Default)]
-pub struct LineSpan {
-    feeds: BTreeSet<usize>,
-}
-
-/// # The lines before and the amount of lines of a span
-///
-/// Made from a [line span](`LineSpan`) and the span of interest with [`LineSpan::line_range`]
-///
-/// Will be formated as "`before`" optionally with `:+amount` in the end if the span covers more
-/// than one line. The result `before:+amount` can be used direcly with [bat](https://github.com/sharkdp/bat)
-///
-/// The [`LineRange`] can be used with an [`ErrorHelper`] to select specific lines to read from
-/// files
-#[derive(Debug, Default)]
-pub struct LineRange {
-    before: usize,
-    during: usize,
-}
-
-impl LineSpan {
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            feeds: BTreeSet::new(),
-        }
-    }
-    pub fn add(&mut self, point: usize) {
-        self.feeds.insert(point);
-    }
-    /// Makes the [`LineRange`] of a significant `span`
-    #[must_use]
-    pub fn line_range(&self, span: Range<usize>) -> LineRange {
-        let mut range = LineRange::new();
-        for point in self.feeds.iter().take_while(|&p| *p < span.end) {
-            range.count(*point < span.start);
-        }
-        range
-    }
-}
-
-impl LineRange {
-    fn new() -> Self {
-        Self {
-            before: 1,
-            during: 0,
-        }
-    }
-    fn count(&mut self, is_before: bool) {
-        if is_before {
-            self.before += 1;
-        } else {
-            self.during += 1;
-        }
-    }
-}
-
-impl std::fmt::Display for LineRange {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.during <= 1 {
-            write!(f, "{}", self.before)
-        } else {
-            write!(f, "{}:+{}", self.before, self.during)
-        }
     }
 }
 

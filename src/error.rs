@@ -1,9 +1,7 @@
 //! # Error handeling module
 
 use super::*;
-use colored::Colorize;
 use std::collections::hash_map::{Entry, OccupiedEntry};
-use std::fmt::Display;
 
 pub type Result<T> = std::result::Result<T, StckError>;
 pub type ResultCtx<T> = std::result::Result<T, StckErrorCtx>;
@@ -28,35 +26,18 @@ pub enum StckErrorCase {
 /// Useful to [get the source code of the error](`ErrorSource`)
 #[derive(Debug)]
 pub struct ErrCtx {
-    source: PathBuf,
-    expr: Box<Expr>,
-    lines: LineRange,
+    pub(crate) source: PathBuf,
+    pub(crate) expr: Box<Expr>,
+    pub(crate) lines: LineRange,
 }
 
 /// # A single viewable source file
 ///
 /// made in bulk from the [stack trace](`ErrorSpans`) with [try into sources](`ErrorSpans::try_into_sources`)
 pub struct ErrorSource {
-    range: LineRange,
-    source: PathBuf,
-    lines: String,
-}
-
-impl Display for ErrorSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let source = self.source.display().to_string();
-        let range = self.range.to_string();
-        let title_len = source.len() + range.len() + 11;
-        writeln!(
-            f,
-            "===[ {}:{} ]===",
-            source.green(),
-            range.bright_magenta().underline()
-        )?;
-        writeln!(f, "{}", self.lines)?;
-        writeln!(f, "{}", "-".repeat(title_len).dimmed())?;
-        Ok(())
-    }
+    pub(crate) range: LineRange,
+    pub(crate) source: PathBuf,
+    pub(crate) lines: String,
 }
 
 /// # The entire call stack of an [error](`StckErrorCtx`)
@@ -112,27 +93,15 @@ impl ErrCtx {
     }
 }
 
-impl Display for ErrCtx {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} in {}:{}",
-            self.expr.cont,
-            self.source.display().to_string().green(),
-            self.lines.to_string().bright_magenta().underline(),
-        )
-    }
-}
-
 /// # An error with context
 ///
 /// An [error](`StckError`) with the faulty expression's [context](`ErrCtx`)
 /// and the [stack trace](`StckErrorCtx::get_call_stack`)
 #[derive(Debug)]
 pub struct StckErrorCtx {
-    ctx: ErrCtx,
-    kind: Box<StckError>,
-    stack: Vec<ErrCtx>,
+    pub(crate) ctx: ErrCtx,
+    pub(crate) kind: Box<StckError>,
+    pub(crate) stack: Vec<ErrCtx>,
 }
 
 impl StckErrorCtx {
@@ -154,18 +123,6 @@ impl StckErrorCtx {
     #[must_use]
     pub fn get_call_stack(&self) -> &[ErrCtx] {
         &self.stack
-    }
-}
-
-impl Display for StckErrorCtx {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{} doing {}", "Error".red(), self.ctx)?;
-        writeln!(f, "{}", self.kind)?;
-        writeln!(f, "{} {}", "!".on_bright_red(), self.ctx)?;
-        for ctx in &self.stack {
-            writeln!(f, "{} {}", ">".bright_blue(), ctx)?;
-        }
-        Ok(())
     }
 }
 
@@ -342,5 +299,66 @@ impl ErrorHelper {
             .take(lines.during)
             .collect();
         Ok(lines.join("\n"))
+    }
+}
+
+/// # The lines before and the amount of lines of a span
+///
+/// Made from a [line span](`LineSpan`) and the span of interest with [`LineSpan::line_range`]
+///
+/// Will be formated as "`before`" optionally with `:+amount` in the end if the span covers more
+/// than one line. The result `before:+amount` can be used direcly with [bat](https://github.com/sharkdp/bat)
+///
+/// The [`LineRange`] can be used with an [`ErrorHelper`] to select specific lines to read from
+/// files
+#[derive(Debug, Default)]
+pub struct LineRange {
+    pub(crate) before: usize,
+    pub(crate) during: usize,
+}
+
+impl LineRange {
+    fn new() -> Self {
+        Self {
+            before: 1,
+            during: 0,
+        }
+    }
+    fn count(&mut self, is_before: bool) {
+        if is_before {
+            self.before += 1;
+        } else {
+            self.during += 1;
+        }
+    }
+}
+
+/// # The list of line breaks from a file
+///
+/// Used to make a [`LineRange`] with [line range](`LineSpan::line_range`)
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone, Default)]
+pub struct LineSpan {
+    feeds: BTreeSet<usize>,
+}
+
+impl LineSpan {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            feeds: BTreeSet::new(),
+        }
+    }
+    pub fn add(&mut self, point: usize) {
+        self.feeds.insert(point);
+    }
+    /// Makes the [`LineRange`] of a significant `span`
+    #[must_use]
+    pub fn line_range(&self, span: Range<usize>) -> LineRange {
+        let mut range = LineRange::new();
+        for point in self.feeds.iter().take_while(|&p| *p < span.end) {
+            range.count(*point < span.start);
+        }
+        range
     }
 }

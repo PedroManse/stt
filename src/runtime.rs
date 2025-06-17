@@ -38,10 +38,10 @@ impl Context {
     fn frame_fn(
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
-        args_ins: FnArgsIns,
+        args_ins: FnArgsInsCap,
         rust_fns: HashMap<FnName, RustStckFn>,
     ) -> Self {
-        let (stack, args) = match args_ins.cap {
+        let (stack, args) = match args_ins {
             FnArgsInsCap::AllStack(xs) => (Stack::new_with(xs), None),
             FnArgsInsCap::Args(args) => (Stack::new(), Some(args)),
         };
@@ -349,7 +349,6 @@ impl Context {
             }
             FnArgs::AllStack => FnArgsInsCap::AllStack(self.stack.take()),
         };
-        let args = FnArgsIns { cap: args };
         let mut fn_ctx = Context::frame_fn(self.fns.clone(), vars, args, self.rust_fns.clone());
 
         // handle (return) kw and RT errors inside functions
