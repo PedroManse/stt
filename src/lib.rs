@@ -874,19 +874,46 @@ impl TokenBlock {
     }
 }
 
+/// # The list of line breaks from a file
+///
+/// Used to make a [`LineRange`] with [line range](`LineSpan::line_range`)
 #[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct LineSpan {
     feeds: BTreeSet<usize>,
 }
 
 /// # The lines before and the amount of lines of a span
 ///
-/// Used in conjunction with [line span](`LineSpan`)
-#[derive(Debug)]
+/// Made from a [line span](`LineSpan`) and the span of interest with [`LineSpan::line_range`]
+///
+/// Will be formated as "`before`" optionally with `:+amount` in the end if the span covers more
+/// than one line. The result `before:+amount` can be used direcly with [bat](https://github.com/sharkdp/bat)
+#[derive(Debug, Default)]
 pub struct LineRange {
     before: usize,
     during: usize,
+}
+
+impl LineSpan {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            feeds: BTreeSet::new(),
+        }
+    }
+    pub fn add(&mut self, point: usize) {
+        self.feeds.insert(point);
+    }
+    /// Makes the [`LineRange`] of a significant `span`
+    #[must_use]
+    pub fn line_range(&self, span: Range<usize>) -> LineRange {
+        let mut range = LineRange::new();
+        for point in self.feeds.iter().take_while(|&p| *p < span.end) {
+            range.count(*point < span.start);
+        }
+        range
+    }
 }
 
 impl LineRange {
@@ -905,21 +932,13 @@ impl LineRange {
     }
 }
 
-impl LineSpan {
-    fn new() -> Self {
-        Self {
-            feeds: BTreeSet::new(),
+impl std::fmt::Display for LineRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.during <= 1 {
+            write!(f, "{}", self.before)
+        } else {
+            write!(f, "{}:+{}", self.before, self.during)
         }
-    }
-    fn add(&mut self, point: usize) {
-        self.feeds.insert(point);
-    }
-    fn line_range(&self, span: Range<usize>) -> LineRange {
-        let mut range = LineRange::new();
-        for point in self.feeds.iter().take_while(|&p| *p < span.end) {
-            range.count(*point < span.start);
-        }
-        range
     }
 }
 

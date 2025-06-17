@@ -161,16 +161,6 @@ impl Display for StckErrorCtx {
     }
 }
 
-impl Display for LineRange {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.during <= 1 {
-            write!(f, "{}", self.before)
-        } else {
-            write!(f, "{}:+{}", self.before, self.during)
-        }
-    }
-}
-
 impl StckError {
     pub(crate) fn into_case(self) -> StckErrorCase {
         self.into()
