@@ -7,14 +7,14 @@ pkgs.callPackage (
     rustPlatform,
   }:
   rustPlatform.buildRustPackage rec {
-    pname = "stt";
-    version = "0.1.0";
+    pname = "stck";
+    version = "0.2.0";
     owner = "PedroManse";
-    repo = "stt";
+    repo = "stck";
 
     src = ./.;
 
-    cargoHash = "sha256-uJNloxZ7gzqpzSgaIOJqF+4Iljep29gQ+IGe3VI0C0g=";
+    cargoHash = "sha256-iJF6LA5SJ3wKJbrnpMVIIbw01maTy9nE//dgxFFoAOk=";
 
     meta = with lib; {
       description = " Stack based scripting language";
