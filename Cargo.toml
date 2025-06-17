@@ -3,6 +3,7 @@ name = "stck"
 version = "0.2.0"
 edition = "2024"
 authors = ["Manse <pedromanse@duck.com>"]
+default-run = "stck"
 
 [dependencies]
 colored = "3.0.0"
@@ -14,4 +15,8 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "stck"
-path = "src/interpreter.rs"
+path = "src/tools/interpreter.rs"
+
+[[bin]]
+name = "read-range"
+path = "src/tools/read_range.rs"

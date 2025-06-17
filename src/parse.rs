@@ -95,8 +95,9 @@ impl<'p> Context<'p> {
                     let mut inner_ctx = Context::new(code.tokens, self.source);
                     let parsed_code = inner_ctx.parse_block_start(cum_span.start)?;
                     push_expr!(E::IncludedCode(Code {
+                        line_breaks: code.line_breaks,
                         source: code.source,
-                        exprs: parsed_code
+                        exprs: parsed_code,
                     }));
                     s
                 }
@@ -113,7 +114,7 @@ impl<'p> Context<'p> {
                     MakeClosureBlock(args, None)
                 }
                 (MakeClosureBlock(args, outs), Block(code)) => {
-                    let mut inner_ctx = Context::new(code, self.source);
+                    let mut inner_ctx = Context::new(code, self.source, );
                     let code = inner_ctx.parse_block_start(cum_span.start)?;
                     let closure = Closure {
                         code,

@@ -10,7 +10,8 @@ mod tests;
 
 use colored::Colorize;
 use std::cell::OnceCell;
-use std::collections::{HashMap, HashSet};
+use std::cmp::Ordering;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt::{Debug, Display};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -34,6 +35,7 @@ pub enum StckErrorCase {
 pub struct ErrCtx {
     source: PathBuf,
     expr: Box<Expr>,
+    lines: LineRange,
 }
 
 #[derive(Debug)]
@@ -45,10 +47,12 @@ pub struct StckErrorCtx {
 
 impl ErrCtx {
     #[must_use]
-    pub fn new(source: &Path, expr: &Expr) -> Self {
+    pub fn new(source: &Path, expr: &Expr, lines: &LineSpan) -> Self {
+        let lines = lines.count_from(expr.span.clone());
         Self {
             source: source.to_path_buf(),
             expr: Box::new(expr.clone()),
+            lines,
         }
     }
 }
@@ -73,6 +77,7 @@ impl Display for StckErrorCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} doing {}", "Error".red(), self.ctx)?;
         writeln!(f, "{}", self.kind)?;
+        writeln!(f, "{} {}", "!".on_bright_red(), self.ctx)?;
         for ctx in &self.stack {
             writeln!(f, "{} {}", ">".bright_blue(), ctx)?;
         }
@@ -80,11 +85,13 @@ impl Display for StckErrorCtx {
     }
 }
 
-struct SourceSpan<'s>(&'s Range<usize>);
-
-impl Display for SourceSpan<'_> {
+impl Display for LineRange {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}..{}", self.0.start, self.0.end)
+        if self.during <= 1 {
+            write!(f, "{}", self.before)
+        } else {
+            write!(f, "{}+{}", self.before, self.during)
+        }
     }
 }
 
@@ -94,8 +101,8 @@ impl Display for ErrCtx {
             f,
             "{:?} in {}:{}",
             self.expr.cont,
-            self.source.display().to_string().bright_black(),
-            SourceSpan(&self.expr.span).to_string().bright_magenta()
+            self.source.display().to_string().green(),
+            self.lines.to_string().bright_magenta().underline(),
         )
     }
 }
@@ -226,6 +233,7 @@ pub enum StckError {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Code {
+    line_breaks: LineSpan,
     source: PathBuf,
     exprs: Vec<Expr>,
 }
@@ -1045,8 +1053,67 @@ pub enum TokenCont {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct TokenBlock {
+    line_breaks: LineSpan,
     source: PathBuf,
     tokens: Vec<Token>,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone)]
+pub struct LineSpan {
+    feeds: BTreeSet<usize>,
+}
+
+#[derive(Debug)]
+pub struct LineRange {
+    before: usize,
+    during: usize,
+    after: usize,
+}
+
+impl LineRange {
+    fn new() -> Self {
+        Self {
+            before: 1,
+            during: 0,
+            after: 0,
+        }
+    }
+    fn coun(&mut self, org: Ordering) {
+        match org {
+            Ordering::Less => self.before += 1,
+            Ordering::Equal => self.during += 1,
+            Ordering::Greater => self.after += 1,
+        }
+    }
+}
+
+fn within_span(span: &Range<usize>, point: usize) -> Ordering {
+    if point < span.start {
+        Ordering::Less
+    } else if point > span.end {
+        Ordering::Greater
+    } else {
+        Ordering::Equal
+    }
+}
+
+impl LineSpan {
+    fn new() -> Self {
+        Self {
+            feeds: BTreeSet::new(),
+        }
+    }
+    fn add(&mut self, point: usize) {
+        self.feeds.insert(point);
+    }
+    fn count_from(&self, span: Range<usize>) -> LineRange {
+        let mut range = LineRange::new();
+        for point in &self.feeds {
+            range.coun(within_span(&span, *point))
+        }
+        range
+    }
 }
 
 impl TokenBlock {

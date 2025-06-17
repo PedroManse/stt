@@ -32,4 +32,19 @@
 (fn) [ s<str> ] [ n<num> ] nts { 10 }
 10 (@stn) do-n-times
 
-10 [ a<num> ][ <str> ] { a "%d" %% } do-n-times prt
+(fn) [] a {
+	dlwkjandwal
+}
+
+(fn) [] b {
+	0
+	0
+	0
+	0
+	0
+	a
+}
+
+(fn) [] c { b }
+
+[ <?> ] { c } "" @
