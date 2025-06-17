@@ -32,13 +32,16 @@ impl Code {
     pub fn expr_count(&self) -> usize {
         self.exprs.len()
     }
+    pub fn iter(&self) -> std::slice::Iter<'_, Expr> {
+        self.exprs.iter()
+    }
 }
 
 impl<'p> IntoIterator for &'p Code {
     type Item = &'p Expr;
     type IntoIter = std::slice::Iter<'p, Expr>;
     fn into_iter(self) -> Self::IntoIter {
-        self.exprs.iter()
+        self.iter()
     }
 }
 
@@ -101,7 +104,7 @@ pub enum FnArgs {
 
 struct DisplayArgs<'a>(&'a [FnArgDef]);
 
-impl<'a> Display for DisplayArgs<'a> {
+impl Display for DisplayArgs<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[ ")?;
         for arg in self.0 {
