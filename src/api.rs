@@ -70,9 +70,9 @@ pub fn parse_raw_tokens(
     let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
     Ok(Code {
+        line_breaks,
         source,
         exprs,
-        line_breaks,
     })
 }
 
@@ -134,9 +134,9 @@ fn preproc_tokens(
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     let tokens = preprocessor.parse_clean(tokens)?;
     Ok(TokenBlock {
+        line_breaks,
         source,
         tokens,
-        line_breaks,
     })
 }
 
@@ -153,9 +153,9 @@ fn preproc_tokens_with_vars(
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     let tokens = preprocessor.parse(tokens, vars)?;
     Ok(TokenBlock {
+        line_breaks,
         source,
         tokens,
-        line_breaks,
     })
 }
 

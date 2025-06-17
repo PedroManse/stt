@@ -78,7 +78,7 @@ impl Context {
         }: &Code,
     ) -> Result<ControlFlow> {
         for expr in exprs {
-            match self.execute_expr(expr, source, &line_breaks)? {
+            match self.execute_expr(expr, source, line_breaks)? {
                 ControlFlow::Continue => {}
                 c => return Ok(c),
             }

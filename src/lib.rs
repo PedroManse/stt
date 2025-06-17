@@ -868,6 +868,7 @@ impl TokenBlock {
     pub fn iter(&self) -> std::slice::Iter<'_, Token> {
         self.tokens.iter()
     }
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<&Token> {
         self.tokens.get(index)
     }
@@ -913,10 +914,10 @@ impl LineSpan {
     fn add(&mut self, point: usize) {
         self.feeds.insert(point);
     }
-    fn into_line_range(&self, span: Range<usize>) -> LineRange {
+    fn line_range(&self, span: Range<usize>) -> LineRange {
         let mut range = LineRange::new();
         for point in self.feeds.iter().take_while(|&p| *p < span.end) {
-            range.count(*point < span.start)
+            range.count(*point < span.start);
         }
         range
     }

@@ -31,7 +31,7 @@ pub struct ErrCtx {
 impl ErrCtx {
     #[must_use]
     pub fn new(source: &Path, expr: &Expr, lines: &LineSpan) -> Self {
-        let lines = lines.into_line_range(expr.span.clone());
+        let lines = lines.line_range(expr.span.clone());
         Self {
             source: source.to_path_buf(),
             expr: Box::new(expr.clone()),
@@ -67,10 +67,12 @@ impl StckErrorCtx {
     pub(crate) fn into_case(self) -> StckErrorCase {
         self.into()
     }
+    #[must_use]
     pub fn append_stack(mut self, ctx: ErrCtx) -> Self {
         self.stack.push(ctx);
         self
     }
+    #[must_use]
     pub fn get_stack(&self) -> &[ErrCtx] {
         &self.stack
     }
