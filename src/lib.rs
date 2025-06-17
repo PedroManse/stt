@@ -1,10 +1,10 @@
 pub mod api;
-mod error;
+pub mod error;
 mod parse;
 mod preproc;
 mod runtime;
 mod token;
-pub use error::{ErrCtx, Result, ResultCtx, StckError, StckErrorCase, StckErrorCtx};
+use error::*;
 pub use runtime::Context;
 type OResult<T, E> = std::result::Result<T, E>;
 

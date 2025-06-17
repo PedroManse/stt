@@ -1,5 +1,6 @@
 use super::*;
 use colored::Colorize;
+use std::collections::hash_map::{Entry, OccupiedEntry};
 use std::fmt::Display;
 
 pub type Result<T> = std::result::Result<T, StckError>;
@@ -28,6 +29,65 @@ pub struct ErrCtx {
     lines: LineRange,
 }
 
+/// # A single viewable source file
+///
+/// made in bulk from the [stack trace](`ErrorSpans`)
+pub struct ErrorSource {
+    range: LineRange,
+    source: PathBuf,
+    lines: String,
+}
+
+impl Display for ErrorSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let source = self.source.display().to_string();
+        let range = self.range.to_string();
+        let title_len = source.len() + range.len() + 11;
+        writeln!(
+            f,
+            "===[ {}:{} ]===",
+            source.green(),
+            range.bright_magenta().underline()
+        )?;
+        writeln!(f, "{}", self.lines)?;
+        writeln!(f, "{}", "-".repeat(title_len).dimmed())?;
+        Ok(())
+    }
+}
+
+/// # The entire call stack of an [error](`StckErrorCtx`)
+///
+/// Used to create viewable [sources](`ErrorSource`) of the error with [`ErrorSpans::try_into_sources`]
+pub struct ErrorSpans {
+    head: ErrCtx,
+    stack: Vec<ErrCtx>,
+}
+
+impl ErrorSpans {
+    pub fn try_into_sources(self) -> Result<Vec<ErrorSource>> {
+        let mut error_helper = ErrorHelper::new();
+        std::iter::once(self.head)
+            .chain(self.stack)
+            .map(|a| {
+                Ok(ErrorSource {
+                    lines: a.get_lines(&mut error_helper)?,
+                    range: a.lines,
+                    source: a.source,
+                })
+            })
+            .collect()
+    }
+}
+
+impl From<StckErrorCtx> for ErrorSpans {
+    fn from(value: StckErrorCtx) -> Self {
+        Self {
+            head: value.ctx,
+            stack: value.stack,
+        }
+    }
+}
+
 impl ErrCtx {
     #[must_use]
     pub fn new(source: &Path, expr: &Expr, lines: &LineSpan) -> Self {
@@ -37,6 +97,10 @@ impl ErrCtx {
             expr: Box::new(expr.clone()),
             lines,
         }
+    }
+    pub fn get_lines(&self, eh: &mut ErrorHelper) -> Result<String> {
+        eh.get_span(&self.source, &self.lines)
+            .map_err(StckError::from)
     }
 }
 
@@ -55,25 +119,32 @@ impl Display for ErrCtx {
 /// # An error with context
 ///
 /// An [error](`StckError`) with the faulty expression's [context](`ErrCtx`)
-/// and the [stack trace](`StckErrorCtx::get_stack`)
+/// and the [stack trace](`StckErrorCtx::get_call_stack`)
 #[derive(Debug)]
 pub struct StckErrorCtx {
-    pub ctx: ErrCtx,
-    pub kind: Box<StckError>,
-    pub stack: Vec<ErrCtx>,
+    ctx: ErrCtx,
+    kind: Box<StckError>,
+    stack: Vec<ErrCtx>,
 }
 
 impl StckErrorCtx {
+    pub(crate) fn new(ctx: ErrCtx, kind: StckError) -> Self {
+        Self {
+            ctx,
+            kind: Box::new(kind),
+            stack: vec![],
+        }
+    }
     pub(crate) fn into_case(self) -> StckErrorCase {
         self.into()
     }
     #[must_use]
-    pub fn append_stack(mut self, ctx: ErrCtx) -> Self {
+    pub(crate) fn append_stack(mut self, ctx: ErrCtx) -> Self {
         self.stack.push(ctx);
         self
     }
     #[must_use]
-    pub fn get_stack(&self) -> &[ErrCtx] {
+    pub fn get_call_stack(&self) -> &[ErrCtx] {
         &self.stack
     }
 }
@@ -115,6 +186,8 @@ pub enum StckError {
     CantReadFile(PathBuf),
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("No such user-defined function `{0}`")]
@@ -227,4 +300,46 @@ pub enum StckError {
     WrongParamList(String, PathBuf),
     #[error("Parser in file {path}: State {0:?} doesn't accept token {1:?}", path=_2.display())]
     CantParseToken(parse::State, Box<TokenCont>, PathBuf),
+}
+
+#[derive(Default)]
+pub struct ErrorHelper {
+    files: HashMap<PathBuf, String>,
+}
+
+impl ErrorHelper {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            files: HashMap::new(),
+        }
+    }
+    fn read_file(
+        &mut self,
+        path: &PathBuf,
+    ) -> OResult<OccupiedEntry<'_, PathBuf, String>, std::io::Error> {
+        let entry = self.files.entry(path.clone());
+        let entry = match entry {
+            Entry::Occupied(entry) => entry,
+            Entry::Vacant(entry) => {
+                let cont = std::fs::read_to_string(path)?;
+                entry.insert_entry(cont)
+            }
+        };
+        Ok(entry)
+    }
+    pub fn get_span(
+        &mut self,
+        path: &PathBuf,
+        lines: &LineRange,
+    ) -> OResult<String, std::io::Error> {
+        let entry = self.read_file(path)?;
+        let lines: Vec<&str> = entry
+            .get()
+            .split('\n')
+            .skip(lines.before - 1)
+            .take(lines.during)
+            .collect();
+        Ok(lines.join("\n"))
+    }
 }

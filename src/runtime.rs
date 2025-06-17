@@ -137,11 +137,9 @@ impl Context {
     ) -> ResultCtx<ControlFlow> {
         match self.execute_expr_internal(expr, source, line_breaks) {
             Ok(c) => Ok(c),
-            Err(StckErrorCase::Bubble(e)) => Err(StckErrorCtx {
-                ctx: ErrCtx::new(source, expr, line_breaks),
-                kind: Box::new(e),
-                stack: vec![],
-            }),
+            Err(StckErrorCase::Bubble(e)) => {
+                Err(StckErrorCtx::new(ErrCtx::new(source, expr, line_breaks), e))
+            }
             Err(StckErrorCase::Context(c)) => {
                 Err(c.append_stack(ErrCtx::new(source, expr, line_breaks)))
             }
