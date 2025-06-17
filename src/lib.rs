@@ -889,6 +889,9 @@ pub struct LineSpan {
 ///
 /// Will be formated as "`before`" optionally with `:+amount` in the end if the span covers more
 /// than one line. The result `before:+amount` can be used direcly with [bat](https://github.com/sharkdp/bat)
+///
+/// The [`LineRange`] can be used with an [`ErrorHelper`] to select specific lines to read from
+/// files
 #[derive(Debug, Default)]
 pub struct LineRange {
     before: usize,

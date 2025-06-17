@@ -1,3 +1,5 @@
+//! # Error handeling module
+
 use super::*;
 use colored::Colorize;
 use std::collections::hash_map::{Entry, OccupiedEntry};
@@ -22,6 +24,8 @@ pub enum StckErrorCase {
 ///
 /// Error Context, informing the source file's path, the expression
 /// that caused the error and it's [span](`LineRange`)
+///
+/// Useful to [get the source code of the error](`ErrorSource`)
 #[derive(Debug)]
 pub struct ErrCtx {
     source: PathBuf,
@@ -31,7 +35,7 @@ pub struct ErrCtx {
 
 /// # A single viewable source file
 ///
-/// made in bulk from the [stack trace](`ErrorSpans`)
+/// made in bulk from the [stack trace](`ErrorSpans`) with [try into sources](`ErrorSpans::try_into_sources`)
 pub struct ErrorSource {
     range: LineRange,
     source: PathBuf,
@@ -64,6 +68,10 @@ pub struct ErrorSpans {
 }
 
 impl ErrorSpans {
+    /// # Get code from [error](`ErrCtx`)
+    ///
+    /// Read the source files with [`ErrorHelper`] and make [`ErrorSource`] for each [`ErrCtx`]
+    /// entry
     pub fn try_into_sources(self) -> Result<Vec<ErrorSource>> {
         let mut error_helper = ErrorHelper::new();
         std::iter::once(self.head)
@@ -292,6 +300,9 @@ pub enum StckError {
     CantParseToken(parse::State, Box<TokenCont>, PathBuf),
 }
 
+/// # Caching system for files
+///
+/// Used with [`LineRange`] to read specific lines from files on [get span](`ErrorHelper::get_span`)
 #[derive(Default)]
 pub struct ErrorHelper {
     files: HashMap<PathBuf, String>,
