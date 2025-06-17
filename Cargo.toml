@@ -16,7 +16,3 @@ path = "src/lib.rs"
 [[bin]]
 name = "stck"
 path = "src/tools/interpreter.rs"
-
-[[bin]]
-name = "read-range"
-path = "src/tools/read_range.rs"

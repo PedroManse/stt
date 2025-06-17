@@ -18,7 +18,7 @@ fn print_code(code: &stck::Code, import_stack: usize) {
             println!("{}", expr.cont);
         }
         if let stck::ExprCont::IncludedCode(code) = &expr.cont {
-            print_code(code, import_stack+1);
+            print_code(code, import_stack + 1);
         }
     }
 }
