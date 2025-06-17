@@ -90,7 +90,7 @@ impl Display for LineRange {
         if self.during <= 1 {
             write!(f, "{}", self.before)
         } else {
-            write!(f, "{}+{}", self.before, self.during)
+            write!(f, "{}:+{}", self.before, self.during)
         }
     }
 }
