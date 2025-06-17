@@ -1,6 +1,11 @@
-use crate::{FnArgDef, FnScope, RawKeyword, Result, StckError, Token, TokenCont};
+use std::path::PathBuf;
+
+use crate::{
+    FnArgDef, FnScope, LineSpan, RawKeyword, Result, StckError, Token, TokenBlock, TokenCont,
+};
 
 pub struct Context {
+    line_breaks: LineSpan,
     point: usize,
     last_token_pos: usize,
     chars: Vec<char>,
@@ -35,7 +40,7 @@ macro_rules! matches {
         (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'')
     };
     (arg_type) => {
-        (matches!(letter) | matches!(space))
+        (matches!(letter) | matches!(space) | '?')
     };
     (letter) => {
         'a'..='z' | 'A'..='Z'
@@ -60,9 +65,17 @@ impl Context {
         out.push(Token { cont: token, span });
         self.last_token_pos = self.point;
     }
+    pub fn tokenize(mut self, source: PathBuf) -> Result<TokenBlock> {
+        let tokens = self.tokenize_block()?;
+        Ok(TokenBlock {
+            source,
+            tokens,
+            line_breaks: self.line_breaks,
+        })
+    }
 
     // just read a '{'
-    pub fn tokenize_block(&mut self) -> Result<Vec<Token>> {
+    fn tokenize_block(&mut self) -> Result<Vec<Token>> {
         use State::*;
         use TokenCont::*;
         let mut state = Nothing;
@@ -319,6 +332,9 @@ impl Context {
 
     fn next(&mut self) -> Option<&char> {
         let ch = self.chars.get(self.point)?;
+        if ch == &'\n' {
+            self.line_breaks.add(self.point);
+        }
         self.point += 1;
         Some(ch)
     }
@@ -332,6 +348,7 @@ impl Context {
         let chars: Vec<char> = code.chars().collect();
         Self {
             point: 0,
+            line_breaks: LineSpan::new(),
             chars,
             last_token_pos: 0,
         }

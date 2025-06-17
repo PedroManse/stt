@@ -1,231 +1,28 @@
 pub mod api;
+mod display;
+pub mod error;
 mod parse;
 mod preproc;
 mod runtime;
 mod token;
+use error::*;
 pub use runtime::Context;
+type OResult<T, E> = std::result::Result<T, E>;
 
 #[cfg(test)]
 mod tests;
 
-use colored::Colorize;
 use std::cell::OnceCell;
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Debug, Display};
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::fmt::Debug;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use self::preproc::ProcCommand;
-
-type OResult<T, E> = std::result::Result<T, E>;
-pub type Result<T> = std::result::Result<T, StckError>;
-pub type ResultCtx<T> = std::result::Result<T, StckErrorCtx>;
-
-#[derive(thiserror::Error, Debug)]
-pub enum StckErrorCase {
-    #[error(transparent)]
-    Context(#[from] StckErrorCtx),
-    #[error(transparent)]
-    Bubble(#[from] StckError),
-}
-
-#[derive(Debug)]
-pub struct ErrCtx {
-    source: PathBuf,
-    expr: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub struct StckErrorCtx {
-    pub ctx: ErrCtx,
-    pub kind: Box<StckError>,
-    pub stack: Vec<ErrCtx>,
-}
-
-impl ErrCtx {
-    #[must_use]
-    pub fn new(source: &Path, expr: &Expr) -> Self {
-        Self {
-            source: source.to_path_buf(),
-            expr: Box::new(expr.clone()),
-        }
-    }
-}
-
-impl StckErrorCtx {
-    fn into_case(self) -> StckErrorCase {
-        self.into()
-    }
-    fn append_stack(mut self, ctx: ErrCtx) -> Self {
-        self.stack.push(ctx);
-        self
-    }
-}
-
-impl StckError {
-    fn into_case(self) -> StckErrorCase {
-        self.into()
-    }
-}
-
-impl Display for StckErrorCtx {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{} doing {}", "Error".red(), self.ctx)?;
-        writeln!(f, "{}", self.kind)?;
-        for ctx in &self.stack {
-            writeln!(f, "{} {}", ">".bright_blue(), ctx)?;
-        }
-        Ok(())
-    }
-}
-
-struct SourceSpan<'s>(&'s Range<usize>);
-
-impl Display for SourceSpan<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}..{}", self.0.start, self.0.end)
-    }
-}
-
-impl Display for ErrCtx {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?} in {}:{}",
-            self.expr.cont,
-            self.source.display().to_string().bright_black(),
-            SourceSpan(&self.expr.span).to_string().bright_magenta()
-        )
-    }
-}
-
-impl std::error::Error for StckErrorCtx {}
-
-#[allow(private_interfaces)] // Allow private types since this should only be printed
-#[derive(thiserror::Error, Debug)]
-pub enum StckError {
-    #[error("Can't read file {0:?}")]
-    CantReadFile(PathBuf),
-    #[error("No such function or function argument called `{0}`")]
-    MissingIdent(String),
-    #[error(transparent)]
-    ParseIntError(#[from] std::num::ParseIntError),
-    #[error("No such user-defined function `{0}`")]
-    MissingUserFunction(String),
-    #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
-    WrongStackSizeDiffOnCheck {
-        old_stack_size: usize,
-        new_stack_size: usize,
-        new_should_stack_size: usize,
-    },
-    #[error("check blocks must recieve one boolean, recieved {got:?}")]
-    WrongTypeOnCheck { got: Value },
-    #[error("Function {for_fn} accepts [{args}]. But {this_arg} is missing")]
-    MissingValueForBuiltin {
-        for_fn: String,
-        args: String,
-        this_arg: &'static str,
-    },
-    #[error("Function {for_fn} accepts {args}. But {missing} args are missing")]
-    MissingValuesForBuiltin {
-        for_fn: String,
-        args: &'static str,
-        missing: isize,
-    },
-    #[error(
-        "Function {for_fn} accepts {args}. But [{this_arg}] must be a {expected} and got {got:?}"
-    )]
-    WrongTypeForBuiltin {
-        for_fn: String,
-        args: &'static str,
-        this_arg: &'static str,
-        got: Box<Value>,
-        expected: &'static str,
-    },
-    #[error(
-        "This error should never be elevated to users, if this happens to you, please report it"
-    )]
-    NoSuchBuiltin,
-    #[error("The variable {0} is not defined")]
-    NoSuchVariable(String),
-    #[error("Missing char")]
-    MissingChar,
-    #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
-    RTUserFnMissingArgs {
-        name: String,
-        got: Vec<Value>,
-        needs: Vec<String>,
-    },
-    #[error("Found error while executing `!` on a Result: {error:?}")]
-    RTUnwrapResultBuiltinFailed { error: Value },
-    #[error("Found missing value while exeuting `!` on an Option")]
-    RTUnwrapOptionBuiltinFailed,
-    #[error("Can't compare {this:?} with {that:?}")]
-    RTCompareError { this: Value, that: Value },
-    #[error("Switch case with no value")]
-    RTSwitchCaseWithNoValue,
-    #[error(
-        "Closure's arguments ({:?}) are filled, but still tried to add more",
-        closure_args
-    )]
-    DEVFillFullClosure { closure_args: ClosurePartialArgs },
-    #[error(
-        "Closure's arguments ({closure_args:?})'s parent function values are beeing reset with {parent_args:?}"
-    )]
-    DEVResettingParentValuesForClosure {
-        closure_args: Box<ClosurePartialArgs>,
-        parent_args: HashMap<ArgName, FnArg>,
-    },
-    #[error(
-        "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"
-    )]
-    CantMakeFnIntoClosureZeroArgs { fn_name: String },
-    #[error(
-        "Can't make function ({fn_name}) that takes entire stack into closure, since it would never be executed"
-    )]
-    CantMakeFnIntoClosureAllStack { fn_name: String },
-    #[error("Can't make closure with zero arguments, it's code spans these bytes: {span:?}")]
-    CantInstanceClosureZeroArgs { span: Range<usize> },
-    #[error("Unknown keyword: {0}")]
-    UnknownKeyword(String),
-    #[error(
-        "`%%` ({0}) doesn't recognise the format directive `{1}`, only '%', 'd', 's', 'v' and 'b' are avaliable"
-    )]
-    RTUnknownStringFormat(String, char),
-    #[error("`%%` ({0}) Can't capture any value, the stack is empty")]
-    RTMissingValue(String, char),
-    #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
-    RTWrongValueType(String, Value, char),
-    #[error("No pragma section to (end if), on span {0:?}")]
-    NoSectionToClose(Range<usize>),
-    #[error("Can't start pragma (else) section on {1:?} (span {0:?})")]
-    CantElseCurrentSection(Range<usize>, Option<ProcCommand>),
-    #[error("Invalid pragma command: {0}")]
-    InvalidPragma(String),
-    #[error("Expected type: {0:?} got value {1:?}")]
-    RTTypeError(TypeTester, Box<Value>),
-    #[error("Output of function `{fn_name}` error, Expected {expected:?} got {got:?}")]
-    RTOutputCountError {
-        fn_name: String,
-        expected: usize,
-        got: usize,
-    },
-    #[error("Type `{0}` doesn't exist")]
-    UnknownType(String),
-    #[error("Unexpected end of file while building token {0:?}")]
-    UnexpectedEOF(token::State),
-    #[error("Tokenizer: No impl for {0:?} with {1:?}")]
-    CantTokenizerChar(token::State, char),
-    #[error("Parser in file {path}: Can only user param list or '*' as function arguments, not {0}", path=_1.display())]
-    WrongParamList(String, PathBuf),
-    #[error("Parser in file {path}: State {0:?} doesn't accept token {1:?}", path=_2.display())]
-    CantParseToken(parse::State, Box<TokenCont>, PathBuf),
-}
-
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Code {
+    line_breaks: LineSpan,
     source: PathBuf,
     exprs: Vec<Expr>,
 }
@@ -235,9 +32,21 @@ impl Code {
     pub fn expr_count(&self) -> usize {
         self.exprs.len()
     }
+    pub fn iter(&self) -> std::slice::Iter<'_, Expr> {
+        self.exprs.iter()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl<'p> IntoIterator for &'p Code {
+    type Item = &'p Expr;
+    type IntoIter = std::slice::Iter<'p, Expr>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone)]
 pub struct FnArgDef {
     name: String,
     type_check: Option<TypeTester>,
@@ -292,6 +101,7 @@ enum ClosureCurry {
     Partial(Closure),
 }
 
+#[derive(Debug)]
 enum ClosureFillError {
     OutOfBound,
     TypeError(TypeTester, Value),
@@ -422,11 +232,6 @@ impl FnArgs {
 }
 
 #[derive(Clone, Debug)]
-struct FnArgsIns {
-    cap: FnArgsInsCap,
-}
-
-#[derive(Clone, Debug)]
 enum FnArgsInsCap {
     Args(HashMap<ArgName, FnArg>),
     AllStack(Vec<Value>),
@@ -503,8 +308,31 @@ pub enum FnScope {
     Isolated, // fully isolated
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone)]
+pub enum TypedFnPart {
+    Typed(Vec<TypeTester>),
+    Any,
+}
+
+#[derive(PartialEq)]
+pub enum TypeTesterEq {
+    Any,
+    Char,
+    Str,
+    Num,
+    Bool,
+    Array,
+    Map,
+    Result,
+    Option,
+    Closure,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone)]
 pub enum TypeTester {
+    Any,
     Char,
     Str,
     Num,
@@ -518,13 +346,20 @@ pub enum TypeTester {
     Map(Box<TypeTester>),
     Result(Box<(TypeTester, TypeTester)>),
     Option(Box<TypeTester>),
-    Closure(Vec<TypeTester>, Vec<TypeTester>),
+    Closure(TypedFnPart, TypedFnPart),
+}
+
+fn parse_type_list(cont: &str) -> Result<Vec<TypeTester>> {
+    cont.split_whitespace()
+        .map(TypeTester::from_str)
+        .collect::<Result<Vec<_>>>()
 }
 
 impl FromStr for TypeTester {
     type Err = StckError;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Ok(match s {
+            "?" => Self::Any,
             "char" => Self::Char,
             "string" | "str" => Self::Str,
             "num" => Self::Num,
@@ -534,15 +369,66 @@ impl FromStr for TypeTester {
             "result" => Self::ResultAny,
             "option" => Self::OptionAny,
             "fn" | "closure" => Self::ClosureAny,
-            // TODO: parse complex type or error out
-            _ => return Err(StckError::UnknownType(s.to_string())),
+            otherwise => {
+                let fndef_inputs = otherwise
+                    .strip_prefix("fn<")
+                    .and_then(|tx| tx.strip_suffix('>'))
+                    .filter(|tx| !tx.contains('>'))
+                    .and_then(|tx| {
+                        parse_type_list(tx)
+                            .ok()
+                            .map(|ts| TypeTester::Closure(TypedFnPart::Typed(ts), TypedFnPart::Any))
+                    });
+                let fndef_inputs_outputs = otherwise
+                    .strip_prefix("fn<")
+                    .and_then(|tx| tx.strip_suffix('>'))
+                    .filter(|tx| tx.contains('>'))
+                    .and_then(|tx| {
+                        let (ins, outs) = tx.split_once('>')?;
+                        let outs = outs.strip_prefix('<')?;
+                        let Ok(ins) = parse_type_list(ins) else {
+                            return None;
+                        };
+                        let Ok(outs) = parse_type_list(outs) else {
+                            return None;
+                        };
+                        Some(TypeTester::Closure(
+                            TypedFnPart::Typed(ins),
+                            TypedFnPart::Typed(outs),
+                        ))
+                    });
+                let parses = fndef_inputs.or(fndef_inputs_outputs);
+                return parses.ok_or(StckError::UnknownType(s.to_string()));
+            }
         })
     }
 }
 
 impl TypeTester {
+    #[must_use]
+    fn as_eq(&self) -> TypeTesterEq {
+        match self {
+            Self::Any => TypeTesterEq::Any,
+            Self::Char => TypeTesterEq::Char,
+            Self::Str => TypeTesterEq::Str,
+            Self::Num => TypeTesterEq::Num,
+            Self::Bool => TypeTesterEq::Bool,
+            Self::Array(..) | Self::ArrayAny => TypeTesterEq::Array,
+            Self::Map(..) | Self::MapAny => TypeTesterEq::Map,
+            Self::Result(..) | Self::ResultAny => TypeTesterEq::Result,
+            Self::Option(..) | Self::OptionAny => TypeTesterEq::Option,
+            Self::Closure(..) | Self::ClosureAny => TypeTesterEq::Closure,
+        }
+    }
+    #[must_use]
+    pub fn check_type(&self, v: &TypeTester) -> bool {
+        self.as_eq() == TypeTester::Any.as_eq()
+            || v.as_eq() == TypeTester::Any.as_eq()
+            || self.as_eq() == v.as_eq()
+    }
     pub fn check(&self, v: &Value) -> OResult<(), TypeTester> {
         match (self, v) {
+            (Self::Any, _) => Ok(()),
             (Self::Char, Value::Char(_)) => Ok(()),
             (Self::Str, Value::Str(_)) => Ok(()),
             (Self::Num, Value::Num(_)) => Ok(()),
@@ -574,25 +460,31 @@ impl TypeTester {
             (Self::Option(_), Value::Option(None)) => Ok(()),
             (Self::Option(tt), Value::Option(Some(v))) => tt.check(v),
             (Self::Closure(ttinput, ttoutput), Value::Closure(cl)) => {
-                let outs = cl
-                    .request_args
-                    .next
-                    .iter()
-                    .map(|arg_def| &arg_def.type_check)
-                    .zip(ttinput);
-                for (cl_req, tt_req) in outs {
-                    let ok = cl_req.as_ref().is_none_or(|c| c == tt_req);
-                    if !ok {
-                        return Err(tt_req.clone());
+                if let TypedFnPart::Typed(ttinput) = ttinput {
+                    let outs = cl
+                        .request_args
+                        .next
+                        .iter()
+                        .map(|arg_def| &arg_def.type_check)
+                        .zip(ttinput);
+                    for (cl_req, tt_req) in outs {
+                        // part to test VTC
+                        let ok = cl_req.as_ref().is_none_or(|c| tt_req.check_type(c));
+                        if !ok {
+                            return Err(tt_req.clone());
+                        }
                     }
                 }
-                let Some(outputs) = cl.output_types.as_ref() else {
-                    return Ok(());
-                };
-                for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
-                    let ok = cl_in.as_ref().is_none_or(|c| c == tt_in);
-                    if !ok {
-                        return Err(tt_in.clone());
+                if let TypedFnPart::Typed(ttoutput) = ttoutput {
+                    // part to test VTC
+                    let Some(outputs) = cl.output_types.as_ref() else {
+                        return Ok(());
+                    };
+                    for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
+                        let ok = cl_in.as_ref().is_none_or(|c| tt_in.check_type(c));
+                        if !ok {
+                            return Err(tt_in.clone());
+                        }
                     }
                 }
                 Ok(())
@@ -621,6 +513,12 @@ pub enum TypedOutputError {
 }
 
 impl TypedOutputs {
+    #[must_use]
+    fn new(v: Vec<FnArgDef>) -> Self {
+        Self {
+            outputs: v.into_iter().map(|a| a.type_check).collect(),
+        }
+    }
     fn iter(&self) -> impl Iterator<Item = &Option<TypeTester>> {
         self.outputs.iter()
     }
@@ -850,7 +748,7 @@ pub struct CondBranch {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
-enum KeywordKind {
+pub enum KeywordKind {
     IntoClosure {
         fn_name: FnName,
     },
@@ -887,14 +785,13 @@ pub struct SwitchCase {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Expr {
-    #[allow(dead_code)]
     span: Range<usize>,
-    cont: ExprCont,
+    pub cont: ExprCont,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
-enum ExprCont {
+pub enum ExprCont {
     Immediate(Value),
     FnCall(FnName),
     Keyword(KeywordKind),
@@ -921,13 +818,15 @@ pub enum RawKeyword {
     Break,
 }
 
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Token {
     cont: TokenCont,
     span: Range<usize>,
 }
 
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub enum TokenCont {
     Char(char),
     Ident(String),
@@ -945,10 +844,20 @@ pub enum TokenCont {
 /// Usually created by [`api::get_tokens`] for files or [`api::get_tokens_str`] for raw strings.
 /// The token array ends with a [`TokenCont::EndOfBlock`] token, to indicate either the end of the
 /// source string or a `}` that closed the code block
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct TokenBlock {
+    line_breaks: LineSpan,
     source: PathBuf,
     tokens: Vec<Token>,
+}
+
+impl<'p> IntoIterator for &'p TokenBlock {
+    type Item = &'p Token;
+    type IntoIter = std::slice::Iter<'p, Token>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
 }
 
 impl TokenBlock {
@@ -961,6 +870,13 @@ impl TokenBlock {
         self.tokens
             .last()
             .is_some_and(|e| matches!(e.cont, TokenCont::EndOfBlock))
+    }
+    pub fn iter(&self) -> std::slice::Iter<'_, Token> {
+        self.tokens.iter()
+    }
+    #[must_use]
+    pub fn get(&self, index: usize) -> Option<&Token> {
+        self.tokens.get(index)
     }
 }
 

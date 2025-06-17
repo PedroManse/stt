@@ -1,8 +1,11 @@
 #! /usr/bin/env bash
+if [ "$1" = "--allow-dirty" ] || [ "$2" = "--allow-dirty" ] ; then allow_dirty="--allow-dirty" ; fi
+if [ "$1" = "--fix" ] || [ "$2" = "--fix" ] ; then fix="--fix" ; fi
+
 set -ex
 cargo build
 cargo fmt
-cargo clippy --all-targets --all-features -- \
+cargo clippy $fix $allow_dirty --all-targets --all-features -- \
 	-Dclippy::perf \
 	-Dclippy::style \
 	-Wclippy::pedantic \

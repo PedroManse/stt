@@ -27,7 +27,8 @@ pub enum State {
     MakeWhile,
     MakeWhileCode(Vec<Expr>),
 
-    MakeClosureBlock(Vec<FnArgDef>),
+    MakeClosureBlockOrOutArgs(Vec<FnArgDef>),
+    MakeClosureBlock(Vec<FnArgDef>, Option<Vec<FnArgDef>>),
 }
 
 impl<'p> Context<'p> {
@@ -94,20 +95,31 @@ impl<'p> Context<'p> {
                     let mut inner_ctx = Context::new(code.tokens, self.source);
                     let parsed_code = inner_ctx.parse_block_start(cum_span.start)?;
                     push_expr!(E::IncludedCode(Code {
+                        line_breaks: code.line_breaks,
                         source: code.source,
-                        exprs: parsed_code
+                        exprs: parsed_code,
                     }));
                     s
                 }
 
-                (Nothing, FnArgs(args)) => MakeClosureBlock(args),
-                (MakeClosureBlock(args), Block(code)) => {
+                (Nothing, FnArgs(args)) => MakeClosureBlockOrOutArgs(args),
+                (MakeClosureBlockOrOutArgs(args), FnArgs(outs)) => {
+                    MakeClosureBlock(args, Some(outs))
+                }
+                (MakeClosureBlockOrOutArgs(args), cont @ Block(_)) => {
+                    self.unget(Token {
+                        cont,
+                        span: span.clone(),
+                    });
+                    MakeClosureBlock(args, None)
+                }
+                (MakeClosureBlock(args, outs), Block(code)) => {
                     let mut inner_ctx = Context::new(code, self.source);
                     let code = inner_ctx.parse_block_start(cum_span.start)?;
                     let closure = Closure {
                         code,
                         request_args: ClosurePartialArgs::parse(args, span.clone())?,
-                        output_types: None,
+                        output_types: outs.map(TypedOutputs::new),
                     };
                     push_expr!(E::Immediate(Value::Closure(Box::new(closure))));
                     Nothing

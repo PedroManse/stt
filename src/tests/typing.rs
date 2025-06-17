@@ -65,7 +65,10 @@ fn test_array_type() {
 
 #[test]
 fn test_closure_type() {
-    let closure_sum_type = TT::Closure(vec![TT::Num, TT::Num], vec![TT::Num]);
+    let closure_sum_type = TT::Closure(
+        TypedFnPart::Typed(vec![TT::Num, TT::Num]),
+        TypedFnPart::Typed(vec![TT::Num]),
+    );
     let closure_sum = Value::Closure(Box::new(Closure {
         code: vec![],
         request_args: ClosurePartialArgs::new(vec![

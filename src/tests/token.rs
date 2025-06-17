@@ -10,7 +10,7 @@ macro_rules! mkt {
 }
 
 #[test]
-fn read_tokens() {
+fn read_tokens() -> Result<()> {
     use TokenCont as C;
     let text = "
 (fn) [ a b c ] fn-name {
@@ -18,10 +18,8 @@ fn read_tokens() {
 }
 1 2 3 fn-name
 ";
-    let mut ctx = crate::token::Context::new(text);
-    let block = ctx.tokenize_block();
-    assert!(block.is_ok());
-    let block = block.unwrap();
+    let ctx = crate::token::Context::new(text);
+    let block = ctx.tokenize("read_tokens test".into())?;
 
     let expected = [
         mkt!(1..5(C::Keyword(RawKeyword::Fn(FnScope::Local)))),
@@ -52,7 +50,7 @@ fn read_tokens() {
         mkt!(56..56(C::EndOfBlock)),
     ];
 
-    for index in 0..block.len() {
+    for index in 0..block.token_count() {
         let got = block.get(index);
         let wanted = expected.get(index);
         test_eq!(got: got, expected: wanted);
@@ -61,5 +59,6 @@ fn read_tokens() {
         }
     }
 
-    test_eq!(got: block.len(), expected: expected.len());
+    test_eq!(got: block.tokens.len(), expected: expected.len());
+    Ok(())
 }
