@@ -4,6 +4,7 @@ mod parse;
 mod preproc;
 mod runtime;
 mod token;
+use colored::Colorize;
 use error::*;
 pub use runtime::Context;
 type OResult<T, E> = std::result::Result<T, E>;
@@ -13,7 +14,7 @@ mod tests;
 
 use std::cell::OnceCell;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -33,11 +34,25 @@ impl Code {
     }
 }
 
+impl<'p> IntoIterator for &'p Code {
+    type Item = &'p Expr;
+    type IntoIter = std::slice::Iter<'p, Expr>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.exprs.iter()
+    }
+}
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 pub struct FnArgDef {
     name: String,
     type_check: Option<TypeTester>,
+}
+
+impl Display for FnArgDef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 impl FnArgDef {
@@ -82,6 +97,31 @@ impl FnArgDef {
 pub enum FnArgs {
     Args(Vec<FnArgDef>),
     AllStack,
+}
+
+struct DisplayArgs<'a>(&'a [FnArgDef]);
+
+impl<'a> Display for DisplayArgs<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[ ")?;
+        for arg in self.0 {
+            if let Some(tt) = &arg.type_check {
+                write!(f, "{arg}<{}> ", tt.to_string().underline().blue())?;
+            } else {
+                write!(f, "{arg} ")?;
+            }
+        }
+        write!(f, "]")
+    }
+}
+
+impl Display for FnArgs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AllStack => write!(f, "the stack"),
+            Self::Args(args) => write!(f, "{}", DisplayArgs(args)),
+        }
+    }
 }
 
 enum ClosureCurry {
@@ -301,11 +341,36 @@ pub enum FnScope {
     Isolated, // fully isolated
 }
 
+impl Display for FnScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FnScope::Local => Ok(()),
+            FnScope::Global => f.write_str("*"),
+            FnScope::Isolated => f.write_str("-"),
+        }
+    }
+}
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 pub enum TypedFnPart {
     Typed(Vec<TypeTester>),
     Any,
+}
+
+impl Display for TypedFnPart {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypedFnPart::Typed(args) => {
+                write!(f, " ")?;
+                for arg in args {
+                    write!(f, "{} ", arg.to_string().underline().blue())?;
+                }
+                Ok(())
+            }
+            TypedFnPart::Any => write!(f, "?"),
+        }
+    }
 }
 
 #[derive(PartialEq)]
@@ -340,6 +405,29 @@ pub enum TypeTester {
     Result(Box<(TypeTester, TypeTester)>),
     Option(Box<TypeTester>),
     Closure(TypedFnPart, TypedFnPart),
+}
+
+impl Display for TypeTester {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use TypeTester::*;
+        match self {
+            Any => write!(f, "?"),
+            Char => write!(f, "char"),
+            Str => write!(f, "str"),
+            Num => write!(f, "num"),
+            Bool => write!(f, "bool"),
+            ArrayAny => write!(f, "array"),
+            MapAny => write!(f, "map"),
+            ResultAny => write!(f, "result"),
+            OptionAny => write!(f, "option"),
+            ClosureAny => write!(f, "fn"),
+            Array(t) => write!(f, "array<{t}>"),
+            Map(v) => write!(f, "map<{v}>"),
+            Option(t) => write!(f, "option<{t}>"),
+            Result(tt) => write!(f, "result<{}><{}>", tt.0, tt.1),
+            Closure(tin, tout) => write!(f, "fn<{tin}><{tout}>"),
+        }
+    }
 }
 
 fn parse_type_list(cont: &str) -> Result<Vec<TypeTester>> {
@@ -741,7 +829,7 @@ pub struct CondBranch {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
-enum KeywordKind {
+pub enum KeywordKind {
     IntoClosure {
         fn_name: FnName,
     },
@@ -778,18 +866,75 @@ pub struct SwitchCase {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Expr {
-    #[allow(dead_code)]
     span: Range<usize>,
-    cont: ExprCont,
+    pub cont: ExprCont,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
-enum ExprCont {
+pub enum ExprCont {
     Immediate(Value),
     FnCall(FnName),
     Keyword(KeywordKind),
     IncludedCode(Code),
+}
+
+impl Display for ExprCont {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Immediate(Value::Closure(cl)) => {
+                write!(f, "instantiate Closure at {cl:p}")
+            }
+            Self::Immediate(v) => {
+                write!(f, "Push value {v:?}")
+            }
+            Self::FnCall(fn_name) => {
+                write!(f, "Execute `{}`", fn_name.bright_yellow())
+            }
+            Self::IncludedCode(code) => {
+                write!(
+                    f,
+                    "Included file {}",
+                    code.source.display().to_string().green()
+                )
+            }
+            Self::Keyword(k) => {
+                write!(f, "Keyword: ")?;
+                match k {
+                    KeywordKind::Break => write!(f, "Break"),
+                    KeywordKind::Return => write!(f, "Return"),
+                    KeywordKind::IntoClosure { fn_name } => write!(f, "`{fn_name}` into Closure"),
+                    KeywordKind::Ifs { .. } => write!(f, "If"),
+                    KeywordKind::BubbleError => write!(f, "Bubble error"),
+                    KeywordKind::While { .. } => write!(f, "While"),
+                    KeywordKind::FnDef {
+                        name,
+                        scope,
+                        args,
+                        out_args: Some(out_args),
+                        ..
+                    } => write!(
+                        f,
+                        "Define fn{scope} `{}` as {args} → {}",
+                        name.bright_yellow(),
+                        DisplayArgs(out_args)
+                    ),
+                    KeywordKind::FnDef {
+                        name,
+                        scope,
+                        args,
+                        out_args: None,
+                        ..
+                    } => write!(
+                        f,
+                        "Define fn{scope} `{}` consuming {args}",
+                        name.bright_yellow()
+                    ),
+                    KeywordKind::Switch { .. } => write!(f, "Switch"),
+                }
+            }
+        }
+    }
 }
 
 pub enum ControlFlow {

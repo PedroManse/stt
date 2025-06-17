@@ -116,7 +116,7 @@ impl Display for ErrCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{:?} in {}:{}",
+            "{} in {}:{}",
             self.expr.cont,
             self.source.display().to_string().green(),
             self.lines.to_string().bright_magenta().underline(),

@@ -1,3 +1,4 @@
+use colored::Colorize;
 use stck::{api::*, error::StckErrorCase};
 
 #[derive(PartialEq, Clone, Copy)]
@@ -7,6 +8,19 @@ enum StckMode {
     SyntaxCheck,
     TokenCheck,
     PrintProccCode,
+}
+
+fn print_code(code: &stck::Code, import_stack: usize) {
+    for expr in code {
+        if import_stack != 0 {
+            println!("{} {}", ">".repeat(import_stack).blue(), expr.cont);
+        } else {
+            println!("{}", expr.cont);
+        }
+        if let stck::ExprCont::IncludedCode(code) = &expr.cont {
+            print_code(code, import_stack+1);
+        }
+    }
 }
 
 fn execute(mode: StckMode, file_path: String) -> Result<(), StckErrorCase> {
@@ -22,7 +36,8 @@ fn execute(mode: StckMode, file_path: String) -> Result<(), StckErrorCase> {
             get_project_code(file_path)?;
         }
         M::PrintProccCode => {
-            println!("{:?}", get_project_code(file_path)?);
+            let code = get_project_code(file_path)?;
+            print_code(&code, 0);
         }
         M::TokenCheck => {
             get_tokens(file_path)?;
