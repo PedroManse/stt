@@ -39,10 +39,18 @@ pub fn get_tokens_str(cont: &str, content_name: impl AsRef<Path>) -> Result<Toke
 /// eprintln!("{:?}", code);
 /// ```
 pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
-    let TokenBlock { tokens, source, line_breaks } = get_tokens(path)?;
+    let TokenBlock {
+        tokens,
+        source,
+        line_breaks,
+    } = get_tokens(path)?;
     let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
-    Ok(Code { source, exprs, line_breaks })
+    Ok(Code {
+        line_breaks,
+        source,
+        exprs,
+    })
 }
 
 /// # Parse expressions from tokens
@@ -52,10 +60,20 @@ pub fn get_project_code(path: impl AsRef<Path>) -> Result<Code> {
 /// let code = stck::api::parse_raw_tokens(token_block).unwrap();
 /// assert_eq!(code.expr_count(), 2);
 /// ```
-pub fn parse_raw_tokens(TokenBlock { tokens, source, line_breaks }: TokenBlock) -> Result<Code> {
+pub fn parse_raw_tokens(
+    TokenBlock {
+        line_breaks,
+        tokens,
+        source,
+    }: TokenBlock,
+) -> Result<Code> {
     let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
-    Ok(Code { source, exprs, line_breaks })
+    Ok(Code {
+        source,
+        exprs,
+        line_breaks,
+    })
 }
 
 /// # Execute code from file
@@ -105,24 +123,40 @@ pub(crate) fn get_tokens_with_procvars(
 
 // steps for preproc.rs:
 fn preproc_tokens(
-    TokenBlock { tokens, source, line_breaks }: TokenBlock,
+    TokenBlock {
+        tokens,
+        source,
+        line_breaks,
+    }: TokenBlock,
     file_path: &Path,
 ) -> Result<TokenBlock> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     let tokens = preprocessor.parse_clean(tokens)?;
-    Ok(TokenBlock { source, tokens, line_breaks })
+    Ok(TokenBlock {
+        source,
+        tokens,
+        line_breaks,
+    })
 }
 
 fn preproc_tokens_with_vars(
-    TokenBlock { tokens, source, line_breaks }: TokenBlock,
+    TokenBlock {
+        tokens,
+        source,
+        line_breaks,
+    }: TokenBlock,
     file_path: &Path,
     vars: &mut HashSet<String>,
 ) -> Result<TokenBlock> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     let tokens = preprocessor.parse(tokens, vars)?;
-    Ok(TokenBlock { source, tokens, line_breaks })
+    Ok(TokenBlock {
+        source,
+        tokens,
+        line_breaks,
+    })
 }
 
 // step for runtime:

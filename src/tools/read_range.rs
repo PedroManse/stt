@@ -1,6 +1,6 @@
 //use std::collections::HashMap;
-use std::ops::Range;
 use colored::Colorize;
+use std::ops::Range;
 
 fn parse_line(line: &str) -> (&str, Range<usize>) {
     let (path, range) = line.split_once(':').unwrap();
@@ -11,7 +11,7 @@ fn parse_line(line: &str) -> (&str, Range<usize>) {
 }
 
 fn span_expand_safe(span: Range<usize>, max: usize) -> Range<usize> {
-    span.start.saturating_sub(10)..(span.end+10).min(max)
+    span.start.saturating_sub(10)..(span.end + 10).min(max)
 }
 
 fn main() {

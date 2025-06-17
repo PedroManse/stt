@@ -69,7 +69,14 @@ impl Context {
         }
     }
 
-    pub fn execute_entire_code(&mut self, Code { source, exprs, line_breaks }: &Code) -> Result<ControlFlow> {
+    pub fn execute_entire_code(
+        &mut self,
+        Code {
+            source,
+            exprs,
+            line_breaks,
+        }: &Code,
+    ) -> Result<ControlFlow> {
         for expr in exprs {
             match self.execute_expr(expr, source, &line_breaks)? {
                 ControlFlow::Continue => {}
@@ -79,7 +86,12 @@ impl Context {
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_code(&mut self, code: &[Expr], source: &Path, line_breaks: &LineSpan) -> ResultCtx<ControlFlow> {
+    fn execute_code(
+        &mut self,
+        code: &[Expr],
+        source: &Path,
+        line_breaks: &LineSpan,
+    ) -> ResultCtx<ControlFlow> {
         for expr in code {
             match self.execute_expr(expr, source, line_breaks)? {
                 ControlFlow::Continue => {}
@@ -89,7 +101,12 @@ impl Context {
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_check(&mut self, code: &[Expr], source: &Path, line_breaks: &LineSpan) -> Result<bool> {
+    fn execute_check(
+        &mut self,
+        code: &[Expr],
+        source: &Path,
+        line_breaks: &LineSpan,
+    ) -> Result<bool> {
         let old_stack_size = self.stack.len();
         for expr in code {
             self.execute_expr(expr, source, line_breaks)?;
@@ -112,7 +129,12 @@ impl Context {
         }
     }
 
-    fn execute_expr(&mut self, expr: &Expr, source: &Path, line_breaks: &LineSpan) -> ResultCtx<ControlFlow> {
+    fn execute_expr(
+        &mut self,
+        expr: &Expr,
+        source: &Path,
+        line_breaks: &LineSpan,
+    ) -> ResultCtx<ControlFlow> {
         match self.execute_expr_internal(expr, source, line_breaks) {
             Ok(c) => Ok(c),
             Err(StckErrorCase::Bubble(e)) => Err(StckErrorCtx {
@@ -120,11 +142,18 @@ impl Context {
                 kind: Box::new(e),
                 stack: vec![],
             }),
-            Err(StckErrorCase::Context(c)) => Err(c.append_stack(ErrCtx::new(source, expr, line_breaks))),
+            Err(StckErrorCase::Context(c)) => {
+                Err(c.append_stack(ErrCtx::new(source, expr, line_breaks)))
+            }
         }
     }
 
-    fn execute_expr_internal(&mut self, expr: &Expr, source: &Path, line_breaks: &LineSpan) -> Result<ControlFlow> {
+    fn execute_expr_internal(
+        &mut self,
+        expr: &Expr,
+        source: &Path,
+        line_breaks: &LineSpan,
+    ) -> Result<ControlFlow> {
         match &expr.cont {
             ExprCont::FnCall(name) => self.execute_fn(name, source, line_breaks)?,
             ExprCont::Keyword(kw) => {
@@ -143,14 +172,23 @@ impl Context {
                 self.stack.push(Value::Closure(cl));
             }
             ExprCont::Immediate(v) => self.stack.push(v.clone()),
-            ExprCont::IncludedCode(Code { source, exprs, line_breaks }) => {
+            ExprCont::IncludedCode(Code {
+                source,
+                exprs,
+                line_breaks,
+            }) => {
                 self.execute_code(exprs, source, line_breaks)?;
             }
         }
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_kw(&mut self, kw: &KeywordKind, source: &Path, line_breaks: &LineSpan) -> Result<ControlFlow> {
+    fn execute_kw(
+        &mut self,
+        kw: &KeywordKind,
+        source: &Path,
+        line_breaks: &LineSpan,
+    ) -> Result<ControlFlow> {
         Ok(match kw {
             KeywordKind::IntoClosure { fn_name } => {
                 let fndef = self
@@ -271,7 +309,12 @@ impl Context {
         Ok(cl_ctx.stack.into_vec())
     }
 
-    fn try_execute_user_fn(&mut self, name: &FnName, source: &Path, line_breaks: &LineSpan) -> Option<Result<Vec<Value>>> {
+    fn try_execute_user_fn(
+        &mut self,
+        name: &FnName,
+        source: &Path,
+        line_breaks: &LineSpan,
+    ) -> Option<Result<Vec<Value>>> {
         let user_fn = self.fns.get(name)?;
 
         let vars = match user_fn.scope {
@@ -355,7 +398,12 @@ impl Context {
         Some(())
     }
 
-    fn try_execute_builtin(&mut self, fn_name: &str, source: &Path, line_breaks: &LineSpan) -> Result<()> {
+    fn try_execute_builtin(
+        &mut self,
+        fn_name: &str,
+        source: &Path,
+        line_breaks: &LineSpan,
+    ) -> Result<()> {
         match fn_name {
             // seq system
             "print" => {

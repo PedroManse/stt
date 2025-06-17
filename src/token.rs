@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use crate::{FnArgDef, FnScope, LineSpan, RawKeyword, Result, StckError, Token, TokenBlock, TokenCont};
+use crate::{
+    FnArgDef, FnScope, LineSpan, RawKeyword, Result, StckError, Token, TokenBlock, TokenCont,
+};
 
 pub struct Context {
     line_breaks: LineSpan,
@@ -65,10 +67,10 @@ impl Context {
     }
     pub fn tokenize(mut self, source: PathBuf) -> Result<TokenBlock> {
         let tokens = self.tokenize_block()?;
-        Ok(TokenBlock{
+        Ok(TokenBlock {
             source,
             tokens,
-            line_breaks: self.line_breaks
+            line_breaks: self.line_breaks,
         })
     }
 
@@ -330,7 +332,9 @@ impl Context {
 
     fn next(&mut self) -> Option<&char> {
         let ch = self.chars.get(self.point)?;
-        if ch == &'\n' { self.line_breaks.add(self.point); }
+        if ch == &'\n' {
+            self.line_breaks.add(self.point);
+        }
         self.point += 1;
         Some(ch)
     }
