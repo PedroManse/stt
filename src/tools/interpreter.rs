@@ -1,4 +1,4 @@
-use stck::{StckErrorCase, api::*};
+use stck::{api::*, error::StckErrorCase};
 
 #[derive(PartialEq, Clone, Copy)]
 enum StckMode {
@@ -54,6 +54,13 @@ fn main() {
     };
     if let Err(e) = execute(mode, file_path.clone()) {
         eprintln!("{e}");
+        if let crate::StckErrorCase::Context(e) = e {
+            let spans: stck::error::ErrorSpans = e.into();
+            let sources = spans.try_into_sources().unwrap();
+            for source in sources {
+                println!("{source}");
+            }
+        }
         std::process::exit(1);
     }
 }
