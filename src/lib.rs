@@ -182,7 +182,7 @@ impl Closure {
                 ClosureFillError::OutOfBound => StckError::DEVFillFullClosure {
                     closure_args: self.request_args,
                 },
-                ClosureFillError::TypeError(tt, v) => StckError::RTTypeError(tt, Box::new(v)),
+                ClosureFillError::TypeError(tt, v) => StckError::RTType(tt, Box::new(v)),
             });
         }
         Ok(if self.request_args.is_full() {

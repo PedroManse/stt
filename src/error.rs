@@ -248,9 +248,9 @@ pub enum StckError {
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
     #[error(transparent)]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     #[error(transparent)]
-    ParseIntError(#[from] std::num::ParseIntError),
+    ParseInt(#[from] std::num::ParseIntError),
     #[error("No such user-defined function `{0}`")]
     MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
@@ -302,7 +302,7 @@ pub enum StckError {
     #[error("Found missing value while exeuting `!` on an Option")]
     RTUnwrapOptionBuiltinFailed,
     #[error("Can't compare {this:?} with {that:?}")]
-    RTCompareError { this: Value, that: Value },
+    RTCompare { this: Value, that: Value },
     #[error("Switch case with no value")]
     RTSwitchCaseWithNoValue,
     #[error(
@@ -344,11 +344,11 @@ pub enum StckError {
     #[error("Invalid pragma command: {0}")]
     InvalidPragma(String),
     #[error("Expected type: {0} got value {1:?}")]
-    RTTypeError(TypeTester, Box<Value>),
+    RTType(TypeTester, Box<Value>),
     #[error("Expected type: {0} got {1}")]
-    RTTypeTypeError(TypeTester, TypeTester),
+    RTTypeType(TypeTester, TypeTester),
     #[error("Output of function `{fn_name}` error, Expected {expected:?} got {got:?}")]
-    RTOutputCountError {
+    RTOutputCount {
         fn_name: String,
         expected: usize,
         got: usize,
