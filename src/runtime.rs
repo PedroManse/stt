@@ -336,12 +336,12 @@ impl Context {
                     .map(|(cap, ins)| {
                         if let Err(type_check_error) = cap.check(&ins) {
                             if TypeTesterEq::ClosureAny == type_check_error.as_eq() {
-                                Err(StckError::RTTypeTypeError(
+                                Err(StckError::RTTypeType(
                                     type_check_error,
                                     TypeTester::from(ins.0),
                                 ))
                             } else {
-                                Err(StckError::RTTypeError(type_check_error, Box::new(ins.0)))
+                                Err(StckError::RTType(type_check_error, Box::new(ins.0)))
                             }
                         } else {
                             Ok((cap.get_name().to_string(), ins))
@@ -370,11 +370,9 @@ impl Context {
         if let Some(out_tt) = &user_fn.output_types {
             let err = match out_tt.check(&output) {
                 Ok(()) => None,
-                Err(TypedOutputError::TypeError(t, v)) => {
-                    Some(StckError::RTTypeError(t, Box::new(v)))
-                }
+                Err(TypedOutputError::TypeError(t, v)) => Some(StckError::RTType(t, Box::new(v))),
                 Err(TypedOutputError::OutputCountError { expected, got }) => {
-                    Some(StckError::RTOutputCountError {
+                    Some(StckError::RTOutputCount {
                         fn_name: name.clone(),
                         expected,
                         got,
@@ -477,10 +475,10 @@ impl Context {
                     (Str(l), Str(r)) => Ok(l == r),
                     (Bool(l), Bool(r)) => Ok(l == r),
                     (r @ Array(_), l) | (l, r @ Array(_)) => {
-                        Err(StckError::RTCompareError { this: l, that: r })
+                        Err(StckError::RTCompare { this: l, that: r })
                     }
                     (m @ Map(_), l) | (l, m @ Map(_)) => {
-                        Err(StckError::RTCompareError { this: l, that: m })
+                        Err(StckError::RTCompare { this: l, that: m })
                     }
                     (_, _) => Ok(false),
                 }?;
@@ -496,7 +494,7 @@ impl Context {
                     (Str(l), Str(r)) => l == r,
                     (Bool(l), Bool(r)) => l == r,
                     (l, r) => {
-                        return Err(StckError::RTCompareError { this: l, that: r }.into_case());
+                        return Err(StckError::RTCompare { this: l, that: r }.into_case());
                     }
                 };
                 self.stack.push_this(eq);
@@ -510,7 +508,7 @@ impl Context {
                     (Str(l), Str(r)) => l > r,
                     (Bool(l), Bool(r)) => l && !r,
                     (l, r) => {
-                        return Err(StckError::RTCompareError { this: l, that: r }.into_case());
+                        return Err(StckError::RTCompare { this: l, that: r }.into_case());
                     }
                 };
                 self.stack.push_this(eq);
