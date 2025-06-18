@@ -336,7 +336,10 @@ impl Context {
                     .map(|(cap, ins)| {
                         if let Err(type_check_error) = cap.check(&ins) {
                             if TypeTesterEq::ClosureAny == type_check_error.as_eq() {
-                                Err(StckError::RTTypeTypeError(type_check_error, TypeTester::from(ins.0)))
+                                Err(StckError::RTTypeTypeError(
+                                    type_check_error,
+                                    TypeTester::from(ins.0),
+                                ))
                             } else {
                                 Err(StckError::RTTypeError(type_check_error, Box::new(ins.0)))
                             }
