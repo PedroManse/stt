@@ -330,10 +330,12 @@ impl From<Value> for TypeTester {
                     .map(|v| v.type_check.unwrap_or(TypeTester::Any))
                     .collect();
                 let out = if let Some(out) = cl.output_types {
-                    TypedFnPart::Typed(out.outputs
-                        .into_iter()
-                        .map(|v| v.unwrap_or(TypeTester::Any))
-                        .collect::<Vec<_>>())
+                    TypedFnPart::Typed(
+                        out.outputs
+                            .into_iter()
+                            .map(|v| v.unwrap_or(TypeTester::Any))
+                            .collect::<Vec<_>>(),
+                    )
                 } else {
                     TypedFnPart::Any
                 };
@@ -344,8 +346,7 @@ impl From<Value> for TypeTester {
             Value::Result(_) => todo!("result"),
             Value::Option(a) => a
                 .map(|tt| TypeTester::from(*tt))
-                .map(|tt| TypeTester::Option(Box::new(tt)))
-                .unwrap_or(TypeTester::OptionAny),
+                .map_or(TypeTester::OptionAny, |tt| TypeTester::Option(Box::new(tt))),
         }
     }
 }
