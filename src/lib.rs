@@ -1,12 +1,15 @@
 pub mod api;
-mod display;
 pub mod error;
+
+mod display;
 mod parse;
 mod preproc;
 mod runtime;
 mod token;
+mod types;
 use error::*;
 pub use runtime::Context;
+use types::*;
 type OResult<T, E> = std::result::Result<T, E>;
 
 #[cfg(test)]
@@ -14,10 +17,8 @@ mod tests;
 
 use std::cell::OnceCell;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::fmt::Debug;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
@@ -308,245 +309,12 @@ pub enum FnScope {
     Isolated, // fully isolated
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
-pub enum TypedFnPart {
-    Typed(Vec<TypeTester>),
-    Any,
-}
-
-#[derive(PartialEq)]
-pub enum TypeTesterEq {
-    Any,
-    Char,
-    Str,
-    Num,
-    Bool,
-    Array,
-    Map,
-    Result,
-    Option,
-    Closure,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
-pub enum TypeTester {
-    Any,
-    Char,
-    Str,
-    Num,
-    Bool,
-    ArrayAny,
-    MapAny,
-    ResultAny,
-    OptionAny,
-    ClosureAny,
-    Array(Box<TypeTester>),
-    Map(Box<TypeTester>),
-    Result(Box<(TypeTester, TypeTester)>),
-    Option(Box<TypeTester>),
-    Closure(TypedFnPart, TypedFnPart),
-}
-
-fn parse_type_list(cont: &str) -> Result<Vec<TypeTester>> {
-    cont.split_whitespace()
-        .map(TypeTester::from_str)
-        .collect::<Result<Vec<_>>>()
-}
-
-impl FromStr for TypeTester {
-    type Err = StckError;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Ok(match s {
-            "?" => Self::Any,
-            "char" => Self::Char,
-            "string" | "str" => Self::Str,
-            "num" => Self::Num,
-            "bool" => Self::Bool,
-            "list" | "array" => Self::ArrayAny,
-            "map" => Self::MapAny,
-            "result" => Self::ResultAny,
-            "option" => Self::OptionAny,
-            "fn" | "closure" => Self::ClosureAny,
-            otherwise => {
-                let fndef_inputs = otherwise
-                    .strip_prefix("fn<")
-                    .and_then(|tx| tx.strip_suffix('>'))
-                    .filter(|tx| !tx.contains('>'))
-                    .and_then(|tx| {
-                        parse_type_list(tx)
-                            .ok()
-                            .map(|ts| TypeTester::Closure(TypedFnPart::Typed(ts), TypedFnPart::Any))
-                    });
-                let fndef_inputs_outputs = otherwise
-                    .strip_prefix("fn<")
-                    .and_then(|tx| tx.strip_suffix('>'))
-                    .filter(|tx| tx.contains('>'))
-                    .and_then(|tx| {
-                        let (ins, outs) = tx.split_once('>')?;
-                        let outs = outs.strip_prefix('<')?;
-                        let Ok(ins) = parse_type_list(ins) else {
-                            return None;
-                        };
-                        let Ok(outs) = parse_type_list(outs) else {
-                            return None;
-                        };
-                        Some(TypeTester::Closure(
-                            TypedFnPart::Typed(ins),
-                            TypedFnPart::Typed(outs),
-                        ))
-                    });
-                let parses = fndef_inputs.or(fndef_inputs_outputs);
-                return parses.ok_or(StckError::UnknownType(s.to_string()));
-            }
-        })
-    }
-}
-
-impl TypeTester {
-    #[must_use]
-    fn as_eq(&self) -> TypeTesterEq {
-        match self {
-            Self::Any => TypeTesterEq::Any,
-            Self::Char => TypeTesterEq::Char,
-            Self::Str => TypeTesterEq::Str,
-            Self::Num => TypeTesterEq::Num,
-            Self::Bool => TypeTesterEq::Bool,
-            Self::Array(..) | Self::ArrayAny => TypeTesterEq::Array,
-            Self::Map(..) | Self::MapAny => TypeTesterEq::Map,
-            Self::Result(..) | Self::ResultAny => TypeTesterEq::Result,
-            Self::Option(..) | Self::OptionAny => TypeTesterEq::Option,
-            Self::Closure(..) | Self::ClosureAny => TypeTesterEq::Closure,
-        }
-    }
-    #[must_use]
-    pub fn check_type(&self, v: &TypeTester) -> bool {
-        self.as_eq() == TypeTester::Any.as_eq()
-            || v.as_eq() == TypeTester::Any.as_eq()
-            || self.as_eq() == v.as_eq()
-    }
-    pub fn check(&self, v: &Value) -> OResult<(), TypeTester> {
-        match (self, v) {
-            (Self::Any, _) => Ok(()),
-            (Self::Char, Value::Char(_)) => Ok(()),
-            (Self::Str, Value::Str(_)) => Ok(()),
-            (Self::Num, Value::Num(_)) => Ok(()),
-            (Self::Bool, Value::Bool(_)) => Ok(()),
-            (Self::ArrayAny, Value::Array(_)) => Ok(()),
-            (Self::MapAny, Value::Map(_)) => Ok(()),
-            (Self::ResultAny, Value::Result(_)) => Ok(()),
-            (Self::OptionAny, Value::Option(_)) => Ok(()),
-            (Self::ClosureAny, Value::Closure(_)) => Ok(()),
-            (Self::Array(tt), Value::Array(n)) => {
-                n.iter()
-                    .map(|v| tt.check(v))
-                    .collect::<OResult<Vec<_>, _>>()?;
-                Ok(())
-            }
-            (Self::Map(tt_value), Value::Map(m)) => {
-                for value in m.values() {
-                    tt_value.check(value)?;
-                }
-                Ok(())
-            }
-            (Self::Result(tt), Value::Result(v)) => {
-                let (tt_ok, tt_err) = tt.as_ref();
-                match v.as_ref() {
-                    Ok(v_ok) => tt_ok.check(v_ok),
-                    Err(v_err) => tt_err.check(v_err),
-                }
-            }
-            (Self::Option(_), Value::Option(None)) => Ok(()),
-            (Self::Option(tt), Value::Option(Some(v))) => tt.check(v),
-            (Self::Closure(ttinput, ttoutput), Value::Closure(cl)) => {
-                if let TypedFnPart::Typed(ttinput) = ttinput {
-                    let outs = cl
-                        .request_args
-                        .next
-                        .iter()
-                        .map(|arg_def| &arg_def.type_check)
-                        .zip(ttinput);
-                    for (cl_req, tt_req) in outs {
-                        // part to test VTC
-                        let ok = cl_req.as_ref().is_none_or(|c| tt_req.check_type(c));
-                        if !ok {
-                            return Err(tt_req.clone());
-                        }
-                    }
-                }
-                if let TypedFnPart::Typed(ttoutput) = ttoutput {
-                    // part to test VTC
-                    let Some(outputs) = cl.output_types.as_ref() else {
-                        return Ok(());
-                    };
-                    for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
-                        let ok = cl_in.as_ref().is_none_or(|c| tt_in.check_type(c));
-                        if !ok {
-                            return Err(tt_in.clone());
-                        }
-                    }
-                }
-                Ok(())
-            }
-            (t, _) => Err(t.clone()),
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 struct FnDef {
     scope: FnScope,
     code: Vec<Expr>,
     args: FnArgs,
     output_types: Option<TypedOutputs>,
-}
-
-#[derive(Clone, Debug)]
-pub struct TypedOutputs {
-    outputs: Vec<Option<TypeTester>>,
-}
-
-pub enum TypedOutputError {
-    TypeError(TypeTester, Value),
-    OutputCountError { expected: usize, got: usize },
-}
-
-impl TypedOutputs {
-    #[must_use]
-    fn new(v: Vec<FnArgDef>) -> Self {
-        Self {
-            outputs: v.into_iter().map(|a| a.type_check).collect(),
-        }
-    }
-    fn iter(&self) -> impl Iterator<Item = &Option<TypeTester>> {
-        self.outputs.iter()
-    }
-    fn len(&self) -> usize {
-        self.outputs.len()
-    }
-    pub fn check(&self, values: &[Value]) -> OResult<(), TypedOutputError> {
-        if self.len() != values.len() {
-            return Err(TypedOutputError::OutputCountError {
-                expected: self.len(),
-                got: values.len(),
-            });
-        }
-        for (v, maybe_tt) in values.iter().zip(self.iter()) {
-            if let Some(Err(t)) = maybe_tt.as_ref().map(|tt| tt.check(v)) {
-                return Err(TypedOutputError::TypeError(t, v.clone()));
-            }
-        }
-        Ok(())
-    }
-}
-
-impl From<Vec<FnArgDef>> for TypedOutputs {
-    fn from(value: Vec<FnArgDef>) -> Self {
-        TypedOutputs {
-            outputs: value.into_iter().map(|v| v.type_check).collect(),
-        }
-    }
 }
 
 impl FnDef {
@@ -897,7 +665,7 @@ impl RustStckFn {
     }
 }
 
-impl Debug for RustStckFn {
+impl std::fmt::Debug for RustStckFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Rust function {}", self.name)
     }

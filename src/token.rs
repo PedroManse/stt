@@ -40,7 +40,7 @@ macro_rules! matches {
         (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'')
     };
     (arg_type) => {
-        (matches!(letter) | matches!(space) | '?')
+        (matches!(letter) | matches!(space) | '?' | '*')
     };
     (letter) => {
         'a'..='z' | 'A'..='Z'

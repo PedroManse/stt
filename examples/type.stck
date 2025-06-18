@@ -28,23 +28,13 @@
 	"out" get
 }
 
-(fn) [ a<num> ] [ <str> <str>] stn { "hi" }
-(fn) [ s<str> ] [ n<num> ] nts { 10 }
-10 (@stn) do-n-times
+(fn) [ v<result<?><str>> ] [ <result<?><str>> ] inspect { v prt v }
+"failed" err inspect
+10 ok inspect
 
-(fn) [] a {
-	dlwkjandwal
-}
+(fn) [ v<option<num>> ] inspect { v prt }
+10 some inspect
+none inspect
 
-(fn) [] b {
-	0
-	0
-	0
-	0
-	0
-	a
-}
-
-(fn) [] c { b }
-
-[ <?> ] { c } "" @
+(fn) [ v<array<num>> ] inspect { v prt }
+10 arr$new arr$append inspect
