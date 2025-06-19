@@ -139,14 +139,14 @@ fn try_parse_result(cont: &str) -> Option<TypeTester> {
     ))))
 }
 
-fn parse_type_list(cont: &str) -> Result<TypedFnPart> {
+fn parse_type_list(cont: &str) -> Result<TypedFnPart, StckError> {
     Ok(match cont {
         "*" => TypedFnPart::Any,
         cont => {
             let types = cont
                 .split_whitespace()
                 .map(TypeTester::from_str)
-                .collect::<Result<Vec<_>>>()?;
+                .collect::<Result<Vec<_>, _>>()?;
             TypedFnPart::Typed(types)
         }
     })
@@ -194,7 +194,7 @@ impl TypeTester {
     pub fn check_type(&self, v: &TypeTester) -> bool {
         self.as_eq() == v.as_eq()
     }
-    pub fn check(&self, v: &Value) -> OResult<(), TypeTester> {
+    pub fn check(&self, v: &Value) -> Result<(), TypeTester> {
         match (self, v) {
             (Self::Any, _) => Ok(()),
             (Self::Char, Value::Char(_)) => Ok(()),
@@ -209,7 +209,7 @@ impl TypeTester {
             (Self::Array(tt), Value::Array(n)) => {
                 n.iter()
                     .map(|v| tt.check(v))
-                    .collect::<OResult<Vec<_>, _>>()?;
+                    .collect::<Result<Vec<_>, _>>()?;
                 Ok(())
             }
             (Self::Map(tt_value), Value::Map(m)) => {
@@ -291,7 +291,7 @@ impl TypedOutputs {
     pub(crate) fn len(&self) -> usize {
         self.outputs.len()
     }
-    pub fn check(&self, values: &[Value]) -> OResult<(), TypedOutputError> {
+    pub fn check(&self, values: &[Value]) -> Result<(), TypedOutputError> {
         if self.len() != values.len() {
             return Err(TypedOutputError::OutputCountError {
                 expected: self.len(),

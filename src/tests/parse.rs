@@ -5,7 +5,7 @@ use crate::KeywordKind;
 use super::*;
 
 #[test]
-fn parse_tokens() -> Result<(), crate::StckErrorCase> {
+fn parse_tokens() -> Result<(), crate::error::Error> {
     use crate::{
         Expr,
         ExprCont::{FnCall, Immediate, Keyword},

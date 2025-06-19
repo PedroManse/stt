@@ -10,7 +10,7 @@ macro_rules! mkt {
 }
 
 #[test]
-fn read_tokens() -> Result<()> {
+fn read_tokens() -> Result<(), error::Error> {
     use TokenCont as C;
     let text = "
 (fn) [ a b c ] fn-name {

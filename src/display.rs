@@ -151,7 +151,7 @@ impl Display for ErrCtx {
     }
 }
 
-impl Display for StckErrorCtx {
+impl Display for RuntimeErrorCtx {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} doing {}", "Error".red(), self.ctx)?;
         writeln!(f, "{}", self.kind)?;

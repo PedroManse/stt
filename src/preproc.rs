@@ -1,3 +1,4 @@
+use crate::error::Error;
 use crate::*;
 use std::collections::HashSet;
 use std::path::Path;
@@ -31,7 +32,7 @@ impl<'p> Context<'p> {
 }
 
 impl<'p> Context<'p> {
-    pub fn parse_clean(&'p self, code: Vec<Token>) -> Result<Vec<Token>> {
+    pub fn parse_clean(&'p self, code: Vec<Token>) -> Result<Vec<Token>, Error> {
         let mut proc_vars: HashSet<String> = HashSet::new();
         self.parse(code, &mut proc_vars)
     }
@@ -40,7 +41,7 @@ impl<'p> Context<'p> {
         &'p self,
         code: Vec<Token>,
         proc_vars: &mut HashSet<String>,
-    ) -> Result<Vec<Token>> {
+    ) -> Result<Vec<Token>, Error> {
         // TODO would have to keep track of removed span from pragma lines
         let mut if_stack: Vec<ProcStatus> = vec![];
         let mut out = Vec::with_capacity(code.len());
@@ -82,7 +83,7 @@ fn manage_pragma(
     command: &str,
     proc_vars: &mut HashSet<String>,
     span: Range<usize>,
-) -> Result<()> {
+) -> Result<(), Error> {
     let is_reading = if_stack.last().is_none_or(|s| s.reading);
     let proc_cmd = execute_command(command, proc_vars)?;
     match proc_cmd {
@@ -103,13 +104,13 @@ fn manage_pragma(
                     reading: !is_reading,
                 });
             }
-            s => return Err(StckError::CantElseCurrentSection(span, s)),
+            s => return Err(StckError::CantElseCurrentSection(span, s).into()),
         },
     }
     Ok(())
 }
 
-fn execute_command(command: &str, proc_vars: &mut HashSet<String>) -> Result<ProcChange> {
+fn execute_command(command: &str, proc_vars: &mut HashSet<String>) -> Result<ProcChange, Error> {
     let cmd_parts: Vec<&str> = command.split(' ').collect();
     Ok(match cmd_parts.as_slice() {
         ["if", v] => ProcChange::PushIf {
@@ -129,7 +130,7 @@ fn execute_command(command: &str, proc_vars: &mut HashSet<String>) -> Result<Pro
             ProcChange::Keep
         }
         e => {
-            return Err(StckError::InvalidPragma(e.join(" ")));
+            return Err(StckError::InvalidPragma(e.join(" ")).into());
         }
     })
 }

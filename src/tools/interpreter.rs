@@ -1,5 +1,5 @@
 use colored::Colorize;
-use stck::{api::*, error::StckErrorCase};
+use stck::{api, error::Error};
 
 #[derive(PartialEq, Clone, Copy)]
 enum StckMode {
@@ -23,24 +23,24 @@ fn print_code(code: &stck::Code, import_stack: usize) {
     }
 }
 
-fn execute(mode: StckMode, file_path: String) -> Result<(), StckErrorCase> {
+fn execute(mode: StckMode, file_path: String) -> Result<(), Error> {
     use StckMode as M;
     match mode {
         M::Normal => {
-            execute_file(file_path)?;
+            api::execute_file(file_path)?;
         }
         M::Debug => {
             todo!()
         }
         M::SyntaxCheck => {
-            get_project_code(file_path)?;
+            api::get_project_code(file_path)?;
         }
         M::PrintProccCode => {
-            let code = get_project_code(file_path)?;
+            let code = api::get_project_code(file_path)?;
             print_code(&code, 0);
         }
         M::TokenCheck => {
-            get_tokens(file_path)?;
+            api::get_tokens(file_path)?;
         }
     }
     Ok(())
@@ -69,7 +69,7 @@ fn main() {
     };
     if let Err(e) = execute(mode, file_path.clone()) {
         eprintln!("{e}");
-        if let crate::StckErrorCase::Context(e) = e {
+        if let stck::error::Error::RuntimeError(stck::error::RuntimeError::RuntimeCtx(e)) = e {
             let spans: stck::error::ErrorSpans = e.into();
             let sources = spans.try_into_sources().unwrap();
             for source in sources {
