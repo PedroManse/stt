@@ -115,7 +115,7 @@ fn get_raw_tokens(file_path: &Path) -> SResult<TokenBlock> {
         .map_err(error::Error::from)
 }
 
-pub(crate) fn get_tokens_with_procvars(
+pub fn get_tokens_with_procvars(
     path: impl AsRef<Path>,
     proc_vars: &mut HashSet<String>,
 ) -> SResult<TokenBlock> {

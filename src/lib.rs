@@ -164,9 +164,9 @@ impl ClosurePartialArgs {
 
 #[derive(Clone, Debug)]
 pub struct Closure {
-    pub code: Vec<Expr>,
-    pub request_args: ClosurePartialArgs,
-    pub output_types: Option<TypedOutputs>,
+    code: Vec<Expr>,
+    request_args: ClosurePartialArgs,
+    output_types: Option<TypedOutputs>,
 }
 
 struct FullClosure {

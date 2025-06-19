@@ -270,7 +270,7 @@ impl TypeTester {
 
 #[derive(Clone, Debug)]
 pub struct TypedOutputs {
-    pub(crate) outputs: Vec<Option<TypeTester>>,
+    outputs: Vec<Option<TypeTester>>,
 }
 
 pub enum TypedOutputError {
@@ -285,10 +285,10 @@ impl TypedOutputs {
             outputs: v.into_iter().map(|a| a.type_check).collect(),
         }
     }
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &Option<TypeTester>> {
+    fn iter(&self) -> impl Iterator<Item = &Option<TypeTester>> {
         self.outputs.iter()
     }
-    pub(crate) fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.outputs.len()
     }
     pub fn check(&self, values: &[Value]) -> Result<(), TypedOutputError> {
