@@ -3,10 +3,10 @@
 use super::*;
 use std::collections::hash_map::{Entry, OccupiedEntry};
 
-/// # An error possibly with a context
+/// # A runtime error, possibly with a context
 ///
-/// Either an error with context [`RuntimeErrorCtx`] or a
-/// bubbled up and context-less error [`StckError`]
+/// Either an [error with context](`RuntimeErrorCtx`) or [without](`RuntimeErrorKind`).
+/// You, however, should always recieve this enum with a context or [Error](`Error`) or [Stack Error](`StckError`)
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
     #[error(transparent)]
@@ -34,6 +34,22 @@ pub struct ErrCtx {
     pub(crate) source: PathBuf,
     pub(crate) expr: Box<Expr>,
     pub(crate) lines: LineRange,
+}
+
+impl ErrCtx {
+    #[must_use]
+    pub fn new(source: &Path, expr: &Expr, lines: &LineSpan) -> Self {
+        let lines = lines.line_range(expr.span.clone());
+        Self {
+            source: source.to_path_buf(),
+            expr: Box::new(expr.clone()),
+            lines,
+        }
+    }
+    pub fn get_lines(&self, eh: &mut ErrorHelper) -> StResult<String> {
+        eh.get_span(&self.source, &self.lines)
+            .map_err(StckError::from)
+    }
 }
 
 /// # A single viewable source file
@@ -79,22 +95,6 @@ impl From<RuntimeErrorCtx> for ErrorSpans {
             head: value.ctx,
             stack: value.stack,
         }
-    }
-}
-
-impl ErrCtx {
-    #[must_use]
-    pub fn new(source: &Path, expr: &Expr, lines: &LineSpan) -> Self {
-        let lines = lines.line_range(expr.span.clone());
-        Self {
-            source: source.to_path_buf(),
-            expr: Box::new(expr.clone()),
-            lines,
-        }
-    }
-    pub fn get_lines(&self, eh: &mut ErrorHelper) -> StResult<String> {
-        eh.get_span(&self.source, &self.lines)
-            .map_err(StckError::from)
     }
 }
 
@@ -236,6 +236,9 @@ impl LineSpan {
     }
 }
 
+/// # An error from `stck`
+///
+/// A failure that doesn't occour during the runtime of the stck script, but at some other time
 #[derive(thiserror::Error, Debug)]
 pub enum StckError {
     #[error("Can't read file {0:?}")]
@@ -268,6 +271,11 @@ pub enum StckError {
     UnknownType(String),
 }
 
+/// # A runtime error
+///
+/// An error that can only be caught during a failure while trying to execute a stck script
+///
+/// This is usually wrapped by a [context](`RuntimeErrorCtx`) to display more information
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeErrorKind {
     #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
