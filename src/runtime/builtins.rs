@@ -3,13 +3,13 @@ use super::*;
 use std::process::Command;
 
 #[cfg(test)]
-pub(super) fn sh(shell_cmd: &str) -> OResult<isize, String> {
+pub(super) fn sh(shell_cmd: &str) -> Result<isize, String> {
     eprintln!("[CMD] {shell_cmd}");
     Ok(0)
 }
 
 #[cfg(not(test))]
-pub(super) fn sh(shell_cmd: &str) -> OResult<isize, String> {
+pub(super) fn sh(shell_cmd: &str) -> Result<isize, String> {
     Command::new("sh")
         .arg("-c")
         .arg(shell_cmd)
@@ -19,13 +19,13 @@ pub(super) fn sh(shell_cmd: &str) -> OResult<isize, String> {
 }
 
 #[cfg(test)]
-pub(super) fn write_to(cont: &str, file: &str) -> OResult<isize, String> {
+pub(super) fn write_to(cont: &str, file: &str) -> Result<isize, String> {
     eprintln!("Write {} bytes to {file}", cont.len());
     Ok(cont.len() as isize)
 }
 
 #[cfg(not(test))]
-pub(super) fn write_to(cont: &str, file: &str) -> OResult<isize, String> {
+pub(super) fn write_to(cont: &str, file: &str) -> Result<isize, String> {
     use std::io::prelude::Write;
     let mut file = std::fs::File::create(file).map_err(|e| e.to_string())?;
     match file.write_all(cont.as_bytes()) {
@@ -40,7 +40,7 @@ enum FmtError {
     WrongVariableForFormat(Value, char),
 }
 
-fn fmt_internal(cont: &str, stack: &mut Stack) -> OResult<String, FmtError> {
+fn fmt_internal(cont: &str, stack: &mut Stack) -> Result<String, FmtError> {
     enum State {
         Nothing,
         OnFmt,
@@ -95,14 +95,15 @@ fn fmt_internal(cont: &str, stack: &mut Stack) -> OResult<String, FmtError> {
     Ok(out)
 }
 
-pub(super) fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
+pub(super) fn fmt(cont: &str, stack: &mut Stack) -> Result<String, RuntimeErrorKind> {
     fmt_internal(cont, stack).map_err(|e| {
         let fmt_str = cont.to_string();
         match e {
-            FmtError::MissingValue(c) => StckError::RTMissingValue(fmt_str, c),
-            FmtError::UnknownStringFormat(c) => StckError::RTUnknownStringFormat(fmt_str, c),
-            FmtError::WrongVariableForFormat(v, c) => StckError::RTWrongValueType(fmt_str, v, c),
+            FmtError::MissingValue(c) => RuntimeErrorKind::MissingValue(fmt_str, c),
+            FmtError::UnknownStringFormat(c) => RuntimeErrorKind::UnknownStringFormat(fmt_str, c),
+            FmtError::WrongVariableForFormat(v, c) => {
+                RuntimeErrorKind::WrongValueType(fmt_str, v, c)
+            }
         }
-        .into_case()
     })
 }

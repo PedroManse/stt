@@ -3,19 +3,24 @@
 use super::*;
 use std::collections::hash_map::{Entry, OccupiedEntry};
 
-pub type Result<T> = std::result::Result<T, StckError>;
-pub type ResultCtx<T> = std::result::Result<T, StckErrorCtx>;
-
-/// # An error possibly with a context
+/// # A runtime error, possibly with a context
 ///
-/// Either an error with context [`StckErrorCtx`] or a
-/// bubbled up and context-less error [`StckError`]
+/// Either an [error with context](`RuntimeErrorCtx`) or [without](`RuntimeErrorKind`).
+/// You, however, should always recieve this enum with a context or [Error](`Error`) or [Stack Error](`StckError`)
 #[derive(thiserror::Error, Debug)]
-pub enum StckErrorCase {
+pub enum RuntimeError {
     #[error(transparent)]
-    Context(#[from] StckErrorCtx),
+    RuntimeCtx(#[from] RuntimeErrorCtx),
     #[error(transparent)]
-    Bubble(#[from] StckError),
+    RuntimeRaw(#[from] RuntimeErrorKind),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Anoter(#[from] StckError),
+    #[error(transparent)]
+    RuntimeError(#[from] RuntimeError),
 }
 
 /// # The context of a runtime error
@@ -31,6 +36,22 @@ pub struct ErrCtx {
     pub(crate) lines: LineRange,
 }
 
+impl ErrCtx {
+    #[must_use]
+    pub fn new(source: &Path, expr: &Expr, lines: &LineSpan) -> Self {
+        let lines = lines.line_range(expr.span.clone());
+        Self {
+            source: source.to_path_buf(),
+            expr: Box::new(expr.clone()),
+            lines,
+        }
+    }
+    pub fn get_lines(&self, eh: &mut ErrorHelper) -> StResult<String> {
+        eh.get_span(&self.source, &self.lines)
+            .map_err(StckError::from)
+    }
+}
+
 /// # A single viewable source file
 ///
 /// made in bulk from the [stack trace](`ErrorSpans`) with [try into sources](`ErrorSpans::try_into_sources`)
@@ -40,7 +61,7 @@ pub struct ErrorSource {
     pub(crate) lines: String,
 }
 
-/// # The entire call stack of an [error](`StckErrorCtx`)
+/// # The entire call stack of an [error](`RuntimeErrorCtx`)
 ///
 /// Used to create viewable [sources](`ErrorSource`) of the error with [`ErrorSpans::try_into_sources`]
 pub struct ErrorSpans {
@@ -53,7 +74,7 @@ impl ErrorSpans {
     ///
     /// Read the source files with [`ErrorHelper`] and make [`ErrorSource`] for each [`ErrCtx`]
     /// entry
-    pub fn try_into_sources(self) -> Result<Vec<ErrorSource>> {
+    pub fn try_into_sources(self) -> Result<Vec<ErrorSource>, StckError> {
         let mut error_helper = ErrorHelper::new();
         std::iter::once(self.head)
             .chain(self.stack)
@@ -68,8 +89,8 @@ impl ErrorSpans {
     }
 }
 
-impl From<StckErrorCtx> for ErrorSpans {
-    fn from(value: StckErrorCtx) -> Self {
+impl From<RuntimeErrorCtx> for ErrorSpans {
+    fn from(value: RuntimeErrorCtx) -> Self {
         Self {
             head: value.ctx,
             stack: value.stack,
@@ -77,43 +98,24 @@ impl From<StckErrorCtx> for ErrorSpans {
     }
 }
 
-impl ErrCtx {
-    #[must_use]
-    pub fn new(source: &Path, expr: &Expr, lines: &LineSpan) -> Self {
-        let lines = lines.line_range(expr.span.clone());
-        Self {
-            source: source.to_path_buf(),
-            expr: Box::new(expr.clone()),
-            lines,
-        }
-    }
-    pub fn get_lines(&self, eh: &mut ErrorHelper) -> Result<String> {
-        eh.get_span(&self.source, &self.lines)
-            .map_err(StckError::from)
-    }
-}
-
 /// # An error with context
 ///
 /// An [error](`StckError`) with the faulty expression's [context](`ErrCtx`)
-/// and the [stack trace](`StckErrorCtx::get_call_stack`)
+/// and the [stack trace](`RuntimeErrorCtx::get_call_stack`)
 #[derive(Debug)]
-pub struct StckErrorCtx {
+pub struct RuntimeErrorCtx {
     pub(crate) ctx: ErrCtx,
-    pub(crate) kind: Box<StckError>,
+    pub(crate) kind: Box<RuntimeErrorKind>,
     pub(crate) stack: Vec<ErrCtx>,
 }
 
-impl StckErrorCtx {
-    pub(crate) fn new(ctx: ErrCtx, kind: StckError) -> Self {
+impl RuntimeErrorCtx {
+    pub(crate) fn new(ctx: ErrCtx, kind: RuntimeErrorKind) -> Self {
         Self {
             ctx,
             kind: Box::new(kind),
             stack: vec![],
         }
-    }
-    pub(crate) fn into_case(self) -> StckErrorCase {
-        self.into()
     }
     #[must_use]
     pub(crate) fn append_stack(mut self, ctx: ErrCtx) -> Self {
@@ -126,13 +128,7 @@ impl StckErrorCtx {
     }
 }
 
-impl StckError {
-    pub(crate) fn into_case(self) -> StckErrorCase {
-        self.into()
-    }
-}
-
-impl std::error::Error for StckErrorCtx {}
+impl std::error::Error for RuntimeErrorCtx {}
 
 /// # Caching system for files
 ///
@@ -152,7 +148,7 @@ impl ErrorHelper {
     fn read_file(
         &mut self,
         path: &PathBuf,
-    ) -> OResult<OccupiedEntry<'_, PathBuf, String>, std::io::Error> {
+    ) -> Result<OccupiedEntry<'_, PathBuf, String>, std::io::Error> {
         let entry = self.files.entry(path.clone());
         let entry = match entry {
             Entry::Occupied(entry) => entry,
@@ -167,7 +163,7 @@ impl ErrorHelper {
         &mut self,
         path: &PathBuf,
         lines: &LineRange,
-    ) -> OResult<String, std::io::Error> {
+    ) -> Result<String, std::io::Error> {
         let entry = self.read_file(path)?;
         let lines: Vec<&str> = entry
             .get()
@@ -240,17 +236,80 @@ impl LineSpan {
     }
 }
 
-/// # An error without context
+/// # An error from `stck`
+///
+/// A failure that doesn't occour during the runtime of the stck script, but at some other time
 #[derive(thiserror::Error, Debug)]
 pub enum StckError {
     #[error("Can't read file {0:?}")]
     CantReadFile(PathBuf),
-    #[error("No such function or function argument called `{0}`")]
-    MissingIdent(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
+    #[error("No pragma section to (end if), on span {0:?}")]
+    NoSectionToClose(Range<usize>),
+    #[error("Can't start pragma (else) section on {1:?} (span {0:?})")]
+    CantElseCurrentSection(Range<usize>, Option<crate::preproc::ProcCommand>),
+    #[error("Invalid pragma command: {0}")]
+    InvalidPragma(String),
+    #[error("Unexpected end of file while building token {0:?}")]
+    UnexpectedEOF(token::State),
+    #[error("Tokenizer: No impl for {0:?} with {1:?}")]
+    CantTokenizerChar(token::State, char),
+    #[error("Parser in file {path}: State {0:?} doesn't accept token {1:?}", path=_2.display())]
+    CantParseToken(parse::State, Box<TokenCont>, PathBuf),
+    #[error("Unknown keyword: {0}")]
+    UnknownKeyword(String),
+    #[error("Missing char")]
+    MissingChar,
+    #[error("Can't make closure with zero arguments, it's code spans these bytes: {span:?}")]
+    CantInstanceClosureZeroArgs { span: Range<usize> },
+    #[error("Parser in file {path}: Can only user param list or '*' as function arguments, not {0}", path=_1.display())]
+    WrongParamList(String, PathBuf),
+    #[error("Type `{0}` doesn't exist")]
+    UnknownType(String),
+}
+
+/// # A runtime error
+///
+/// An error that can only be caught during a failure while trying to execute a stck script
+///
+/// This is usually wrapped by a [context](`RuntimeErrorCtx`) to display more information
+#[derive(thiserror::Error, Debug)]
+pub enum RuntimeErrorKind {
+    #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
+    UserFnMissingArgs {
+        name: String,
+        got: Vec<Value>,
+        needs: Vec<String>,
+    },
+    #[error("Found error while executing `!` on a Result: {error:?}")]
+    UnwrapResultBuiltinFailed { error: Value },
+    #[error("Found missing value while exeuting `!` on an Option")]
+    UnwrapOptionBuiltinFailed,
+    #[error("Can't compare {this:?} with {that:?}")]
+    Compare { this: Value, that: Value },
+    #[error("Switch case with no value")]
+    SwitchCaseWithNoValue,
+    #[error(
+        "`%%` ({0}) doesn't recognise the format directive `{1}`, only '%', 'd', 's', 'v' and 'b' are avaliable"
+    )]
+    UnknownStringFormat(String, char),
+    #[error("`%%` ({0}) Can't capture any value, the stack is empty")]
+    MissingValue(String, char),
+    #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
+    WrongValueType(String, Value, char),
+    #[error("Expected type: {0} got value {1:?}")]
+    Type(TypeTester, Box<Value>),
+    #[error("Expected type: {0} got {1}")]
+    TypeType(TypeTester, TypeTester),
+    #[error("Output of function `{fn_name}` error, Expected {expected:?} got {got:?}")]
+    OutputCount {
+        fn_name: String,
+        expected: usize,
+        got: usize,
+    },
     #[error("No such user-defined function `{0}`")]
     MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
@@ -289,22 +348,16 @@ pub enum StckError {
     NoSuchBuiltin,
     #[error("The variable {0} is not defined")]
     NoSuchVariable(String),
-    #[error("Missing char")]
-    MissingChar,
-    #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]
-    RTUserFnMissingArgs {
-        name: String,
-        got: Vec<Value>,
-        needs: Vec<String>,
-    },
-    #[error("Found error while executing `!` on a Result: {error:?}")]
-    RTUnwrapResultBuiltinFailed { error: Value },
-    #[error("Found missing value while exeuting `!` on an Option")]
-    RTUnwrapOptionBuiltinFailed,
-    #[error("Can't compare {this:?} with {that:?}")]
-    RTCompare { this: Value, that: Value },
-    #[error("Switch case with no value")]
-    RTSwitchCaseWithNoValue,
+    #[error(
+        "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"
+    )]
+    CantMakeFnIntoClosureZeroArgs { fn_name: String },
+    #[error(
+        "Can't make function ({fn_name}) that takes entire stack into closure, since it would never be executed"
+    )]
+    CantMakeFnIntoClosureAllStack { fn_name: String },
+    #[error("Can't make closure with zero arguments, it's code spans these bytes: {span:?}")]
+    CantInstanceClosureZeroArgs { span: Range<usize> },
     #[error(
         "Closure's arguments ({:?}) are filled, but still tried to add more",
         closure_args
@@ -317,50 +370,6 @@ pub enum StckError {
         closure_args: Box<ClosurePartialArgs>,
         parent_args: HashMap<ArgName, FnArg>,
     },
-    #[error(
-        "Can't make function ({fn_name}) that takes no arguments into closure, since that would never be executed"
-    )]
-    CantMakeFnIntoClosureZeroArgs { fn_name: String },
-    #[error(
-        "Can't make function ({fn_name}) that takes entire stack into closure, since it would never be executed"
-    )]
-    CantMakeFnIntoClosureAllStack { fn_name: String },
-    #[error("Can't make closure with zero arguments, it's code spans these bytes: {span:?}")]
-    CantInstanceClosureZeroArgs { span: Range<usize> },
-    #[error("Unknown keyword: {0}")]
-    UnknownKeyword(String),
-    #[error(
-        "`%%` ({0}) doesn't recognise the format directive `{1}`, only '%', 'd', 's', 'v' and 'b' are avaliable"
-    )]
-    RTUnknownStringFormat(String, char),
-    #[error("`%%` ({0}) Can't capture any value, the stack is empty")]
-    RTMissingValue(String, char),
-    #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
-    RTWrongValueType(String, Value, char),
-    #[error("No pragma section to (end if), on span {0:?}")]
-    NoSectionToClose(Range<usize>),
-    #[error("Can't start pragma (else) section on {1:?} (span {0:?})")]
-    CantElseCurrentSection(Range<usize>, Option<crate::preproc::ProcCommand>),
-    #[error("Invalid pragma command: {0}")]
-    InvalidPragma(String),
-    #[error("Expected type: {0} got value {1:?}")]
-    RTType(TypeTester, Box<Value>),
-    #[error("Expected type: {0} got {1}")]
-    RTTypeType(TypeTester, TypeTester),
-    #[error("Output of function `{fn_name}` error, Expected {expected:?} got {got:?}")]
-    RTOutputCount {
-        fn_name: String,
-        expected: usize,
-        got: usize,
-    },
-    #[error("Type `{0}` doesn't exist")]
-    UnknownType(String),
-    #[error("Unexpected end of file while building token {0:?}")]
-    UnexpectedEOF(token::State),
-    #[error("Tokenizer: No impl for {0:?} with {1:?}")]
-    CantTokenizerChar(token::State, char),
-    #[error("Parser in file {path}: Can only user param list or '*' as function arguments, not {0}", path=_1.display())]
-    WrongParamList(String, PathBuf),
-    #[error("Parser in file {path}: State {0:?} doesn't accept token {1:?}", path=_2.display())]
-    CantParseToken(parse::State, Box<TokenCont>, PathBuf),
+    #[error("No such function or function argument called `{0}`")]
+    MissingIdent(String),
 }
