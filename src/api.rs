@@ -115,9 +115,9 @@ fn get_raw_tokens(file_path: &Path) -> SResult<TokenBlock> {
         .map_err(error::Error::from)
 }
 
-pub fn get_tokens_with_procvars(
+pub fn get_tokens_with_procvars<S: std::hash::BuildHasher>(
     path: impl AsRef<Path>,
-    proc_vars: &mut HashSet<String>,
+    proc_vars: &mut HashSet<String, S>,
 ) -> SResult<TokenBlock> {
     let file_path = PathBuf::from(path.as_ref());
     let tokens = get_raw_tokens(&file_path)?;
@@ -143,14 +143,14 @@ fn preproc_tokens(
     })
 }
 
-fn preproc_tokens_with_vars(
+fn preproc_tokens_with_vars<S: std::hash::BuildHasher>(
     TokenBlock {
         tokens,
         source,
         line_breaks,
     }: TokenBlock,
     file_path: &Path,
-    vars: &mut HashSet<String>,
+    vars: &mut HashSet<String, S>,
 ) -> SResult<TokenBlock> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));

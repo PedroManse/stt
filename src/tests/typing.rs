@@ -13,9 +13,10 @@ fn test_simple_types() {
             FnArgDef::new("a".to_string(), Some(TT::Num)),
             FnArgDef::new("b".to_string(), Some(TT::Num)),
         ]),
-        output_types: Some(TypedOutputs {
-            outputs: vec![Some(TT::Num)],
-        }),
+        output_types: Some(TypedOutputs::new(vec![FnArgDef::new(
+            String::new(),
+            Some(TT::Num),
+        )])),
     }));
 
     let values = [
@@ -75,9 +76,10 @@ fn test_closure_type() {
             FnArgDef::new("a".to_string(), Some(TT::Num)),
             FnArgDef::new("b".to_string(), Some(TT::Num)),
         ]),
-        output_types: Some(TypedOutputs {
-            outputs: vec![Some(TT::Num)],
-        }),
+        output_types: Some(TypedOutputs::new(vec![FnArgDef::new(
+            String::new(),
+            Some(TT::Num),
+        )])),
     }));
     let type_test = closure_sum_type.check(&closure_sum);
     test_eq!(got: type_test, expected: T_OK);
