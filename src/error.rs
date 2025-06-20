@@ -8,8 +8,11 @@ use std::path::{Path, PathBuf};
 
 /// # A runtime error, possibly with a context
 ///
-/// Either an [error with context](`RuntimeErrorCtx`) or [without](`RuntimeErrorKind`).
-/// You, however, should always recieve this enum with a context or [Error](`Error`) or [Stack Error](`StckError`)
+/// Either an [error with context](RuntimeErrorCtx) or [without](RuntimeErrorKind).
+/// However, using the [simple api](crate::api), should always give you a context-full erorr
+///
+/// This error implements [Display](std::fmt::Display) through [Error kind](RuntimeErrorKind) and
+/// [Error Context](RuntimeErrorCtx)
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
     #[error(transparent)]
@@ -29,9 +32,9 @@ pub enum Error {
 /// # The context of a runtime error
 ///
 /// Error Context, informing the source file's path, the expression
-/// that caused the error and it's [span](`LineRange`)
+/// that caused the error and it's [span](LineRange)
 ///
-/// Useful to [get the source code of the error](`ErrorSource`)
+/// Useful to [get the source code of the error](ErrorSource)
 #[derive(Debug)]
 pub struct ErrCtx {
     pub(crate) source: PathBuf,
@@ -57,25 +60,25 @@ impl ErrCtx {
 
 /// # A single viewable source file
 ///
-/// made in bulk from the [stack trace](`ErrorSpans`) with [try into sources](`ErrorSpans::try_into_sources`)
+/// made in bulk from the [stack trace](ErrorSpans) with [try into sources](ErrorSpans::try_into_sources)
 pub struct ErrorSource {
     pub(crate) range: LineRange,
     pub(crate) source: PathBuf,
     pub(crate) lines: String,
 }
 
-/// # The entire call stack of an [error](`RuntimeErrorCtx`)
+/// # The entire call stack of an [error](RuntimeErrorCtx)
 ///
-/// Used to create viewable [sources](`ErrorSource`) of the error with [`ErrorSpans::try_into_sources`]
+/// Used to create viewable [sources](ErrorSource) of the error with [ErrorSpans::try_into_sources]
 pub struct ErrorSpans {
     head: ErrCtx,
     stack: Vec<ErrCtx>,
 }
 
 impl ErrorSpans {
-    /// # Get code from [error](`ErrCtx`)
+    /// # Get code from [error](ErrCtx)
     ///
-    /// Read the source files with [`ErrorHelper`] and make [`ErrorSource`] for each [`ErrCtx`]
+    /// Read the source files with [ErrorHelper] and make [ErrorSource] for each [ErrCtx]
     /// entry
     pub fn try_into_sources(self) -> Result<Vec<ErrorSource>, StckError> {
         let mut error_helper = ErrorHelper::new();
@@ -103,8 +106,8 @@ impl From<RuntimeErrorCtx> for ErrorSpans {
 
 /// # An error with context
 ///
-/// An [error](`StckError`) with the faulty expression's [context](`ErrCtx`)
-/// and the [stack trace](`RuntimeErrorCtx::get_call_stack`)
+/// An [error](StckError) with the faulty expression's [context](ErrCtx)
+/// and the [stack trace](RuntimeErrorCtx::get_call_stack)
 #[derive(Debug)]
 pub struct RuntimeErrorCtx {
     pub(crate) ctx: ErrCtx,
@@ -135,7 +138,7 @@ impl std::error::Error for RuntimeErrorCtx {}
 
 /// # Caching system for files
 ///
-/// Used with [`LineRange`] to read specific lines from files on [get span](`ErrorHelper::get_span`)
+/// Used with [LineRange] to read specific lines from files on [get span](ErrorHelper::get_span)
 #[derive(Default)]
 pub struct ErrorHelper {
     files: HashMap<PathBuf, String>,
@@ -180,12 +183,12 @@ impl ErrorHelper {
 
 /// # The lines before and the amount of lines of a span
 ///
-/// Made from a [line span](`LineSpan`) and the span of interest with [`LineSpan::line_range`]
+/// Made from a [line span](LineSpan) and the span of interest with [LineSpan::line_range]
 ///
 /// Will be formated as "`before`" optionally with `:+amount` in the end if the span covers more
 /// than one line. The result `before:+amount` can be used direcly with [bat](https://github.com/sharkdp/bat)
 ///
-/// The [`LineRange`] can be used with an [`ErrorHelper`] to select specific lines to read from
+/// The [LineRange] can be used with an [ErrorHelper] to select specific lines to read from
 /// files
 #[derive(Debug, Default)]
 pub struct LineRange {
@@ -211,7 +214,7 @@ impl LineRange {
 
 /// # The list of line breaks from a file
 ///
-/// Used to make a [`LineRange`] with [line range](`LineSpan::line_range`)
+/// Used to make a [LineRange] with [line range](LineSpan::line_range)
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone, Default)]
 pub struct LineSpan {
@@ -228,7 +231,7 @@ impl LineSpan {
     pub fn add(&mut self, point: usize) {
         self.feeds.insert(point);
     }
-    /// Makes the [`LineRange`] of a significant `span`
+    /// Makes the [LineRange] of a significant `span`
     #[must_use]
     pub fn line_range(&self, span: Range<usize>) -> LineRange {
         let mut range = LineRange::new();
@@ -278,7 +281,7 @@ pub enum StckError {
 ///
 /// An error that can only be caught during a failure while trying to execute a stck script
 ///
-/// This is usually wrapped by a [context](`RuntimeErrorCtx`) to display more information
+/// This is usually wrapped by a [context](RuntimeErrorCtx) to display more information
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeErrorKind {
     #[error("Not enough arguments to execute {name}, got {got:?} needs {needs:?}")]

@@ -1,9 +1,9 @@
 //! # This module exposes the steps of the pipeline for file execution
 //! The steps are:
-//! 1. Parsing and preprocessing the file into tokens, avaliable with [`get_tokens`]
-//! 2. Pre-processing the file, also avaliable with [`get_tokens`]
-//! 3. Parsing the tokens into code, avaliable with [`get_project_code`]
-//! 4. Executing the code, avaliable with [`execute_file`]
+//! 1. [Parsing](get_tokens)
+//! 2. [Preprocessing](get_tokens) (same function as first step)
+//! 3. [Parsing the tokens into code](get_project_code)
+//! 4. [Executing the code](execute_file)
 //!
 //! Each step executes the previous one aswell to forbid jump pipeline steps
 //!
@@ -96,7 +96,7 @@ pub fn execute_file(path: impl AsRef<Path>) -> SResult<()> {
 /// let code = stck::api::parse_raw_tokens(token_block).unwrap();
 /// # assert_eq!(code.expr_count(), 3);
 /// let ctx = stck::api::execute_raw_code(&code).unwrap();
-/// assert_eq!(ctx.get_stack()[0], stck::Value::Num(3));
+/// assert_eq!(ctx.get_stack()[0], stck::internals::Value::Num(3));
 /// ```
 pub fn execute_raw_code(code: &Code) -> SResult<runtime::Context> {
     execute_code(code)

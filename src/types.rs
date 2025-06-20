@@ -282,7 +282,7 @@ impl TypedOutputs {
     #[must_use]
     pub fn new(v: Vec<FnArgDef>) -> Self {
         Self {
-            outputs: v.into_iter().map(|a| a.take_type()).collect(),
+            outputs: v.into_iter().map(super::FnArgDef::take_type).collect(),
         }
     }
     fn iter(&self) -> impl Iterator<Item = &Option<TypeTester>> {
@@ -309,9 +309,7 @@ impl TypedOutputs {
 
 impl From<Vec<FnArgDef>> for TypedOutputs {
     fn from(value: Vec<FnArgDef>) -> Self {
-        TypedOutputs {
-            outputs: value.into_iter().map(|v| v.take_type()).collect(),
-        }
+        Self::new(value)
     }
 }
 

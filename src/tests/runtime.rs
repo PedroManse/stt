@@ -1,13 +1,14 @@
 use super::*;
 use crate::{
-    Context, RustStckFn, Value, api,
+    api,
     error::{self, Error},
+    internals::{RuntimeContext, RustStckFn, Value},
 };
 
-fn execute_string(cont: &str, test_name: &str) -> Result<Context, Error> {
+fn execute_string(cont: &str, test_name: &str) -> Result<RuntimeContext, Error> {
     let tokens = api::get_tokens_str(cont, test_name)?;
     let code = api::parse_raw_tokens(tokens)?;
-    let mut runtime = Context::new();
+    let mut runtime = RuntimeContext::new();
     runtime
         .execute_entire_code(&code)
         .map_err(error::RuntimeError::from)?;
@@ -18,7 +19,7 @@ fn execute_string(cont: &str, test_name: &str) -> Result<Context, Error> {
 fn rust_hook() -> Result<(), Error> {
     let tokens = api::get_tokens_str("\"7 3 -\n\" eval\n", "test rust hook")?;
     let code = api::parse_raw_tokens(tokens)?;
-    let mut runtime = Context::new();
+    let mut runtime = RuntimeContext::new();
     let hook = RustStckFn::new("eval".to_string(), |ctx, source| {
         let st = ctx.stack.pop_this(Value::get_str).unwrap().unwrap();
         let tokens = api::get_tokens_str(&st, format!("Eval at {source:?}")).unwrap();

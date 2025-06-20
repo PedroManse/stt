@@ -1,6 +1,7 @@
 use super::*;
 use crate::*;
 use TypeTester as TT;
+use std::collections::HashMap;
 type TR = std::result::Result<(), TypeTester>;
 const T_OK: TR = TR::Ok(());
 const T_ERR: fn(&TT) -> TR = |d| TR::Err(d.clone());

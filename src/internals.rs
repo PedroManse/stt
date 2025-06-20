@@ -1,5 +1,10 @@
+//! # Internal items of the crate
+//!
+//! Used for more precise control or error recovery
+
 use super::*;
 
+pub use runtime::Context as RuntimeContext;
 use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -14,6 +19,7 @@ pub struct Code {
 }
 
 impl Code {
+    #[must_use]
     pub fn new(source: PathBuf, exprs: Vec<Expr>, line_breaks: LineSpan) -> Self {
         Code {
             line_breaks,
@@ -42,7 +48,7 @@ impl<'p> IntoIterator for &'p Code {
 #[derive(Debug, Clone)]
 pub struct FnArgDef {
     pub(crate) name: String,
-    type_check: Option<TypeTester>,
+    pub(crate) type_check: Option<TypeTester>,
 }
 
 impl FnArgDef {
@@ -62,6 +68,7 @@ impl FnArgDef {
     pub fn new(name: String, type_check: Option<TypeTester>) -> Self {
         Self { name, type_check }
     }
+    #[must_use]
     pub(crate) fn get_name(&self) -> &str {
         &self.name
     }
@@ -287,6 +294,7 @@ impl Stack {
         }
         Some(self.0.split_off(self.len() - n))
     }
+    #[must_use]
     pub fn as_slice(&self) -> &[Value] {
         &self.0
     }
@@ -676,9 +684,11 @@ pub struct RustStckFn {
 
 // TODO ::new test if name is valid (for tokenizer)
 impl RustStckFn {
+    #[must_use]
     pub fn new(name: String, code: RustStckFnRaw) -> Self {
         RustStckFn { name, code }
     }
+    #[must_use]
     pub fn get_name(&self) -> &str {
         &self.name
     }
