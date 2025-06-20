@@ -175,7 +175,7 @@ impl ErrorHelper {
             .get()
             .split('\n')
             .skip(lines.before - 1)
-            .take(lines.during)
+            .take(lines.during + 1)
             .collect();
         Ok(lines.join("\n"))
     }
@@ -313,6 +313,11 @@ pub enum RuntimeErrorKind {
     #[error("Output of function `{fn_name}` error, Expected {expected:?} got {got:?}")]
     OutputCount {
         fn_name: String,
+        expected: usize,
+        got: usize,
+    },
+    #[error("Output of closure error, Expected {expected:?} got {got:?}")]
+    OutputClosureCount {
         expected: usize,
         got: usize,
     },

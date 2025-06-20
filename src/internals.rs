@@ -181,6 +181,7 @@ pub struct Closure {
 pub(crate) struct FullClosure {
     pub(crate) code: Vec<Expr>,
     pub(crate) request_args: HashMap<ArgName, FnArg>,
+    pub(crate) output_types: Option<TypedOutputs>,
 }
 
 impl Closure {
@@ -225,6 +226,7 @@ impl Closure {
             ClosureCurry::Full(FullClosure {
                 code: self.code,
                 request_args: args,
+                output_types: self.output_types,
             })
         } else {
             ClosureCurry::Partial(self)

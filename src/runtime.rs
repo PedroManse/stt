@@ -42,6 +42,11 @@ impl Context {
         self.stack.as_slice()
     }
 
+    #[must_use]
+    pub fn take_stack(self) -> Stack {
+        self.stack
+    }
+
     fn frame_fn(
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
@@ -317,7 +322,19 @@ impl Context {
             self.rust_fns.clone(),
         );
         cl_ctx.execute_code(&closure.code, source, line_breaks)?;
-        Ok(cl_ctx.stack.into_vec())
+        let output = cl_ctx.take_stack().into_vec();
+        if let Some(output_types) = closure.output_types {
+            match output_types.check(&output) {
+                Err(TypedOutputError::TypeError(expected, got)) => {
+                    Err(RuntimeErrorKind::Type(expected, Box::new(got)))
+                }
+                Err(TypedOutputError::OutputCountError { expected, got }) => {
+                    Err(RuntimeErrorKind::OutputClosureCount { expected, got })
+                }
+                Ok(()) => Ok(()),
+            }?
+        }
+        Ok(output)
     }
 
     fn try_execute_user_fn(
