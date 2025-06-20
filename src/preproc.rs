@@ -1,5 +1,7 @@
+use crate::error::Error;
 use crate::*;
 use std::collections::HashSet;
+use std::ops::Range;
 use std::path::Path;
 
 enum ProcChange {
@@ -31,16 +33,16 @@ impl<'p> Context<'p> {
 }
 
 impl<'p> Context<'p> {
-    pub fn parse_clean(&'p self, code: Vec<Token>) -> Result<Vec<Token>> {
+    pub fn parse_clean(&'p self, code: Vec<Token>) -> Result<Vec<Token>, Error> {
         let mut proc_vars: HashSet<String> = HashSet::new();
         self.parse(code, &mut proc_vars)
     }
 
-    pub fn parse(
+    pub fn parse<S: std::hash::BuildHasher>(
         &'p self,
         code: Vec<Token>,
-        proc_vars: &mut HashSet<String>,
-    ) -> Result<Vec<Token>> {
+        proc_vars: &mut HashSet<String, S>,
+    ) -> Result<Vec<Token>, Error> {
         // TODO would have to keep track of removed span from pragma lines
         let mut if_stack: Vec<ProcStatus> = vec![];
         let mut out = Vec::with_capacity(code.len());
@@ -77,12 +79,12 @@ impl<'p> Context<'p> {
     }
 }
 
-fn manage_pragma(
+fn manage_pragma<S: std::hash::BuildHasher>(
     if_stack: &mut Vec<ProcStatus>,
     command: &str,
-    proc_vars: &mut HashSet<String>,
+    proc_vars: &mut HashSet<String, S>,
     span: Range<usize>,
-) -> Result<()> {
+) -> Result<(), Error> {
     let is_reading = if_stack.last().is_none_or(|s| s.reading);
     let proc_cmd = execute_command(command, proc_vars)?;
     match proc_cmd {
@@ -103,13 +105,16 @@ fn manage_pragma(
                     reading: !is_reading,
                 });
             }
-            s => return Err(StckError::CantElseCurrentSection(span, s)),
+            s => return Err(StckError::CantElseCurrentSection(span, s).into()),
         },
     }
     Ok(())
 }
 
-fn execute_command(command: &str, proc_vars: &mut HashSet<String>) -> Result<ProcChange> {
+fn execute_command<S: std::hash::BuildHasher>(
+    command: &str,
+    proc_vars: &mut HashSet<String, S>,
+) -> Result<ProcChange, Error> {
     let cmd_parts: Vec<&str> = command.split(' ').collect();
     Ok(match cmd_parts.as_slice() {
         ["if", v] => ProcChange::PushIf {
@@ -129,7 +134,7 @@ fn execute_command(command: &str, proc_vars: &mut HashSet<String>) -> Result<Pro
             ProcChange::Keep
         }
         e => {
-            return Err(StckError::InvalidPragma(e.join(" ")));
+            return Err(StckError::InvalidPragma(e.join(" ")).into());
         }
     })
 }

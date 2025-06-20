@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use crate::{
-    FnArgDef, FnScope, LineSpan, RawKeyword, Result, StckError, Token, TokenBlock, TokenCont,
-};
+use crate::{FnArgDef, FnScope, LineSpan, RawKeyword, StckError, Token, TokenBlock, TokenCont};
+
+type Result<T> = std::result::Result<T, StckError>;
 
 pub struct Context {
     line_breaks: LineSpan,

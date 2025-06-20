@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::*;
 
 pub struct Context<'p> {
@@ -32,11 +34,11 @@ pub enum State {
 }
 
 impl<'p> Context<'p> {
-    pub fn parse_block(&mut self) -> Result<Vec<Expr>> {
+    pub fn parse_block(&mut self) -> Result<Vec<Expr>, StckError> {
         self.parse_block_start(0)
     }
 
-    fn parse_block_start(&mut self, span_start: usize) -> Result<Vec<Expr>> {
+    fn parse_block_start(&mut self, span_start: usize) -> Result<Vec<Expr>, StckError> {
         use ExprCont as E;
         use State::*;
         use TokenCont::*;
