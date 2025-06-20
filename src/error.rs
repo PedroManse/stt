@@ -69,7 +69,7 @@ pub struct ErrorSource {
 
 /// # The entire call stack of an [error](RuntimeErrorCtx)
 ///
-/// Used to create viewable [sources](ErrorSource) of the error with [ErrorSpans::try_into_sources]
+/// Used to create viewable [sources](ErrorSource) of the error with [try into sources](ErrorSpans::try_into_sources)
 pub struct ErrorSpans {
     head: ErrCtx,
     stack: Vec<ErrCtx>,
@@ -78,8 +78,8 @@ pub struct ErrorSpans {
 impl ErrorSpans {
     /// # Get code from [error](ErrCtx)
     ///
-    /// Read the source files with [ErrorHelper] and make [ErrorSource] for each [ErrCtx]
-    /// entry
+    /// Read the source files with [Error Helper](ErrorHelper) and make [Error source](ErrorSource)
+    /// for each [Error context](ErrCtx) entry
     pub fn try_into_sources(self) -> Result<Vec<ErrorSource>, StckError> {
         let mut error_helper = ErrorHelper::new();
         std::iter::once(self.head)
@@ -138,7 +138,7 @@ impl std::error::Error for RuntimeErrorCtx {}
 
 /// # Caching system for files
 ///
-/// Used with [LineRange] to read specific lines from files on [get span](ErrorHelper::get_span)
+/// Used with [Line range](LineRange) to read specific lines from files on [get span](ErrorHelper::get_span)
 #[derive(Default)]
 pub struct ErrorHelper {
     files: HashMap<PathBuf, String>,
@@ -183,12 +183,12 @@ impl ErrorHelper {
 
 /// # The lines before and the amount of lines of a span
 ///
-/// Made from a [line span](LineSpan) and the span of interest with [LineSpan::line_range]
+/// Made from a [line span](LineSpan) and the span of interest with [`LineSpan::line_range`]
 ///
 /// Will be formated as "`before`" optionally with `:+amount` in the end if the span covers more
 /// than one line. The result `before:+amount` can be used direcly with [bat](https://github.com/sharkdp/bat)
 ///
-/// The [LineRange] can be used with an [ErrorHelper] to select specific lines to read from
+/// The [`LineRange`] can be used with an [`ErrorHelper`] to select specific lines to read from
 /// files
 #[derive(Debug, Default)]
 pub struct LineRange {
@@ -214,7 +214,7 @@ impl LineRange {
 
 /// # The list of line breaks from a file
 ///
-/// Used to make a [LineRange] with [line range](LineSpan::line_range)
+/// Used to make a [`LineRange`] with [`LineSpan::line_range`]
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone, Default)]
 pub struct LineSpan {
@@ -231,7 +231,7 @@ impl LineSpan {
     pub fn add(&mut self, point: usize) {
         self.feeds.insert(point);
     }
-    /// Makes the [LineRange] of a significant `span`
+    /// Makes the [`LineRange`] of a significant `span`
     #[must_use]
     pub fn line_range(&self, span: Range<usize>) -> LineRange {
         let mut range = LineRange::new();

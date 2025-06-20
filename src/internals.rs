@@ -134,7 +134,7 @@ impl ClosurePartialArgs {
         self.parent.set(args)
     }
     #[must_use]
-    pub fn new(mut arg_list: Vec<FnArgDef>) -> Self {
+    fn new(mut arg_list: Vec<FnArgDef>) -> Self {
         arg_list.reverse();
         ClosurePartialArgs {
             filled: Vec::with_capacity(arg_list.len()),
