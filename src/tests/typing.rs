@@ -1,21 +1,26 @@
 use super::*;
 use crate::*;
 use TypeTester as TT;
+use std::collections::HashMap;
 type TR = std::result::Result<(), TypeTester>;
 const T_OK: TR = TR::Ok(());
 const T_ERR: fn(&TT) -> TR = |d| TR::Err(d.clone());
 
 #[test]
-fn test_simple_types() {
+fn test_simple_types() -> Result<(), crate::error::RuntimeErrorKind> {
     let closure_sum = Value::Closure(Box::new(crate::Closure {
         code: vec![],
-        request_args: ClosurePartialArgs::new(vec![
-            FnArgDef::new("a".to_string(), Some(TT::Num)),
-            FnArgDef::new("b".to_string(), Some(TT::Num)),
-        ]),
-        output_types: Some(TypedOutputs {
-            outputs: vec![Some(TT::Num)],
-        }),
+        request_args: ClosurePartialArgs::convert(
+            vec![
+                FnArgDef::new("a".to_string(), Some(TT::Num)),
+                FnArgDef::new("b".to_string(), Some(TT::Num)),
+            ],
+            "test closure",
+        )?,
+        output_types: Some(TypedOutputs::new(vec![FnArgDef::new(
+            String::new(),
+            Some(TT::Num),
+        )])),
     }));
 
     let values = [
@@ -52,6 +57,7 @@ fn test_simple_types() {
             }
         }
     }
+    Ok(())
 }
 
 #[test]
@@ -64,21 +70,26 @@ fn test_array_type() {
 }
 
 #[test]
-fn test_closure_type() {
+fn test_closure_type() -> Result<(), crate::error::RuntimeErrorKind> {
     let closure_sum_type = TT::Closure(
         TypedFnPart::Typed(vec![TT::Num, TT::Num]),
         TypedFnPart::Typed(vec![TT::Num]),
     );
     let closure_sum = Value::Closure(Box::new(Closure {
         code: vec![],
-        request_args: ClosurePartialArgs::new(vec![
-            FnArgDef::new("a".to_string(), Some(TT::Num)),
-            FnArgDef::new("b".to_string(), Some(TT::Num)),
-        ]),
-        output_types: Some(TypedOutputs {
-            outputs: vec![Some(TT::Num)],
-        }),
+        request_args: ClosurePartialArgs::convert(
+            vec![
+                FnArgDef::new("a".to_string(), Some(TT::Num)),
+                FnArgDef::new("b".to_string(), Some(TT::Num)),
+            ],
+            "test closure",
+        )?,
+        output_types: Some(TypedOutputs::new(vec![FnArgDef::new(
+            String::new(),
+            Some(TT::Num),
+        )])),
     }));
     let type_test = closure_sum_type.check(&closure_sum);
     test_eq!(got: type_test, expected: T_OK);
+    Ok(())
 }

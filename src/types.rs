@@ -229,14 +229,14 @@ impl TypeTester {
             (Self::Option(tt), Value::Option(Some(v))) => tt.check(v),
             (Self::Closure(ttinput, ttoutput), Value::Closure(cl)) => {
                 if let TypedFnPart::Typed(ttinput) = ttinput {
-                    if cl.request_args.next.len() != ttinput.len() {
+                    if cl.get_unfilled_args_count() != ttinput.len() {
                         return Err(self.clone());
                     }
                     let outs = cl
-                        .request_args
-                        .next
+                        .get_args()
+                        .get_unfilled_args()
                         .iter()
-                        .map(|arg_def| &arg_def.type_check)
+                        .map(|arg_def| arg_def.get_type())
                         .zip(ttinput);
                     for (cl_req, tt_req) in outs {
                         // part to test VTC
@@ -248,7 +248,7 @@ impl TypeTester {
                 }
                 if let TypedFnPart::Typed(ttoutput) = ttoutput {
                     // part to test VTC
-                    let Some(outputs) = cl.output_types.as_ref() else {
+                    let Some(outputs) = cl.get_output_types() else {
                         return Ok(());
                     };
                     if outputs.len() != ttoutput.len() {
@@ -270,7 +270,7 @@ impl TypeTester {
 
 #[derive(Clone, Debug)]
 pub struct TypedOutputs {
-    pub(crate) outputs: Vec<Option<TypeTester>>,
+    outputs: Vec<Option<TypeTester>>,
 }
 
 pub enum TypedOutputError {
@@ -282,13 +282,13 @@ impl TypedOutputs {
     #[must_use]
     pub fn new(v: Vec<FnArgDef>) -> Self {
         Self {
-            outputs: v.into_iter().map(|a| a.type_check).collect(),
+            outputs: v.into_iter().map(super::FnArgDef::take_type).collect(),
         }
     }
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &Option<TypeTester>> {
+    fn iter(&self) -> impl Iterator<Item = &Option<TypeTester>> {
         self.outputs.iter()
     }
-    pub(crate) fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.outputs.len()
     }
     pub fn check(&self, values: &[Value]) -> Result<(), TypedOutputError> {
@@ -309,9 +309,7 @@ impl TypedOutputs {
 
 impl From<Vec<FnArgDef>> for TypedOutputs {
     fn from(value: Vec<FnArgDef>) -> Self {
-        TypedOutputs {
-            outputs: value.into_iter().map(|v| v.type_check).collect(),
-        }
+        Self::new(value)
     }
 }
 
@@ -327,7 +325,7 @@ impl From<Value> for TypeTester {
                     .request_args
                     .next
                     .into_iter()
-                    .map(|v| v.type_check.unwrap_or(TypeTester::Any))
+                    .map(|v| v.take_type().unwrap_or(TypeTester::Any))
                     .collect();
                 let out = if let Some(out) = cl.output_types {
                     TypedFnPart::Typed(

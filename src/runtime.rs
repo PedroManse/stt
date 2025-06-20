@@ -1,8 +1,12 @@
-use crate::*;
 mod builtins;
 mod stack;
 use stack::*;
+
+use crate::*;
 use std::boxed::Box;
+use std::collections::HashMap;
+use std::path::Path;
+
 type Rtk = crate::error::RuntimeErrorKind;
 type KResult<T> = std::result::Result<T, Rtk>;
 type CResult<T> = std::result::Result<T, error::RuntimeErrorCtx>;
@@ -30,12 +34,12 @@ impl Context {
     }
 
     pub fn add_rust_hook(&mut self, rnf: RustStckFn) -> Option<RustStckFn> {
-        self.rust_fns.insert(rnf.name.clone(), rnf)
+        self.rust_fns.insert(rnf.get_name().to_owned(), rnf)
     }
 
     #[must_use]
     pub fn get_stack(&self) -> &[Value] {
-        &self.stack.0
+        self.stack.as_slice()
     }
 
     fn frame_fn(
@@ -334,7 +338,7 @@ impl Context {
                 let Some(args_stack) = self.stack.popn(args.len()) else {
                     return Some(Err(Rtk::UserFnMissingArgs {
                         name: name.as_str().to_string(),
-                        got: self.stack.0.clone(),
+                        got: self.get_stack().to_vec(),
                         needs: user_fn.args.clone().into_needs(),
                     }
                     .into()));

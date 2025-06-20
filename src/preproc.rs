@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::*;
 use std::collections::HashSet;
+use std::ops::Range;
 use std::path::Path;
 
 enum ProcChange {
@@ -37,10 +38,10 @@ impl<'p> Context<'p> {
         self.parse(code, &mut proc_vars)
     }
 
-    pub fn parse(
+    pub fn parse<S: std::hash::BuildHasher>(
         &'p self,
         code: Vec<Token>,
-        proc_vars: &mut HashSet<String>,
+        proc_vars: &mut HashSet<String, S>,
     ) -> Result<Vec<Token>, Error> {
         // TODO would have to keep track of removed span from pragma lines
         let mut if_stack: Vec<ProcStatus> = vec![];
@@ -78,10 +79,10 @@ impl<'p> Context<'p> {
     }
 }
 
-fn manage_pragma(
+fn manage_pragma<S: std::hash::BuildHasher>(
     if_stack: &mut Vec<ProcStatus>,
     command: &str,
-    proc_vars: &mut HashSet<String>,
+    proc_vars: &mut HashSet<String, S>,
     span: Range<usize>,
 ) -> Result<(), Error> {
     let is_reading = if_stack.last().is_none_or(|s| s.reading);
@@ -110,7 +111,10 @@ fn manage_pragma(
     Ok(())
 }
 
-fn execute_command(command: &str, proc_vars: &mut HashSet<String>) -> Result<ProcChange, Error> {
+fn execute_command<S: std::hash::BuildHasher>(
+    command: &str,
+    proc_vars: &mut HashSet<String, S>,
+) -> Result<ProcChange, Error> {
     let cmd_parts: Vec<&str> = command.split(' ').collect();
     Ok(match cmd_parts.as_slice() {
         ["if", v] => ProcChange::PushIf {

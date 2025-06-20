@@ -1,14 +1,16 @@
 //! # This module exposes the steps of the pipeline for file execution
 //! The steps are:
-//! 1. Parsing and preprocessing the file into tokens, avaliable with [`get_tokens`]
-//! 2. Pre-processing the file, also avaliable with [`get_tokens`]
-//! 3. Parsing the tokens into code, avaliable with [`get_project_code`]
-//! 4. Executing the code, avaliable with [`execute_file`]
+//! 1. [Parsing](get_tokens)
+//! 2. [Preprocessing](get_tokens) (same function as first step)
+//! 3. [Parsing the tokens into code](get_project_code)
+//! 4. [Executing the code](execute_file)
 //!
 //! Each step executes the previous one aswell to forbid jump pipeline steps
 //!
 
 use crate::*;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 type SResult<T> = std::result::Result<T, crate::error::Error>;
 
 /// # Parse tokens from file
@@ -94,9 +96,9 @@ pub fn execute_file(path: impl AsRef<Path>) -> SResult<()> {
 /// let code = stck::api::parse_raw_tokens(token_block).unwrap();
 /// # assert_eq!(code.expr_count(), 3);
 /// let ctx = stck::api::execute_raw_code(&code).unwrap();
-/// assert_eq!(ctx.get_stack()[0], stck::Value::Num(3));
+/// assert_eq!(ctx.get_stack()[0], stck::internals::Value::Num(3));
 /// ```
-pub fn execute_raw_code(code: &Code) -> Result<runtime::Context, RuntimeError> {
+pub fn execute_raw_code(code: &Code) -> SResult<runtime::Context> {
     execute_code(code)
 }
 
@@ -115,9 +117,9 @@ fn get_raw_tokens(file_path: &Path) -> SResult<TokenBlock> {
         .map_err(error::Error::from)
 }
 
-pub(crate) fn get_tokens_with_procvars(
+pub fn get_tokens_with_procvars<S: std::hash::BuildHasher>(
     path: impl AsRef<Path>,
-    proc_vars: &mut HashSet<String>,
+    proc_vars: &mut HashSet<String, S>,
 ) -> SResult<TokenBlock> {
     let file_path = PathBuf::from(path.as_ref());
     let tokens = get_raw_tokens(&file_path)?;
@@ -143,14 +145,14 @@ fn preproc_tokens(
     })
 }
 
-fn preproc_tokens_with_vars(
+fn preproc_tokens_with_vars<S: std::hash::BuildHasher>(
     TokenBlock {
         tokens,
         source,
         line_breaks,
     }: TokenBlock,
     file_path: &Path,
-    vars: &mut HashSet<String>,
+    vars: &mut HashSet<String, S>,
 ) -> SResult<TokenBlock> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
@@ -163,8 +165,11 @@ fn preproc_tokens_with_vars(
 }
 
 // step for runtime:
-fn execute_code(code: &Code) -> Result<runtime::Context, RuntimeError> {
+fn execute_code(code: &Code) -> SResult<runtime::Context> {
     let mut executioner = runtime::Context::new();
-    executioner.execute_entire_code(code)?;
+    executioner
+        .execute_entire_code(code)
+        .map_err(error::RuntimeError::from)
+        .map_err(error::Error::from)?;
     Ok(executioner)
 }
