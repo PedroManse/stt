@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::*;
 use std::collections::HashSet;
+use std::ops::Range;
 use std::path::Path;
 
 enum ProcChange {

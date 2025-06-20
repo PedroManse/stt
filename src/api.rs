@@ -9,6 +9,8 @@
 //!
 
 use crate::*;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 type SResult<T> = std::result::Result<T, crate::error::Error>;
 
 /// # Parse tokens from file
@@ -96,7 +98,7 @@ pub fn execute_file(path: impl AsRef<Path>) -> SResult<()> {
 /// let ctx = stck::api::execute_raw_code(&code).unwrap();
 /// assert_eq!(ctx.get_stack()[0], stck::Value::Num(3));
 /// ```
-pub fn execute_raw_code(code: &Code) -> Result<runtime::Context, RuntimeError> {
+pub fn execute_raw_code(code: &Code) -> SResult<runtime::Context> {
     execute_code(code)
 }
 
@@ -163,8 +165,11 @@ fn preproc_tokens_with_vars<S: std::hash::BuildHasher>(
 }
 
 // step for runtime:
-fn execute_code(code: &Code) -> Result<runtime::Context, RuntimeError> {
+fn execute_code(code: &Code) -> SResult<runtime::Context> {
     let mut executioner = runtime::Context::new();
-    executioner.execute_entire_code(code)?;
+    executioner
+        .execute_entire_code(code)
+        .map_err(error::RuntimeError::from)
+        .map_err(error::Error::from)?;
     Ok(executioner)
 }

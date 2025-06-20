@@ -8,7 +8,7 @@ impl Display for DisplayArgs<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[ ")?;
         for arg in self.0 {
-            if let Some(tt) = &arg.type_check {
+            if let Some(tt) = arg.get_type() {
                 write!(f, "{arg}<{}> ", tt.to_string().underline().blue())?;
             } else {
                 write!(f, "{arg} ")?;

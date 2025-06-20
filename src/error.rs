@@ -1,7 +1,10 @@
 //! # Error handeling module
 
 use super::*;
-use std::collections::hash_map::{Entry, OccupiedEntry};
+use std::collections::BTreeSet;
+use std::collections::hash_map::{Entry, HashMap, OccupiedEntry};
+use std::ops::Range;
+use std::path::{Path, PathBuf};
 
 /// # A runtime error, possibly with a context
 ///
@@ -46,7 +49,7 @@ impl ErrCtx {
             lines,
         }
     }
-    pub fn get_lines(&self, eh: &mut ErrorHelper) -> StResult<String> {
+    pub fn get_lines(&self, eh: &mut ErrorHelper) -> Result<String, StckError> {
         eh.get_span(&self.source, &self.lines)
             .map_err(StckError::from)
     }
