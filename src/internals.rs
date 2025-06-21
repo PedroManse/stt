@@ -81,18 +81,6 @@ impl FnArgDef {
     fn take_name(self) -> String {
         self.name
     }
-    pub(crate) fn check(&self, v: &FnArg) -> Result<(), TypeTester> {
-        match self.type_check.as_ref() {
-            Some(tt) => tt.check(&v.0),
-            None => Ok(()),
-        }
-    }
-    fn check_raw(&self, v: &Value) -> Result<(), TypeTester> {
-        match self.type_check.as_ref() {
-            Some(tt) => tt.check(v),
-            None => Ok(()),
-        }
-    }
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -158,9 +146,9 @@ impl ClosurePartialArgs {
             Ok(Self::new(arg_list))
         }
     }
-    fn fill(&mut self, value: Value) -> Result<(), ClosureFillError> {
+    fn fill(&mut self, value: Value, trc: &mut TypeResolutionContext) -> Result<(), ClosureFillError> {
         let next = self.next.pop().ok_or(ClosureFillError::OutOfBound)?;
-        if let Err(tt) = next.check_raw(&value) {
+        if let Err(tt) = trc.check_raw_closure_arg(&next, &value) {
             return Err(ClosureFillError::TypeError(tt, value));
         }
         self.filled.push((next.take_name(), value));
@@ -173,6 +161,7 @@ impl ClosurePartialArgs {
 
 #[derive(Clone, Debug)]
 pub struct Closure {
+    pub(crate) trc: TypeResolutionContext,
     pub(crate) code: Vec<Expr>,
     pub(crate) request_args: ClosurePartialArgs,
     pub(crate) output_types: Option<TypedOutputs>,
@@ -201,7 +190,7 @@ impl Closure {
         self.request_args.set_parent(args)
     }
     pub(crate) fn fill(mut self, value: Value) -> Result<ClosureCurry, RuntimeErrorKind> {
-        if let Err(r) = self.request_args.fill(value) {
+        if let Err(r) = self.request_args.fill(value, &mut self.trc) {
             return Err(match r {
                 ClosureFillError::OutOfBound => RuntimeErrorKind::DEVFillFullClosure {
                     closure_args: self.request_args,
@@ -360,7 +349,11 @@ impl FnDef {
             output_types,
         }
     }
-    pub fn into_closure(self, name: &str) -> Result<Closure, RuntimeErrorKind> {
+    pub fn into_closure(
+        self,
+        name: &str,
+        trc: TypeResolutionBuilder,
+    ) -> Result<Closure, RuntimeErrorKind> {
         let args = match self.args {
             FnArgs::AllStack => Err(RuntimeErrorKind::CantMakeFnIntoClosureAllStack {
                 fn_name: name.to_string(),
@@ -368,6 +361,7 @@ impl FnDef {
             FnArgs::Args(a) => Ok(a),
         }?;
         Ok(Closure {
+            trc: trc.into(),
             code: self.code,
             request_args: ClosurePartialArgs::convert(args, name)?,
             output_types: self.output_types,
@@ -570,6 +564,7 @@ pub enum KeywordKind {
         cases: Vec<SwitchCase>,
         default: Option<Vec<Expr>>,
     },
+    DefinedGeneric(DefinedGenericBuilder),
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -601,7 +596,8 @@ pub enum ControlFlow {
     Return,
 }
 
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub enum RawKeyword {
     FnIntoClosure { fn_name: FnName },
     BubbleError,
@@ -610,6 +606,7 @@ pub enum RawKeyword {
     Ifs,
     While,
     Include { path: PathBuf },
+    TRC(DefinedGenericBuilder),
     Pragma { command: String },
     Switch,
     Break,

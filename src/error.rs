@@ -275,6 +275,8 @@ pub enum StckError {
     WrongParamList(String, PathBuf),
     #[error("Type `{0}` doesn't exist")]
     UnknownType(String),
+    #[error("Can't parse TRC `{0}`, missing name")]
+    TRCMissingName(String),
 }
 
 /// # A runtime error

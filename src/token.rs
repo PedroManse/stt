@@ -1,6 +1,10 @@
 use std::path::PathBuf;
+use std::str::FromStr;
 
-use crate::{FnArgDef, FnScope, LineSpan, RawKeyword, StckError, Token, TokenBlock, TokenCont};
+use crate::{
+    DefinedGenericBuilder, FnArgDef, FnScope, LineSpan, RawKeyword, StckError, Token, TokenBlock,
+    TokenCont,
+};
 
 type Result<T> = std::result::Result<T, StckError>;
 
@@ -187,9 +191,16 @@ impl Context {
                             let fn_into_closure = otherwise
                                 .strip_prefix("@")
                                 .map(|f| RawKeyword::FnIntoClosure { fn_name: f.into() });
+                            let trc = otherwise
+                                .strip_prefix("TRC")
+                                .map(str::trim)
+                                .map(DefinedGenericBuilder::from_str)
+                                .and_then(Result::ok)
+                                .map(RawKeyword::from);
                             include
                                 .or(pragma)
                                 .or(fn_into_closure)
+                                .or(trc)
                                 .ok_or(StckError::UnknownKeyword(otherwise.to_string()))?
                         }
                     };

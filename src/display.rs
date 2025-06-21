@@ -71,6 +71,7 @@ impl Display for TypeTester {
             Option(t) => write!(f, "option<{t}>"),
             Result(tt) => write!(f, "result<{}><{}>", tt.0, tt.1),
             Closure(tin, tout) => write!(f, "fn<{tin}><{tout}>"),
+            Generic(a) => write!(f, "{a}"),
         }
     }
 }
@@ -97,6 +98,7 @@ impl Display for ExprCont {
             Self::Keyword(k) => {
                 write!(f, "Keyword: ")?;
                 match k {
+                    KeywordKind::DefinedGeneric(g) => write!(f, "Define generic {g:?}"),
                     KeywordKind::Break => write!(f, "Break"),
                     KeywordKind::Return => write!(f, "Return"),
                     KeywordKind::IntoClosure { fn_name } => write!(f, "`{fn_name}` into Closure"),
