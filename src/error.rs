@@ -175,7 +175,7 @@ impl ErrorHelper {
             .get()
             .split('\n')
             .skip(lines.before - 1)
-            .take(lines.during)
+            .take(lines.during + 1)
             .collect();
         Ok(lines.join("\n"))
     }
@@ -275,6 +275,8 @@ pub enum StckError {
     WrongParamList(String, PathBuf),
     #[error("Type `{0}` doesn't exist")]
     UnknownType(String),
+    #[error("Can't parse TRC `{0}`, missing name")]
+    TRCMissingName(String),
 }
 
 /// # A runtime error
@@ -306,7 +308,7 @@ pub enum RuntimeErrorKind {
     MissingValue(String, char),
     #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
     WrongValueType(String, Value, char),
-    #[error("Expected type: {0} got value {1:?}")]
+    #[error("Expected type: {0} got value {1:?}: {ty}", ty=TypeTester::from(_1.as_ref()))]
     Type(TypeTester, Box<Value>),
     #[error("Expected type: {0} got {1}")]
     TypeType(TypeTester, TypeTester),
@@ -316,6 +318,8 @@ pub enum RuntimeErrorKind {
         expected: usize,
         got: usize,
     },
+    #[error("Output of closure error, Expected {expected:?} got {got:?}")]
+    OutputClosureCount { expected: usize, got: usize },
     #[error("No such user-defined function `{0}`")]
     MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]

@@ -76,6 +76,10 @@ impl<'p> Context<'p> {
                     push_expr!(E::Immediate(Value::Char(c)));
                     Nothing
                 }
+                (Nothing, Keyword(RawKeyword::TRC(trc))) => {
+                    push_expr!(E::Keyword(KeywordKind::DefinedGeneric(trc)));
+                    Nothing
+                }
                 (Nothing, Keyword(RawKeyword::Break)) => {
                     push_expr!(E::Keyword(KeywordKind::Break));
                     Nothing
@@ -120,6 +124,7 @@ impl<'p> Context<'p> {
                     let code = inner_ctx.parse_block_start(cum_span.start)?;
                     let closure = Closure {
                         code,
+                        trc: TypeResolutionBuilder::new().into(),
                         request_args: ClosurePartialArgs::parse(args, span.clone())?,
                         output_types: outs.map(TypedOutputs::new),
                     };

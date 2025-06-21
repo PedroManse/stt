@@ -38,3 +38,4 @@ none inspect
 
 (fn) [ v<array<num>> ] inspect { v prt }
 10 arr$new arr$append inspect
+

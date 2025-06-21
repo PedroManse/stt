@@ -8,7 +8,9 @@ const T_ERR: fn(&TT) -> TR = |d| TR::Err(d.clone());
 
 #[test]
 fn test_simple_types() -> Result<(), crate::error::RuntimeErrorKind> {
+    let mut trc: TypeResolutionContext = TypeResolutionBuilder::new().into();
     let closure_sum = Value::Closure(Box::new(crate::Closure {
+        trc: trc.clone(),
         code: vec![],
         request_args: ClosurePartialArgs::convert(
             vec![
@@ -47,13 +49,13 @@ fn test_simple_types() -> Result<(), crate::error::RuntimeErrorKind> {
     ];
 
     for (tt, vl) in types.iter().zip(values.iter()) {
-        test_eq!(got: tt.check(vl), expected: T_OK);
+        test_eq!(got: trc.check(tt, vl), expected: T_OK);
     }
 
     for (tt_index, tt) in types.iter().enumerate() {
         for (v_index, v) in values.iter().enumerate() {
             if v_index != tt_index {
-                test_eq!(got: tt.check(v), expected: T_ERR(tt));
+                test_eq!(got: trc.check(tt, v), expected: T_ERR(tt));
             }
         }
     }
@@ -62,20 +64,23 @@ fn test_simple_types() -> Result<(), crate::error::RuntimeErrorKind> {
 
 #[test]
 fn test_array_type() {
+    let mut trc: TypeResolutionContext = TypeResolutionBuilder::new().into();
     let arr_of_num_type = TT::Array(Box::new(TT::Num));
     let arr_or_num = Value::Array(vec![Value::Num(3), Value::Num(0)]);
-    let type_test = arr_of_num_type.check(&arr_or_num);
+    let type_test = trc.check(&arr_of_num_type, &arr_or_num);
 
     test_eq!(got: type_test, expected: T_OK);
 }
 
 #[test]
 fn test_closure_type() -> Result<(), crate::error::RuntimeErrorKind> {
+    let mut trc: TypeResolutionContext = TypeResolutionBuilder::new().into();
     let closure_sum_type = TT::Closure(
         TypedFnPart::Typed(vec![TT::Num, TT::Num]),
         TypedFnPart::Typed(vec![TT::Num]),
     );
     let closure_sum = Value::Closure(Box::new(Closure {
+        trc: trc.clone(),
         code: vec![],
         request_args: ClosurePartialArgs::convert(
             vec![
@@ -89,7 +94,7 @@ fn test_closure_type() -> Result<(), crate::error::RuntimeErrorKind> {
             Some(TT::Num),
         )])),
     }));
-    let type_test = closure_sum_type.check(&closure_sum);
+    let type_test = trc.check(&closure_sum_type, &closure_sum);
     test_eq!(got: type_test, expected: T_OK);
     Ok(())
 }
