@@ -305,6 +305,10 @@ impl TypeResolutionContext {
     }
 
     pub fn check(&mut self, t: &TypeTester, v: &Value) -> Result<(), TypeTester> {
+        self.check_internal(t, v).map_err(|()| t.clone())
+    }
+
+    fn check_internal(&mut self, t: &TypeTester, v: &Value) -> Result<(), ()> {
         match (t, v) {
             (TypeTester::Any, _) => Ok(()),
             (TypeTester::Char, Value::Char(_)) => Ok(()),
@@ -318,29 +322,29 @@ impl TypeResolutionContext {
             (TypeTester::ClosureAny, Value::Closure(_)) => Ok(()),
             (TypeTester::Array(tt), Value::Array(n)) => {
                 n.iter()
-                    .map(|v| self.check(tt, v))
+                    .map(|v| self.check_internal(tt, v))
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(())
             }
             (TypeTester::Map(tt_value), Value::Map(m)) => {
                 for value in m.values() {
-                    self.check(tt_value, value)?;
+                    self.check_internal(tt_value, value)?;
                 }
                 Ok(())
             }
             (TypeTester::Result(tt), Value::Result(v)) => {
                 let (tt_ok, tt_err) = tt.as_ref();
                 match v.as_ref() {
-                    Ok(v_ok) => self.check(tt_ok, v_ok),
-                    Err(v_err) => self.check(tt_err, v_err),
+                    Ok(v_ok) => self.check_internal(tt_ok, v_ok),
+                    Err(v_err) => self.check_internal(tt_err, v_err),
                 }
             }
             (TypeTester::Option(_), Value::Option(None)) => Ok(()),
-            (TypeTester::Option(tt), Value::Option(Some(v))) => self.check(tt, v),
+            (TypeTester::Option(tt), Value::Option(Some(v))) => self.check_internal(tt, v),
             (TypeTester::Closure(ttinput, ttoutput), Value::Closure(cl)) => {
                 if let TypedFnPart::Typed(ttinput) = ttinput {
                     if cl.get_unfilled_args_count() != ttinput.len() {
-                        return Err(t.clone());
+                        return Err(());
                     }
                     let outs = cl
                         .get_args()
@@ -352,7 +356,7 @@ impl TypeResolutionContext {
                         // part to test VTC
                         let ok = cl_req.as_ref().is_none_or(|c| tt_req.check_type(c));
                         if !ok {
-                            return Err(tt_req.clone());
+                            return Err(());
                         }
                     }
                 }
@@ -362,19 +366,19 @@ impl TypeResolutionContext {
                         return Ok(());
                     };
                     if outputs.len() != ttoutput.len() {
-                        return Err(t.clone());
+                        return Err(());
                     }
                     for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
                         let ok = cl_in.as_ref().is_none_or(|c| tt_in.check_type(c));
                         if !ok {
-                            return Err(tt_in.clone());
+                            return Err(());
                         }
                     }
                 }
                 Ok(())
             }
-            (gt @ TypeTester::Generic(name), v) => match self.check_generic(name) {
-                GenericTypeCapture::Registered(t) => self.check(&t, v),
+            (TypeTester::Generic(name), v) => match self.check_generic(name) {
+                GenericTypeCapture::Registered(t) => self.check_internal(&t, v),
                 GenericTypeCapture::Unregistered => {
                     let t = TypeTester::from(v);
                     self.register_generic_usage(name.to_string(), t);
@@ -388,11 +392,11 @@ impl TypeResolutionContext {
                         }
                         Ok(())
                     } else {
-                        Err(gt.clone())
+                        Err(())
                     }
                 }
             },
-            (t, _) => Err(t.clone()),
+            (_, _) => Err(()),
         }
     }
 
