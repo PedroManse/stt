@@ -76,7 +76,7 @@ impl<'p> Context<'p> {
                     push_expr!(E::Immediate(Value::Char(c)));
                     Nothing
                 }
-                (Nothing, Keyword(RawKeyword::TRC (trc) )) => {
+                (Nothing, Keyword(RawKeyword::TRC(trc))) => {
                     push_expr!(E::Keyword(KeywordKind::DefinedGeneric(trc)));
                     Nothing
                 }

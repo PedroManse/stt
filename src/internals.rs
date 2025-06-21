@@ -146,7 +146,11 @@ impl ClosurePartialArgs {
             Ok(Self::new(arg_list))
         }
     }
-    fn fill(&mut self, value: Value, trc: &mut TypeResolutionContext) -> Result<(), ClosureFillError> {
+    fn fill(
+        &mut self,
+        value: Value,
+        trc: &mut TypeResolutionContext,
+    ) -> Result<(), ClosureFillError> {
         let next = self.next.pop().ok_or(ClosureFillError::OutOfBound)?;
         if let Err(tt) = trc.check_raw_closure_arg(&next, &value) {
             return Err(ClosureFillError::TypeError(tt, value));
