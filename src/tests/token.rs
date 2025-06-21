@@ -1,4 +1,5 @@
 use super::*;
+use crate::*;
 macro_rules! mkt {
     ($from:literal .. $to:literal $cont:expr) => {
         Token {
@@ -9,22 +10,28 @@ macro_rules! mkt {
 }
 
 #[test]
-fn read_tokens() {
+fn read_tokens() -> Result<(), error::Error> {
+    use TokenCont as C;
     let text = "
 (fn) [ a b c ] fn-name {
     a b c + +
 }
 1 2 3 fn-name
 ";
-    let mut ctx = crate::token::Context::new(text);
-    let block = ctx.tokenize_block();
-    assert!(block.is_ok());
-    let block = block.unwrap();
-    use TokenCont as C;
+    let ctx = crate::token::Context::new(text);
+    let block = ctx.tokenize("read_tokens test".into())?;
 
-    let expected: Vec<Token> = vec![
+    let expected = [
         mkt!(1..5(C::Keyword(RawKeyword::Fn(FnScope::Local)))),
-        mkt!(6..15(C::FnArgs(vec!["a", "b", "c"].into_strings()))),
+        mkt!(
+            6..15(C::FnArgs(
+                ["a", "b", "c"]
+                    .into_iter()
+                    .map(String::from)
+                    .map(|s| FnArgDef::new(s, None))
+                    .collect()
+            ))
+        ),
         mkt!(16..24(C::Ident("fn-name".to_string()))),
         mkt!(
             24..41(C::Block(vec![
@@ -43,7 +50,7 @@ fn read_tokens() {
         mkt!(56..56(C::EndOfBlock)),
     ];
 
-    for index in 0..block.len() {
+    for index in 0..block.token_count() {
         let got = block.get(index);
         let wanted = expected.get(index);
         test_eq!(got: got, expected: wanted);
@@ -52,5 +59,6 @@ fn read_tokens() {
         }
     }
 
-    test_eq!(got: block.len(), expected: expected.len());
+    test_eq!(got: block.tokens.len(), expected: expected.len());
+    Ok(())
 }

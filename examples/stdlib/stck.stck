@@ -1,5 +1,8 @@
 (pragma if not STDLIB_STT)
 (pragma set STDLIB_STT)
+
+(TRC* Nil)
+
 (include stack.stck)
 (include types.stck)
 

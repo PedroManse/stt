@@ -1,13 +1,22 @@
-use crate::{FnScope, RawKeyword, Result, StckError, Token, TokenCont};
+use std::path::PathBuf;
+use std::str::FromStr;
+
+use crate::{
+    DefinedGenericBuilder, FnArgDef, FnScope, LineSpan, RawKeyword, StckError, Token, TokenBlock,
+    TokenCont,
+};
+
+type Result<T> = std::result::Result<T, StckError>;
 
 pub struct Context {
+    line_breaks: LineSpan,
     point: usize,
     last_token_pos: usize,
     chars: Vec<char>,
 }
 
 #[derive(Debug)]
-enum State {
+pub enum State {
     Nothing,
     OnComment,
     MakeIdent(String),
@@ -15,15 +24,30 @@ enum State {
     MakeStringEsc(String), // found \ on string
     MakeNumber(String),
     MakeKeyword(String),
-    MakeFnArgs(Vec<String>, String),
+    MakeFnArgs(Vec<FnArgDef>, String),
+    MakeFnArgType {
+        args: Vec<FnArgDef>,
+        arg_name: String,
+        type_buf: String,
+        tag_count: usize,
+    },
     MakeChar,
     MakeCharEnd(char),
     MakeCharEndEsc(char),
 }
 
 macro_rules! matches {
+    (arg_ident) => {
+        'a'..='z' | 'A'..='Z' | '_' | '-' | '&'
+    };
     (ident) => {
         (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'')
+    };
+    (arg_type) => {
+        (matches!(letter) | matches!(space) | '?' | '*')
+    };
+    (letter) => {
+        'a'..='z' | 'A'..='Z'
     };
     (start_ident) => {
         'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':' | '~' | '@'
@@ -45,9 +69,17 @@ impl Context {
         out.push(Token { cont: token, span });
         self.last_token_pos = self.point;
     }
+    pub fn tokenize(mut self, source: PathBuf) -> Result<TokenBlock> {
+        let tokens = self.tokenize_block()?;
+        Ok(TokenBlock {
+            source,
+            tokens,
+            line_breaks: self.line_breaks,
+        })
+    }
 
     // just read a '{'
-    pub fn tokenize_block(&mut self) -> Result<Vec<Token>> {
+    fn tokenize_block(&mut self) -> Result<Vec<Token>> {
         use State::*;
         use TokenCont::*;
         let mut state = Nothing;
@@ -159,9 +191,16 @@ impl Context {
                             let fn_into_closure = otherwise
                                 .strip_prefix("@")
                                 .map(|f| RawKeyword::FnIntoClosure { fn_name: f.into() });
+                            let trc = otherwise
+                                .strip_prefix("TRC")
+                                .map(str::trim)
+                                .map(DefinedGenericBuilder::from_str)
+                                .and_then(Result::ok)
+                                .map(RawKeyword::from);
                             include
                                 .or(pragma)
                                 .or(fn_into_closure)
+                                .or(trc)
                                 .ok_or(StckError::UnknownKeyword(otherwise.to_string()))?
                         }
                     };
@@ -175,17 +214,87 @@ impl Context {
 
                 (MakeFnArgs(mut xs, buf), matches!(space)) => {
                     if !buf.is_empty() {
-                        xs.push(buf);
+                        xs.push(FnArgDef::new_untyped(buf));
                     }
                     MakeFnArgs(xs, String::new())
                 }
-                (MakeFnArgs(xs, mut buf), c @ matches!(ident)) => {
+                (MakeFnArgs(args, arg_name), '<') => MakeFnArgType {
+                    args,
+                    arg_name,
+                    type_buf: String::new(),
+                    tag_count: 0,
+                },
+                (
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        mut type_buf,
+                        tag_count,
+                    },
+                    c @ matches!(arg_type),
+                ) => {
+                    type_buf.push(*c);
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        type_buf,
+                        tag_count,
+                    }
+                }
+                (
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        mut type_buf,
+                        tag_count,
+                    },
+                    c @ '<',
+                ) => {
+                    type_buf.push(*c);
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        type_buf,
+                        tag_count: tag_count + 1,
+                    }
+                }
+                (
+                    MakeFnArgType {
+                        mut args,
+                        arg_name,
+                        type_buf,
+                        tag_count: 0,
+                    },
+                    '>',
+                ) => {
+                    let x = FnArgDef::new_typed(arg_name, type_buf.trim().parse()?);
+                    args.push(x);
+                    MakeFnArgs(args, String::new())
+                }
+                (
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        mut type_buf,
+                        tag_count,
+                    },
+                    c @ '>',
+                ) => {
+                    type_buf.push(*c);
+                    MakeFnArgType {
+                        args,
+                        arg_name,
+                        type_buf,
+                        tag_count: tag_count - 1,
+                    }
+                }
+                (MakeFnArgs(xs, mut buf), c @ matches!(arg_ident)) => {
                     buf.push(*c);
                     MakeFnArgs(xs, buf)
                 }
                 (MakeFnArgs(mut xs, buf), ']') => {
                     if !buf.is_empty() {
-                        xs.push(buf);
+                        xs.push(FnArgDef::new_untyped(buf));
                     }
                     self.push_token(&mut out, FnArgs(xs));
                     Nothing
@@ -204,11 +313,22 @@ impl Context {
                 }
 
                 (s, c) => {
-                    panic!("Tokenizer: No impl for {s:?} with {c:?}");
+                    return Err(StckError::CantTokenizerChar(s, *c));
                 }
             }
         }
         if self.at_eof() {
+            match state {
+                Nothing | OnComment => {}
+                MakeIdent(s) => {
+                    self.push_token(&mut out, Ident(s));
+                }
+                MakeNumber(buf) => {
+                    let num = buf.parse()?;
+                    self.push_token(&mut out, Number(num));
+                }
+                s => return Err(StckError::UnexpectedEOF(s)),
+            }
             self.last_token_pos = self.point;
             self.push_token(&mut out, EndOfBlock);
             Ok(out)
@@ -223,6 +343,9 @@ impl Context {
 
     fn next(&mut self) -> Option<&char> {
         let ch = self.chars.get(self.point)?;
+        if ch == &'\n' {
+            self.line_breaks.add(self.point);
+        }
         self.point += 1;
         Some(ch)
     }
@@ -236,6 +359,7 @@ impl Context {
         let chars: Vec<char> = code.chars().collect();
         Self {
             point: 0,
+            line_breaks: LineSpan::new(),
             chars,
             last_token_pos: 0,
         }

@@ -1,18 +1,37 @@
 use super::*;
+#[cfg(not(test))]
+use std::process::Command;
 
-pub(super) fn sh(shell_cmd: &str) -> OResult<isize, String> {
+#[cfg(test)]
+pub(super) fn sh(shell_cmd: &str) -> Result<isize, String> {
     eprintln!("[CMD] {shell_cmd}");
     Ok(0)
-    //std::proces::Command::new("bash")
-    //    .arg("-c")
-    //    .arg(shell_cmd)
-    //    .status()
-    //    .map(|s| s.code().unwrap_or(256) as isize)
-    //    .map_err(|e| e.to_string())
 }
-pub(super) fn write_to(cont: &str, file: &str) -> OResult<isize, String> {
+
+#[cfg(not(test))]
+pub(super) fn sh(shell_cmd: &str) -> Result<isize, String> {
+    Command::new("sh")
+        .arg("-c")
+        .arg(shell_cmd)
+        .status()
+        .map(|s| s.code().unwrap_or(256) as isize)
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+pub(super) fn write_to(cont: &str, file: &str) -> Result<isize, String> {
     eprintln!("Write {} bytes to {file}", cont.len());
     Ok(cont.len() as isize)
+}
+
+#[cfg(not(test))]
+pub(super) fn write_to(cont: &str, file: &str) -> Result<isize, String> {
+    use std::io::prelude::Write;
+    let mut file = std::fs::File::create(file).map_err(|e| e.to_string())?;
+    match file.write_all(cont.as_bytes()) {
+        Ok(()) => Ok(cont.len() as isize),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 enum FmtError {
@@ -21,12 +40,12 @@ enum FmtError {
     WrongVariableForFormat(Value, char),
 }
 
-fn fmt_internal(cont: &str, stack: &mut Stack) -> OResult<String, FmtError> {
-    let mut out = String::with_capacity(cont.len());
+fn fmt_internal(cont: &str, stack: &mut Stack) -> Result<String, FmtError> {
     enum State {
         Nothing,
         OnFmt,
     }
+    let mut out = String::with_capacity(cont.len());
     let mut state = State::Nothing;
     for ch in cont.chars() {
         state = match (state, ch) {
@@ -76,13 +95,15 @@ fn fmt_internal(cont: &str, stack: &mut Stack) -> OResult<String, FmtError> {
     Ok(out)
 }
 
-pub(super) fn fmt(cont: &str, stack: &mut Stack) -> Result<String> {
+pub(super) fn fmt(cont: &str, stack: &mut Stack) -> Result<String, RuntimeErrorKind> {
     fmt_internal(cont, stack).map_err(|e| {
         let fmt_str = cont.to_string();
         match e {
-            FmtError::MissingValue(c) => StckError::RTMissingValue(fmt_str, c),
-            FmtError::UnknownStringFormat(c) => StckError::RTUnknownStringFormat(fmt_str, c),
-            FmtError::WrongVariableForFormat(v, c) => StckError::RTWrongValueType(fmt_str, v, c),
+            FmtError::MissingValue(c) => RuntimeErrorKind::MissingValue(fmt_str, c),
+            FmtError::UnknownStringFormat(c) => RuntimeErrorKind::UnknownStringFormat(fmt_str, c),
+            FmtError::WrongVariableForFormat(v, c) => {
+                RuntimeErrorKind::WrongValueType(fmt_str, v, c)
+            }
         }
     })
 }

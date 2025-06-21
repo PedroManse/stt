@@ -1,0 +1,41 @@
+(pragma set debug)
+(include stdlib)
+
+(fn) [ cl<fn> v ] @' { cl v @ }
+(fn) [ cl<fn> v ] [ result<array> ] @* { cl v @ arr$pack }
+
+(fn) [ times<num> cl< fn<num><?> > ] [ mapped<array> ] do-n-times {
+	times
+	(while) { dup 0 = not } {
+		dup
+			-- "c" set
+			cl flip @
+		"c" get
+	}
+	drop times arr$pack-n arr$reverse
+}
+
+(fn) [ list<array> index<num> ] [ T ] arr$get {
+	list arr$unpack
+		index - --
+	(while) {dup 0 = not} {
+		-- flip drop
+	} drop
+	"out" set
+	index (while) {dup 0 = not} {
+		-- flip drop
+	} drop
+	"out" get
+}
+
+(fn) [ v<result<?><str>> ] [ <result<?><str>> ] inspect { v prt v }
+"failed" err inspect
+10 ok inspect
+
+(fn) [ v<option<num>> ] inspect { v prt }
+10 some inspect
+none inspect
+
+(fn) [ v<array<num>> ] inspect { v prt }
+10 arr$new arr$append inspect
+

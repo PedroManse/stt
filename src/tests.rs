@@ -1,16 +1,7 @@
-use crate::*;
+mod parse;
 mod runtime;
 mod token;
-
-trait StrVecIntoStringVec {
-    fn into_strings(self) -> Vec<String>;
-}
-
-impl StrVecIntoStringVec for Vec<&str> {
-    fn into_strings(self) -> Vec<String> {
-        self.into_iter().map(String::from).collect()
-    }
-}
+mod typing;
 
 // like assert_eq but shows `got` and `expected`
 macro_rules! test_eq {

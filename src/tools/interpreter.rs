@@ -1,6 +1,7 @@
-use stck::{Result, api::*};
+use colored::Colorize;
+use stck::prelude::*;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 enum StckMode {
     Normal,
     Debug,
@@ -9,7 +10,20 @@ enum StckMode {
     PrintProccCode,
 }
 
-fn execute(mode: StckMode, file_path: String) -> Result<()> {
+fn print_code(code: &stck::internals::Code, import_stack: usize) {
+    for expr in code {
+        if import_stack != 0 {
+            println!("{} {}", ">".repeat(import_stack).blue(), expr.cont);
+        } else {
+            println!("{}", expr.cont);
+        }
+        if let stck::internals::ExprCont::IncludedCode(code) = &expr.cont {
+            print_code(code, import_stack + 1);
+        }
+    }
+}
+
+fn execute(mode: StckMode, file_path: String) -> Result<(), Error> {
     use StckMode as M;
     match mode {
         M::Normal => {
@@ -22,7 +36,8 @@ fn execute(mode: StckMode, file_path: String) -> Result<()> {
             get_project_code(file_path)?;
         }
         M::PrintProccCode => {
-            println!("{:?}", get_project_code(file_path)?);
+            let code = get_project_code(file_path)?;
+            print_code(&code, 0);
         }
         M::TokenCheck => {
             get_tokens(file_path)?;
@@ -53,7 +68,14 @@ fn main() {
         StckMode::Normal
     };
     if let Err(e) = execute(mode, file_path.clone()) {
-        eprintln!("[ERROR] executing {file_path}:\n  {e}");
+        eprintln!("{e}");
+        if let stck::error::Error::RuntimeError(stck::error::RuntimeError::RuntimeCtx(e)) = e {
+            let spans: stck::error::ErrorSpans = e.into();
+            let sources = spans.try_into_sources().unwrap();
+            for source in sources {
+                println!("{source}");
+            }
+        }
         std::process::exit(1);
     }
 }

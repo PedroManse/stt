@@ -1,5 +1,7 @@
+use crate::error::Error;
 use crate::*;
 use std::collections::HashSet;
+use std::ops::Range;
 use std::path::Path;
 
 enum ProcChange {
@@ -31,16 +33,16 @@ impl<'p> Context<'p> {
 }
 
 impl<'p> Context<'p> {
-    pub fn parse_clean(&'p self, code: Vec<Token>) -> Result<Vec<Token>> {
+    pub fn parse_clean(&'p self, code: Vec<Token>) -> Result<Vec<Token>, Error> {
         let mut proc_vars: HashSet<String> = HashSet::new();
         self.parse(code, &mut proc_vars)
     }
 
-    pub fn parse(
+    pub fn parse<S: std::hash::BuildHasher>(
         &'p self,
         code: Vec<Token>,
-        proc_vars: &mut HashSet<String>,
-    ) -> Result<Vec<Token>> {
+        proc_vars: &mut HashSet<String, S>,
+    ) -> Result<Vec<Token>, Error> {
         // TODO would have to keep track of removed span from pragma lines
         let mut if_stack: Vec<ProcStatus> = vec![];
         let mut out = Vec::with_capacity(code.len());
@@ -65,9 +67,9 @@ impl<'p> Context<'p> {
                     out.push(included_tokens);
                 }
                 TokenCont::Keyword(RawKeyword::Pragma { command }) => {
-                    manage_pragma(&mut if_stack, command, proc_vars, span)?;
+                    manage_pragma(&mut if_stack, &command, proc_vars, span)?;
                 }
-                x if if_stack.last().map(|s| s.reading).unwrap_or(true) => {
+                x if if_stack.last().is_none_or(|s| s.reading) => {
                     out.push(Token { cont: x, span });
                 }
                 _ => {} // ignore code in IgnoringIf or IgnoringElse status
@@ -77,13 +79,13 @@ impl<'p> Context<'p> {
     }
 }
 
-fn manage_pragma(
+fn manage_pragma<S: std::hash::BuildHasher>(
     if_stack: &mut Vec<ProcStatus>,
-    command: String,
-    proc_vars: &mut HashSet<String>,
+    command: &str,
+    proc_vars: &mut HashSet<String, S>,
     span: Range<usize>,
-) -> Result<()> {
-    let is_reading = if_stack.last().map(|s| s.reading).unwrap_or(true);
+) -> Result<(), Error> {
+    let is_reading = if_stack.last().is_none_or(|s| s.reading);
     let proc_cmd = execute_command(command, proc_vars)?;
     match proc_cmd {
         ProcChange::Keep => {}
@@ -103,14 +105,17 @@ fn manage_pragma(
                     reading: !is_reading,
                 });
             }
-            s => return Err(StckError::CantElseCurrentSection(span, s)),
+            s => return Err(StckError::CantElseCurrentSection(span, s).into()),
         },
-    };
+    }
     Ok(())
 }
 
-fn execute_command(command: String, proc_vars: &mut HashSet<String>) -> Result<ProcChange> {
-    let cmd_parts: Vec<&str> = command.split(" ").collect();
+fn execute_command<S: std::hash::BuildHasher>(
+    command: &str,
+    proc_vars: &mut HashSet<String, S>,
+) -> Result<ProcChange, Error> {
+    let cmd_parts: Vec<&str> = command.split(' ').collect();
     Ok(match cmd_parts.as_slice() {
         ["if", v] => ProcChange::PushIf {
             reading: proc_vars.contains(*v),
@@ -121,7 +126,7 @@ fn execute_command(command: String, proc_vars: &mut HashSet<String>) -> Result<P
         ["else"] => ProcChange::PushElse,
         ["end", "if"] => ProcChange::Pop,
         ["set", v] => {
-            proc_vars.insert(v.to_string());
+            proc_vars.insert((*v).to_string());
             ProcChange::Keep
         }
         ["unset", v] => {
@@ -129,7 +134,7 @@ fn execute_command(command: String, proc_vars: &mut HashSet<String>) -> Result<P
             ProcChange::Keep
         }
         e => {
-            return Err(StckError::InvalidPragma(e.join(" ")));
+            return Err(StckError::InvalidPragma(e.join(" ")).into());
         }
     })
 }

@@ -33,3 +33,11 @@
 		v "value %v is not a option" %% err !
 	}
 }
+
+(fn) [ list<array> check<closure> ] [] type$array-check {
+	list (while) { &arr$len 0 = not } {
+		arr$pop !
+		check flip @
+	}
+	drop
+}

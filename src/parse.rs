@@ -1,12 +1,15 @@
+use std::path::Path;
+
 use crate::*;
 
-pub struct Context {
+pub struct Context<'p> {
     code: Vec<Token>,
+    source: &'p Path,
     ungotten: Option<Token>, // token to be re-parsed by different state
 }
 
 #[derive(Debug)]
-enum State {
+pub enum State {
     Nothing,
 
     MakeIfs(Vec<CondBranch>),
@@ -16,8 +19,9 @@ enum State {
     },
 
     MakeFnArgs(FnScope),
-    MakeFnName(FnScope, FnArgs),
-    MakeFnBlock(FnScope, FnArgs, FnName),
+    MakeFnNameOrOutArgs(FnScope, FnArgs),
+    MakeFnName(FnScope, FnArgs, Vec<FnArgDef>),
+    MakeFnBlock(FnScope, FnArgs, FnName, Option<Vec<FnArgDef>>),
 
     MakeSwitch(Vec<SwitchCase>),
     MakeSwitchCode(Vec<SwitchCase>, Value),
@@ -25,17 +29,22 @@ enum State {
     MakeWhile,
     MakeWhileCode(Vec<Expr>),
 
-    MakeClosureBlock(Vec<String>),
+    MakeClosureBlockOrOutArgs(Vec<FnArgDef>),
+    MakeClosureBlock(Vec<FnArgDef>, Option<Vec<FnArgDef>>),
 }
 
-impl Context {
-    pub fn parse_block(&mut self) -> Result<Vec<Expr>> {
+impl<'p> Context<'p> {
+    pub fn parse_block(&mut self) -> Result<Vec<Expr>, StckError> {
+        self.parse_block_start(0)
+    }
+
+    fn parse_block_start(&mut self, span_start: usize) -> Result<Vec<Expr>, StckError> {
         use ExprCont as E;
         use State::*;
         use TokenCont::*;
         let mut state = Nothing;
         let mut out = vec![];
-        let mut cum_span = 0..0;
+        let mut cum_span = span_start..span_start;
 
         while let Some(token) = self.next() {
             let Token { cont, span } = token;
@@ -52,7 +61,7 @@ impl Context {
             state = match (state, cont) {
                 (Nothing, EndOfBlock) => Nothing,
                 (Nothing, Ident(n)) => {
-                    push_expr!(E::FnCall(FnName(n)));
+                    push_expr!(E::FnCall(n));
                     Nothing
                 }
                 (Nothing, Str(x)) => {
@@ -65,6 +74,10 @@ impl Context {
                 }
                 (Nothing, Char(c)) => {
                     push_expr!(E::Immediate(Value::Char(c)));
+                    Nothing
+                }
+                (Nothing, Keyword(RawKeyword::TRC(trc))) => {
+                    push_expr!(E::Keyword(KeywordKind::DefinedGeneric(trc)));
                     Nothing
                 }
                 (Nothing, Keyword(RawKeyword::Break)) => {
@@ -85,22 +98,35 @@ impl Context {
                 }
 
                 (s, IncludedBlock(code)) => {
-                    let mut inner_ctx = Context::new(code.tokens);
-                    let parsed_code = inner_ctx.parse_block()?;
+                    let mut inner_ctx = Context::new(code.tokens, self.source);
+                    let parsed_code = inner_ctx.parse_block_start(cum_span.start)?;
                     push_expr!(E::IncludedCode(Code {
+                        line_breaks: code.line_breaks,
                         source: code.source,
-                        exprs: parsed_code
+                        exprs: parsed_code,
                     }));
                     s
                 }
 
-                (Nothing, FnArgs(args)) => MakeClosureBlock(args),
-                (MakeClosureBlock(args), Block(code)) => {
-                    let mut inner_ctx = Context::new(code);
-                    let code = inner_ctx.parse_block()?;
+                (Nothing, FnArgs(args)) => MakeClosureBlockOrOutArgs(args),
+                (MakeClosureBlockOrOutArgs(args), FnArgs(outs)) => {
+                    MakeClosureBlock(args, Some(outs))
+                }
+                (MakeClosureBlockOrOutArgs(args), cont @ Block(_)) => {
+                    self.unget(Token {
+                        cont,
+                        span: span.clone(),
+                    });
+                    MakeClosureBlock(args, None)
+                }
+                (MakeClosureBlock(args, outs), Block(code)) => {
+                    let mut inner_ctx = Context::new(code, self.source);
+                    let code = inner_ctx.parse_block_start(cum_span.start)?;
                     let closure = Closure {
                         code,
+                        trc: TypeResolutionBuilder::new().into(),
                         request_args: ClosurePartialArgs::parse(args, span.clone())?,
+                        output_types: outs.map(TypedOutputs::new),
                     };
                     push_expr!(E::Immediate(Value::Closure(Box::new(closure))));
                     Nothing
@@ -111,14 +137,14 @@ impl Context {
                 (MakeSwitch(cases), Str(v)) => MakeSwitchCode(cases, Value::Str(v)),
                 (MakeSwitch(cases), Number(v)) => MakeSwitchCode(cases, Value::Num(v)),
                 (MakeSwitchCode(mut cases, test), Block(code)) => {
-                    let mut inner_ctx = Context::new(code);
-                    let code = inner_ctx.parse_block()?;
+                    let mut inner_ctx = Context::new(code, self.source);
+                    let code = inner_ctx.parse_block_start(cum_span.start)?;
                     cases.push(SwitchCase { test, code });
                     MakeSwitch(cases)
                 }
                 (MakeSwitch(cases), Block(code)) => {
-                    let mut inner_ctx = Context::new(code);
-                    let code = inner_ctx.parse_block()?;
+                    let mut inner_ctx = Context::new(code, self.source);
+                    let code = inner_ctx.parse_block_start(cum_span.start)?;
                     push_expr!(E::Keyword(KeywordKind::Switch {
                         cases,
                         default: Some(code),
@@ -132,7 +158,7 @@ impl Context {
                             cont,
                             span: span.clone(),
                         }),
-                    };
+                    }
                     push_expr!(E::Keyword(KeywordKind::Switch {
                         cases,
                         default: None,
@@ -142,8 +168,8 @@ impl Context {
 
                 (Nothing, Keyword(RawKeyword::Ifs)) => MakeIfs(vec![]),
                 (MakeIfs(branches), Block(code)) => {
-                    let mut inner_ctx = Context::new(code);
-                    let check = inner_ctx.parse_block()?;
+                    let mut inner_ctx = Context::new(code, self.source);
+                    let check = inner_ctx.parse_block_start(cum_span.start)?;
                     MakeIfsCode { branches, check }
                 }
                 (
@@ -153,8 +179,8 @@ impl Context {
                     },
                     Block(code),
                 ) => {
-                    let mut inner_ctx = Context::new(code);
-                    let code = inner_ctx.parse_block()?;
+                    let mut inner_ctx = Context::new(code, self.source);
+                    let code = inner_ctx.parse_block_start(cum_span.start)?;
                     branches.push(CondBranch { check, code });
                     MakeIfs(branches)
                 }
@@ -165,26 +191,37 @@ impl Context {
                             cont,
                             span: span.clone(),
                         }),
-                    };
+                    }
                     push_expr!(E::Keyword(KeywordKind::Ifs { branches }));
                     Nothing
                 }
 
                 (Nothing, Keyword(RawKeyword::Fn(scope))) => MakeFnArgs(scope),
-                (MakeFnArgs(scope), FnArgs(args)) => MakeFnName(scope, crate::FnArgs::Args(args)),
+                (MakeFnArgs(scope), FnArgs(args)) => {
+                    MakeFnNameOrOutArgs(scope, crate::FnArgs::Args(args))
+                }
                 (MakeFnArgs(scope), Ident(i)) => match i.as_str() {
-                    "*" => MakeFnName(scope, crate::FnArgs::AllStack),
-                    x => panic!("Can only user param list or '*' as function arguments, not {x}"),
+                    "*" => MakeFnNameOrOutArgs(scope, crate::FnArgs::AllStack),
+                    _ => return Err(StckError::WrongParamList(i, self.source.to_path_buf())),
                 },
-                (MakeFnName(scope, args), Ident(name)) => MakeFnBlock(scope, args, FnName(name)),
-                (MakeFnBlock(scope, args, name), Block(code)) => {
-                    let mut inner_ctx = Context::new(code);
-                    let code = inner_ctx.parse_block()?;
+                (MakeFnNameOrOutArgs(scope, args), FnArgs(out_args)) => {
+                    MakeFnName(scope, args, out_args)
+                }
+                (MakeFnNameOrOutArgs(scope, args), Ident(name)) => {
+                    MakeFnBlock(scope, args, name, None)
+                }
+                (MakeFnName(scope, args, out_args), Ident(name)) => {
+                    MakeFnBlock(scope, args, name, Some(out_args))
+                }
+                (MakeFnBlock(scope, args, name, out_args), Block(code)) => {
+                    let mut inner_ctx = Context::new(code, self.source);
+                    let code = inner_ctx.parse_block_start(span.start)?;
                     let fndef = E::Keyword(KeywordKind::FnDef {
                         name,
                         scope,
                         code,
                         args,
+                        out_args,
                     });
                     push_expr!(fndef);
                     Nothing
@@ -192,21 +229,25 @@ impl Context {
 
                 (Nothing, Keyword(RawKeyword::While)) => MakeWhile,
                 (MakeWhile, Block(check)) => {
-                    let mut inner_ctx = Context::new(check);
-                    let check = inner_ctx.parse_block()?;
+                    let mut inner_ctx = Context::new(check, self.source);
+                    let check = inner_ctx.parse_block_start(cum_span.start)?;
                     MakeWhileCode(check)
                 }
                 (MakeWhileCode(check), Block(code)) => {
-                    let mut inner_ctx = Context::new(code);
-                    let code = inner_ctx.parse_block()?;
+                    let mut inner_ctx = Context::new(code, self.source);
+                    let code = inner_ctx.parse_block_start(cum_span.start)?;
                     push_expr!(E::Keyword(KeywordKind::While { check, code }));
                     Nothing
                 }
 
                 (s, t) => {
-                    panic!("Parser: State {s:?} doesn't accept token {t:?}")
+                    return Err(StckError::CantParseToken(
+                        s,
+                        Box::new(t),
+                        self.source.to_path_buf(),
+                    ));
                 }
-            }
+            };
         }
         Ok(out)
     }
@@ -223,9 +264,10 @@ impl Context {
         }
     }
 
-    pub fn new(mut tokens: Vec<Token>) -> Self {
+    pub fn new(mut tokens: Vec<Token>, source: &'p Path) -> Self {
         tokens.reverse();
         Self {
+            source,
             code: tokens,
             ungotten: None,
         }
