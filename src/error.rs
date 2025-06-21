@@ -175,7 +175,7 @@ impl ErrorHelper {
             .get()
             .split('\n')
             .skip(lines.before - 1)
-            .take(lines.during)
+            .take(lines.during + 1)
             .collect();
         Ok(lines.join("\n"))
     }
@@ -316,6 +316,8 @@ pub enum RuntimeErrorKind {
         expected: usize,
         got: usize,
     },
+    #[error("Output of closure error, Expected {expected:?} got {got:?}")]
+    OutputClosureCount { expected: usize, got: usize },
     #[error("No such user-defined function `{0}`")]
     MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]
