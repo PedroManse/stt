@@ -19,6 +19,7 @@ pub struct Context {
     pub stack: Stack,
     args: Option<HashMap<ArgName, FnArg>>,
     rust_fns: HashMap<FnName, RustStckFn>,
+    trc: TypeResolutionBuilder,
 }
 
 impl Context {
@@ -30,6 +31,7 @@ impl Context {
             stack: Stack::new(),
             rust_fns: HashMap::new(),
             args: None,
+            trc: TypeResolutionBuilder::new(),
         }
     }
 
@@ -52,6 +54,7 @@ impl Context {
         vars: HashMap<String, Value>,
         args_ins: FnArgsInsCap,
         rust_fns: HashMap<FnName, RustStckFn>,
+        trc: TypeResolutionBuilder,
     ) -> Self {
         let (stack, args) = match args_ins {
             FnArgsInsCap::AllStack(xs) => (Stack::new_with(xs), None),
@@ -63,6 +66,7 @@ impl Context {
             stack,
             args,
             rust_fns,
+            trc,
         }
     }
 
@@ -71,8 +75,10 @@ impl Context {
         vars: HashMap<String, Value>,
         args: HashMap<ArgName, FnArg>,
         rust_fns: HashMap<FnName, RustStckFn>,
+        trc: TypeResolutionBuilder,
     ) -> Self {
         Self {
+            trc,
             rust_fns,
             fns,
             vars,
@@ -201,6 +207,10 @@ impl Context {
         line_breaks: &LineSpan,
     ) -> SResult<ControlFlow> {
         Ok(match kw {
+            KeywordKind::DefinedGeneric(trc) => {
+                self.trc.add_generic(trc.clone());
+                ControlFlow::Continue
+            }
             KeywordKind::IntoClosure { fn_name } => {
                 let fndef = self
                     .fns
@@ -208,7 +218,9 @@ impl Context {
                     .ok_or(RuntimeErrorKind::MissingUserFunction(
                         fn_name.as_str().to_string(),
                     ))?;
-                let closure = fndef.clone().into_closure(fn_name.as_str())?;
+                let closure = fndef
+                    .clone()
+                    .into_closure(fn_name.as_str(), self.trc.clone())?;
                 self.stack.push_this(closure);
                 ControlFlow::Continue
             }
@@ -320,11 +332,14 @@ impl Context {
             self.vars.clone(),
             closure.request_args,
             self.rust_fns.clone(),
+            self.trc.clone(),
         );
         cl_ctx.execute_code(&closure.code, source, line_breaks)?;
         let output = cl_ctx.take_stack().into_vec();
+        // TODO: use TRC instance from closure
+        let mut trc: TypeResolutionContext = self.trc.clone().into();
         if let Some(output_types) = closure.output_types {
-            match output_types.check(&output) {
+            match trc.check_outputs(&output_types, &output) {
                 Err(TypedOutputError::TypeError(expected, got)) => {
                     Err(RuntimeErrorKind::Type(expected, Box::new(got)))
                 }
@@ -344,6 +359,7 @@ impl Context {
         line_breaks: &LineSpan,
     ) -> Option<SResult<Vec<Value>>> {
         let user_fn = self.fns.get(name)?;
+        let mut trc: TypeResolutionContext = self.trc.clone().into();
 
         let vars = match user_fn.scope {
             FnScope::Isolated => HashMap::new(),
@@ -364,9 +380,9 @@ impl Context {
                     .iter()
                     .zip(args_stack.into_iter().map(FnArg))
                     .map(|(cap, ins)| {
-                        if let Err(type_check_error) = cap.check(&ins) {
+                        if let Err(type_check_error) = trc.check_closure_arg(cap, &ins) {
                             if TypeTesterEq::ClosureAny == type_check_error.as_eq() {
-                                Err(Rtk::TypeType(type_check_error, TypeTester::from(ins.0)))
+                                Err(Rtk::TypeType(type_check_error, TypeTester::from(&ins.0)))
                             } else {
                                 Err(Rtk::Type(type_check_error, Box::new(ins.0)))
                             }
@@ -383,7 +399,13 @@ impl Context {
             }
             FnArgs::AllStack => FnArgsInsCap::AllStack(self.stack.take()),
         };
-        let mut fn_ctx = Context::frame_fn(self.fns.clone(), vars, args, self.rust_fns.clone());
+        let mut fn_ctx = Context::frame_fn(
+            self.fns.clone(),
+            vars,
+            args,
+            self.rust_fns.clone(),
+            self.trc.clone(),
+        );
 
         // handle (return) kw and RT errors inside functions
         if let Err(e) = fn_ctx.execute_code(&user_fn.code, source, line_breaks) {
@@ -395,7 +417,7 @@ impl Context {
         }
         let output = fn_ctx.stack.into_vec();
         if let Some(out_tt) = &user_fn.output_types {
-            let err = match out_tt.check(&output) {
+            let err = match trc.check_outputs(out_tt, &output) {
                 Ok(()) => None,
                 Err(TypedOutputError::TypeError(t, v)) => Some(Rtk::Type(t, Box::new(v))),
                 Err(TypedOutputError::OutputCountError { expected, got }) => {
@@ -812,6 +834,7 @@ impl Context {
             "debug$vars" => eprintln!("{:?}", self.vars),
             "debug$args" => eprintln!("{:?}", self.args),
             "debug$fns" => eprintln!("{:?}", self.fns),
+            "debug$generics" => eprintln!("{:?}", self.trc),
 
             _ => {
                 return Err(Rtk::NoSuchBuiltin.into());

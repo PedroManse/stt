@@ -1,11 +1,111 @@
 use super::*;
+use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 use std::str::FromStr;
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypedFnPart {
     Typed(Vec<TypeTester>),
     Any,
+}
+
+/// # A defined generic type for the [TRC](crate::types::TypeResolutionContext)
+///
+/// ```stck
+/// (TRC* Printable num str bool)
+/// (TRC* Nil)
+///
+/// (fn) [ a<Printable> ] [ result<str><Nil> ] { ... }
+/// ```
+#[derive(Debug, Default, Clone)]
+pub struct DefinedGeneric {
+    allow: HashSet<TypeTester>,
+    viral: bool,
+}
+
+impl DefinedGeneric {
+    fn new(viral: bool, allow: HashSet<TypeTester>) -> Self {
+        Self { allow, viral }
+    }
+}
+
+/// # Builder of generic type
+///
+/// Stored in [Type resolution builder](TypeResolutionBuilder)
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Clone)]
+pub struct DefinedGenericBuilder {
+    pub(crate) name: String,
+    pub(crate) viral: bool,
+    pub(crate) allow: HashSet<TypeTester>,
+}
+
+impl From<DefinedGenericBuilder> for RawKeyword {
+    fn from(v: DefinedGenericBuilder) -> RawKeyword {
+        RawKeyword::TRC(v)
+    }
+}
+
+impl FromStr for DefinedGenericBuilder {
+    type Err = StckError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (viral, cont) = match s.strip_prefix("*") {
+            Some(cont) => (false, cont.trim()),
+            None => (true, s),
+        };
+        let mut conts = cont.split(' ');
+        let name = conts
+            .next()
+            .ok_or(StckError::TRCMissingName(s.to_string()))?;
+        let allow = conts.map(TypeTester::from_str).collect::<Result<_, _>>()?;
+        Ok(Self {
+            name: name.to_string(),
+            viral,
+            allow,
+        })
+    }
+}
+
+/// # Storage for defined generic types
+#[derive(Debug, Default, Clone)]
+pub(crate) struct TypeResolutionBuilder {
+    defined: HashMap<String, DefinedGeneric>,
+}
+
+impl TypeResolutionBuilder {
+    pub fn new() -> Self {
+        Self {
+            defined: HashMap::new(),
+        }
+    }
+    /// # Store a [defined generic](DefinedGenericBuilder)
+    pub fn add_generic(
+        &mut self,
+        DefinedGenericBuilder { name, viral, allow }: DefinedGenericBuilder,
+    ) {
+        self.defined.insert(name, DefinedGeneric::new(viral, allow));
+    }
+}
+
+/// # Type resolution context
+///
+/// This structure allow type testers to register and check `Generic types`
+///
+/// The structure is held by the [runtime context](crate::runtime::Context) and instanciated by the
+/// `pre-processor`, which can be used to allow multiple types independently
+#[derive(Clone, Debug)]
+pub struct TypeResolutionContext {
+    defined: HashMap<String, DefinedGeneric>,
+    current: HashMap<String, TypeTester>,
+}
+
+impl From<TypeResolutionBuilder> for TypeResolutionContext {
+    fn from(TypeResolutionBuilder { defined }: TypeResolutionBuilder) -> Self {
+        Self {
+            defined,
+            current: HashMap::new(),
+        }
+    }
 }
 
 #[derive(PartialEq)]
@@ -25,6 +125,7 @@ impl TypedFnPart {
 }
 
 pub enum TypeTesterEq {
+    Generic,
     Any,
     Char,
     Str,
@@ -70,9 +171,9 @@ impl PartialEq for TypeTesterEq {
     }
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeTester {
+    Generic(String),
     Any,
     Char,
     Str,
@@ -106,12 +207,22 @@ impl FromStr for TypeTester {
             "fn" | "closure" => Self::ClosureAny,
             otherwise => {
                 return None
+                    .or(try_parse_generic(otherwise))
                     .or(try_parse_fn(otherwise))
                     .or(try_parse_result(otherwise))
                     .or(try_parse_simple(otherwise))
                     .ok_or(StckError::UnknownType(s.to_string()));
             }
         })
+    }
+}
+
+fn try_parse_generic(cont: &str) -> Option<TypeTester> {
+    let first_is_upper = cont.chars().next().is_some_and(char::is_uppercase);
+    if first_is_upper {
+        Some(TypeTester::Generic(cont.to_string()))
+    } else {
+        None
     }
 }
 
@@ -169,68 +280,67 @@ fn try_parse_fn(txt: &str) -> Option<TypeTester> {
         })
 }
 
-impl TypeTester {
-    #[must_use]
-    pub fn as_eq(&self) -> TypeTesterEq {
-        match self {
-            Self::Any => TypeTesterEq::Any,
-            Self::Char => TypeTesterEq::Char,
-            Self::Str => TypeTesterEq::Str,
-            Self::Num => TypeTesterEq::Num,
-            Self::Bool => TypeTesterEq::Bool,
-            Self::ArrayAny => TypeTesterEq::ArrayAny,
-            Self::MapAny => TypeTesterEq::MapAny,
-            Self::ResultAny => TypeTesterEq::ResultAny,
-            Self::OptionAny => TypeTesterEq::OptionAny,
-            Self::ClosureAny => TypeTesterEq::ClosureAny,
-            Self::Array(a) => TypeTesterEq::Array(Box::new(a.as_eq())),
-            Self::Map(a) => TypeTesterEq::Map(Box::new(a.as_eq())),
-            Self::Result(a) => TypeTesterEq::Result(Box::new((a.0.as_eq(), a.1.as_eq()))),
-            Self::Option(a) => TypeTesterEq::Option(Box::new(a.as_eq())),
-            Self::Closure(a, b) => TypeTesterEq::Closure(Box::new((a.as_eq(), b.as_eq()))),
+impl TypeResolutionContext {
+    pub fn check_defined(t: &DefinedGeneric, v: &TypeTester) -> bool {
+        t.allow.contains(v)
+    }
+
+    pub fn check_outputs(
+        &mut self,
+        t: &TypedOutputs,
+        values: &[Value],
+    ) -> Result<(), TypedOutputError> {
+        if t.len() != values.len() {
+            return Err(TypedOutputError::OutputCountError {
+                expected: t.len(),
+                got: values.len(),
+            });
         }
+        for (v, maybe_tt) in values.iter().zip(t.iter()) {
+            if let Some(Err(t)) = maybe_tt.as_ref().map(|tt| self.check(tt, v)) {
+                return Err(TypedOutputError::TypeError(t, v.clone()));
+            }
+        }
+        Ok(())
     }
-    #[must_use]
-    pub fn check_type(&self, v: &TypeTester) -> bool {
-        self.as_eq() == v.as_eq()
-    }
-    pub fn check(&self, v: &Value) -> Result<(), TypeTester> {
-        match (self, v) {
-            (Self::Any, _) => Ok(()),
-            (Self::Char, Value::Char(_)) => Ok(()),
-            (Self::Str, Value::Str(_)) => Ok(()),
-            (Self::Num, Value::Num(_)) => Ok(()),
-            (Self::Bool, Value::Bool(_)) => Ok(()),
-            (Self::ArrayAny, Value::Array(_)) => Ok(()),
-            (Self::MapAny, Value::Map(_)) => Ok(()),
-            (Self::ResultAny, Value::Result(_)) => Ok(()),
-            (Self::OptionAny, Value::Option(_)) => Ok(()),
-            (Self::ClosureAny, Value::Closure(_)) => Ok(()),
-            (Self::Array(tt), Value::Array(n)) => {
+
+    pub fn check(&mut self, t: &TypeTester, v: &Value) -> Result<(), TypeTester> {
+        match (t, v) {
+            (TypeTester::Any, _) => Ok(()),
+            (TypeTester::Char, Value::Char(_)) => Ok(()),
+            (TypeTester::Str, Value::Str(_)) => Ok(()),
+            (TypeTester::Num, Value::Num(_)) => Ok(()),
+            (TypeTester::Bool, Value::Bool(_)) => Ok(()),
+            (TypeTester::ArrayAny, Value::Array(_)) => Ok(()),
+            (TypeTester::MapAny, Value::Map(_)) => Ok(()),
+            (TypeTester::ResultAny, Value::Result(_)) => Ok(()),
+            (TypeTester::OptionAny, Value::Option(_)) => Ok(()),
+            (TypeTester::ClosureAny, Value::Closure(_)) => Ok(()),
+            (TypeTester::Array(tt), Value::Array(n)) => {
                 n.iter()
-                    .map(|v| tt.check(v))
+                    .map(|v| self.check(tt, v))
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(())
             }
-            (Self::Map(tt_value), Value::Map(m)) => {
+            (TypeTester::Map(tt_value), Value::Map(m)) => {
                 for value in m.values() {
-                    tt_value.check(value)?;
+                    self.check(tt_value, value)?;
                 }
                 Ok(())
             }
-            (Self::Result(tt), Value::Result(v)) => {
+            (TypeTester::Result(tt), Value::Result(v)) => {
                 let (tt_ok, tt_err) = tt.as_ref();
                 match v.as_ref() {
-                    Ok(v_ok) => tt_ok.check(v_ok),
-                    Err(v_err) => tt_err.check(v_err),
+                    Ok(v_ok) => self.check(tt_ok, v_ok),
+                    Err(v_err) => self.check(tt_err, v_err),
                 }
             }
-            (Self::Option(_), Value::Option(None)) => Ok(()),
-            (Self::Option(tt), Value::Option(Some(v))) => tt.check(v),
-            (Self::Closure(ttinput, ttoutput), Value::Closure(cl)) => {
+            (TypeTester::Option(_), Value::Option(None)) => Ok(()),
+            (TypeTester::Option(tt), Value::Option(Some(v))) => self.check(tt, v),
+            (TypeTester::Closure(ttinput, ttoutput), Value::Closure(cl)) => {
                 if let TypedFnPart::Typed(ttinput) = ttinput {
                     if cl.get_unfilled_args_count() != ttinput.len() {
-                        return Err(self.clone());
+                        return Err(t.clone());
                     }
                     let outs = cl
                         .get_args()
@@ -252,7 +362,7 @@ impl TypeTester {
                         return Ok(());
                     };
                     if outputs.len() != ttoutput.len() {
-                        return Err(self.clone());
+                        return Err(t.clone());
                     }
                     for (cl_in, tt_in) in outputs.iter().zip(ttoutput) {
                         let ok = cl_in.as_ref().is_none_or(|c| tt_in.check_type(c));
@@ -263,8 +373,84 @@ impl TypeTester {
                 }
                 Ok(())
             }
+            (gt @ TypeTester::Generic(name), v) => match self.check_generic(name) {
+                GenericTypeCapture::Registered(t) => self.check(&t, v),
+                GenericTypeCapture::Unregistered => {
+                    let t = TypeTester::from(v);
+                    self.register_generic_usage(name.to_string(), t);
+                    Ok(())
+                }
+                GenericTypeCapture::Defined(t) => {
+                    let vt: TypeTester = v.into();
+                    if TypeResolutionContext::check_defined(&t, &vt) {
+                        if t.viral {
+                            self.register_generic_usage(name.to_string(), vt);
+                        }
+                        Ok(())
+                    } else {
+                        Err(gt.clone())
+                    }
+                }
+            },
             (t, _) => Err(t.clone()),
         }
+    }
+
+    pub fn check_raw_closure_arg(&mut self, f: &FnArgDef, v: &Value) -> Result<(), TypeTester> {
+        match f.type_check.as_ref() {
+            Some(tt) => self.check(tt, v),
+            None => Ok(()),
+        }
+    }
+
+    pub fn check_closure_arg(&mut self, f: &FnArgDef, v: &FnArg) -> Result<(), TypeTester> {
+        self.check_raw_closure_arg(f, &v.0)
+    }
+
+    fn check_generic(&mut self, generic: &str) -> GenericTypeCapture {
+        use GenericTypeCapture::{Defined, Registered, Unregistered};
+        let registered = self.current.get(generic).cloned().map(Registered);
+        let defined = self.defined.get(generic).cloned().map(Defined);
+        registered.or(defined).unwrap_or(Unregistered)
+    }
+
+    fn register_generic_usage(&mut self, generic: String, instance: TypeTester) {
+        self.current.insert(generic, instance);
+    }
+}
+
+#[derive(Debug)]
+enum GenericTypeCapture {
+    Registered(TypeTester),
+    Defined(DefinedGeneric),
+    Unregistered,
+}
+
+impl TypeTester {
+    #[must_use]
+    pub fn as_eq(&self) -> TypeTesterEq {
+        match self {
+            Self::Any => TypeTesterEq::Any,
+            Self::Char => TypeTesterEq::Char,
+            Self::Str => TypeTesterEq::Str,
+            Self::Num => TypeTesterEq::Num,
+            Self::Bool => TypeTesterEq::Bool,
+            Self::ArrayAny => TypeTesterEq::ArrayAny,
+            Self::MapAny => TypeTesterEq::MapAny,
+            Self::ResultAny => TypeTesterEq::ResultAny,
+            Self::OptionAny => TypeTesterEq::OptionAny,
+            Self::ClosureAny => TypeTesterEq::ClosureAny,
+            Self::Generic(..) => TypeTesterEq::Generic,
+            Self::Array(a) => TypeTesterEq::Array(Box::new(a.as_eq())),
+            Self::Map(a) => TypeTesterEq::Map(Box::new(a.as_eq())),
+            Self::Result(a) => TypeTesterEq::Result(Box::new((a.0.as_eq(), a.1.as_eq()))),
+            Self::Option(a) => TypeTesterEq::Option(Box::new(a.as_eq())),
+            Self::Closure(a, b) => TypeTesterEq::Closure(Box::new((a.as_eq(), b.as_eq()))),
+        }
+    }
+    #[must_use]
+    pub fn check_type(&self, v: &TypeTester) -> bool {
+        self.as_eq() == v.as_eq()
     }
 }
 
@@ -291,20 +477,6 @@ impl TypedOutputs {
     fn len(&self) -> usize {
         self.outputs.len()
     }
-    pub fn check(&self, values: &[Value]) -> Result<(), TypedOutputError> {
-        if self.len() != values.len() {
-            return Err(TypedOutputError::OutputCountError {
-                expected: self.len(),
-                got: values.len(),
-            });
-        }
-        for (v, maybe_tt) in values.iter().zip(self.iter()) {
-            if let Some(Err(t)) = maybe_tt.as_ref().map(|tt| tt.check(v)) {
-                return Err(TypedOutputError::TypeError(t, v.clone()));
-            }
-        }
-        Ok(())
-    }
 }
 
 impl From<Vec<FnArgDef>> for TypedOutputs {
@@ -313,8 +485,8 @@ impl From<Vec<FnArgDef>> for TypedOutputs {
     }
 }
 
-impl From<Value> for TypeTester {
-    fn from(value: Value) -> Self {
+impl From<&Value> for TypeTester {
+    fn from(value: &internals::Value) -> Self {
         match value {
             Value::Char(_) => Self::Char,
             Value::Str(_) => Self::Str,
@@ -324,12 +496,14 @@ impl From<Value> for TypeTester {
                 let ipts: Vec<_> = cl
                     .request_args
                     .next
+                    .clone()
                     .into_iter()
                     .map(|v| v.take_type().unwrap_or(TypeTester::Any))
                     .collect();
-                let out = if let Some(out) = cl.output_types {
+                let out = if let Some(out) = &cl.output_types {
                     TypedFnPart::Typed(
                         out.outputs
+                            .clone()
                             .into_iter()
                             .map(|v| v.unwrap_or(TypeTester::Any))
                             .collect::<Vec<_>>(),
@@ -343,7 +517,8 @@ impl From<Value> for TypeTester {
             Value::Array(_) => todo!("array"),
             Value::Result(_) => todo!("result"),
             Value::Option(a) => a
-                .map(|tt| TypeTester::from(*tt))
+                .clone()
+                .map(|tt| TypeTester::from(tt.as_ref()))
                 .map_or(TypeTester::OptionAny, |tt| TypeTester::Option(Box::new(tt))),
         }
     }
