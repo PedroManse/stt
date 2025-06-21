@@ -14,7 +14,7 @@ pkgs.callPackage (
 
     src = ./.;
 
-    cargoHash = "sha256-iJF6LA5SJ3wKJbrnpMVIIbw01maTy9nE//dgxFFoAOk=";
+    cargoHash = "sha256-tePXC2mte9zlqBVu7usDuIg/g06NuNCVwxtZtf0MIeU=";
 
     meta = with lib; {
       description = " Stack based scripting language";
