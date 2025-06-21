@@ -317,10 +317,7 @@ pub enum RuntimeErrorKind {
         got: usize,
     },
     #[error("Output of closure error, Expected {expected:?} got {got:?}")]
-    OutputClosureCount {
-        expected: usize,
-        got: usize,
-    },
+    OutputClosureCount { expected: usize, got: usize },
     #[error("No such user-defined function `{0}`")]
     MissingUserFunction(String),
     #[error("WrongStackSizeDiffOnCheck {old_stack_size} -> {new_stack_size}")]

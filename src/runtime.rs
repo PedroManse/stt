@@ -332,7 +332,7 @@ impl Context {
                     Err(RuntimeErrorKind::OutputClosureCount { expected, got })
                 }
                 Ok(()) => Ok(()),
-            }?
+            }?;
         }
         Ok(output)
     }
