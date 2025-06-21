@@ -61,12 +61,12 @@ impl Context {
             FnArgsInsCap::Args(args) => (Stack::new(), Some(args)),
         };
         Self {
-            trc,
             vars,
             fns,
             stack,
             args,
             rust_fns,
+            trc,
         }
     }
 

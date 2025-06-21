@@ -218,7 +218,7 @@ impl FromStr for TypeTester {
 }
 
 fn try_parse_generic(cont: &str) -> Option<TypeTester> {
-    let first_is_upper = cont.chars().nth(0).is_some_and(|f| f.is_uppercase());
+    let first_is_upper = cont.chars().next().is_some_and(char::is_uppercase);
     if first_is_upper {
         Some(TypeTester::Generic(cont.to_string()))
     } else {
@@ -281,7 +281,7 @@ fn try_parse_fn(txt: &str) -> Option<TypeTester> {
 }
 
 impl TypeResolutionContext {
-    pub fn check_defined(&self, t: &DefinedGeneric, v: &TypeTester) -> bool {
+    pub fn check_defined(t: &DefinedGeneric, v: &TypeTester) -> bool {
         t.allow.contains(v)
     }
 
@@ -324,7 +324,7 @@ impl TypeResolutionContext {
             }
             (TypeTester::Map(tt_value), Value::Map(m)) => {
                 for value in m.values() {
-                    self.check(&tt_value, value)?;
+                    self.check(tt_value, value)?;
                 }
                 Ok(())
             }
@@ -382,7 +382,7 @@ impl TypeResolutionContext {
                 }
                 GenericTypeCapture::Defined(t) => {
                     let vt: TypeTester = v.into();
-                    if self.check_defined(&t, &vt) {
+                    if TypeResolutionContext::check_defined(&t, &vt) {
                         if t.viral {
                             self.register_generic_usage(name.to_string(), vt);
                         }
@@ -409,16 +409,8 @@ impl TypeResolutionContext {
 
     fn check_generic(&mut self, generic: &str) -> GenericTypeCapture {
         use GenericTypeCapture::{Defined, Registered, Unregistered};
-        let registered = self
-            .current
-            .get(generic)
-            .map(TypeTester::clone)
-            .map(Registered);
-        let defined = self
-            .defined
-            .get(generic)
-            .map(DefinedGeneric::clone)
-            .map(Defined);
+        let registered = self.current.get(generic).cloned().map(Registered);
+        let defined = self.defined.get(generic).cloned().map(Defined);
         registered.or(defined).unwrap_or(Unregistered)
     }
 
