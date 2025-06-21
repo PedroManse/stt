@@ -308,7 +308,7 @@ pub enum RuntimeErrorKind {
     MissingValue(String, char),
     #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
     WrongValueType(String, Value, char),
-    #[error("Expected type: {0} got value {1:?}")]
+    #[error("Expected type: {0} got value {1:?}: {ty}", ty=TypeTester::from(_1.as_ref()))]
     Type(TypeTester, Box<Value>),
     #[error("Expected type: {0} got {1}")]
     TypeType(TypeTester, TypeTester),
