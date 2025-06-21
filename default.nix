@@ -8,7 +8,7 @@ pkgs.callPackage (
   }:
   rustPlatform.buildRustPackage rec {
     pname = "stck";
-    version = "0.2.0";
+    version = "0.3.0";
     owner = "PedroManse";
     repo = "stck";
 
