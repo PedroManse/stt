@@ -47,18 +47,10 @@ pub fn get_tokens_str(
 /// eprintln!("{:?}", code);
 /// ```
 pub fn get_project_code(path: impl AsRef<Path>, file_cache: &mut impl FileCacher) -> SResult<Code> {
-    let TokenBlock {
-        tokens,
-        source,
-        line_breaks,
-    } = get_tokens(path, file_cache)?;
+    let TokenBlock { tokens, source } = get_tokens(path, file_cache)?;
     let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
-    Ok(Code {
-        line_breaks,
-        source,
-        exprs,
-    })
+    Ok(Code { source, exprs })
 }
 
 /// # Parse expressions from tokens
@@ -68,20 +60,10 @@ pub fn get_project_code(path: impl AsRef<Path>, file_cache: &mut impl FileCacher
 /// let code = stck::api::parse_raw_tokens(token_block).unwrap();
 /// assert_eq!(code.expr_count(), 2);
 /// ```
-pub fn parse_raw_tokens(
-    TokenBlock {
-        line_breaks,
-        tokens,
-        source,
-    }: TokenBlock,
-) -> SResult<Code> {
+pub fn parse_raw_tokens(TokenBlock { tokens, source }: TokenBlock) -> SResult<Code> {
     let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
-    Ok(Code {
-        line_breaks,
-        source,
-        exprs,
-    })
+    Ok(Code { source, exprs })
 }
 
 /// # Execute code from file
@@ -129,30 +111,18 @@ pub fn get_tokens_with_procvars<S: std::hash::BuildHasher>(
 
 // steps for preproc.rs:
 fn preproc_tokens(
-    TokenBlock {
-        tokens,
-        source,
-        line_breaks,
-    }: TokenBlock,
+    TokenBlock { tokens, source }: TokenBlock,
     file_path: &Path,
     file_cache: &mut impl FileCacher,
 ) -> SResult<TokenBlock> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     let tokens = preprocessor.parse_clean(tokens, file_cache)?;
-    Ok(TokenBlock {
-        line_breaks,
-        source,
-        tokens,
-    })
+    Ok(TokenBlock { source, tokens })
 }
 
 fn preproc_tokens_with_vars<S: std::hash::BuildHasher>(
-    TokenBlock {
-        tokens,
-        source,
-        line_breaks,
-    }: TokenBlock,
+    TokenBlock { tokens, source }: TokenBlock,
     file_path: &Path,
     vars: &mut HashSet<String, S>,
     file_cache: &mut impl FileCacher,
@@ -160,11 +130,7 @@ fn preproc_tokens_with_vars<S: std::hash::BuildHasher>(
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
     let tokens = preprocessor.parse(tokens, vars, file_cache)?;
-    Ok(TokenBlock {
-        line_breaks,
-        source,
-        tokens,
-    })
+    Ok(TokenBlock { source, tokens })
 }
 
 // step for runtime:

@@ -2,7 +2,6 @@ use crate::cache::FileCacher;
 use crate::error::Error;
 use crate::*;
 use std::collections::HashSet;
-use std::ops::Range;
 use std::path::Path;
 
 enum ProcChange {
@@ -93,7 +92,7 @@ fn manage_pragma<S: std::hash::BuildHasher>(
     if_stack: &mut Vec<ProcStatus>,
     command: &str,
     proc_vars: &mut HashSet<String, S>,
-    span: Range<usize>,
+    span: LineRange,
 ) -> Result<(), Error> {
     let is_reading = if_stack.last().is_none_or(|s| s.reading);
     let proc_cmd = execute_command(command, proc_vars)?;

@@ -44,7 +44,7 @@ impl<'p> Context<'p> {
         use TokenCont::*;
         let mut state = Nothing;
         let mut out = vec![];
-        let mut cum_span = span_start..span_start;
+        let mut cum_span = LineRange::from_points(span_start, span_start);
 
         while let Some(token) = self.next() {
             let Token { cont, span } = token;
@@ -55,7 +55,7 @@ impl<'p> Context<'p> {
                         cont: $expr,
                         span: cum_span,
                     });
-                    cum_span = span.end..span.end;
+                    cum_span = LineRange::from_points(span.end, span.end);
                 };
             }
             state = match (state, cont) {
@@ -101,7 +101,6 @@ impl<'p> Context<'p> {
                     let mut inner_ctx = Context::new(code.tokens, &code.source);
                     let parsed_code = inner_ctx.parse_block_start(cum_span.start)?;
                     push_expr!(E::IncludedCode(Code {
-                        line_breaks: code.line_breaks,
                         source: code.source,
                         exprs: parsed_code,
                     }));

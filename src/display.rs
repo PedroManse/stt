@@ -167,10 +167,10 @@ impl Display for RuntimeErrorCtx {
 
 impl Display for LineRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.during <= 1 {
-            write!(f, "{}", self.before)
+        if self.end - self.start <= 1 {
+            write!(f, "{}", self.start)
         } else {
-            write!(f, "{}:+{}", self.before, self.during)
+            write!(f, "{}:+{}", self.start, self.end - self.start)
         }
     }
 }

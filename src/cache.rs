@@ -18,8 +18,8 @@ pub trait FileCacher {
         let lines: Vec<&str> = entry
             .as_ref()
             .split('\n')
-            .skip(lines.before - 1)
-            .take(lines.during + 1)
+            .skip(lines.start - 1)
+            .take(lines.delta())
             .collect();
         Ok(lines.join("\n"))
     }

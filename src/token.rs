@@ -2,16 +2,16 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::{
-    DefinedGenericBuilder, FnArgDef, FnScope, LineSpan, RawKeyword, StckError, Token, TokenBlock,
+    DefinedGenericBuilder, FnArgDef, FnScope, LineRange, RawKeyword, StckError, Token, TokenBlock,
     TokenCont,
 };
 
 type Result<T> = std::result::Result<T, StckError>;
 
 pub struct Context {
-    line_breaks: LineSpan,
+    current_line: usize,
+    last_line: usize,
     point: usize,
-    last_token_pos: usize,
     chars: Vec<char>,
 }
 
@@ -65,17 +65,13 @@ macro_rules! matches {
 
 impl Context {
     fn push_token(&mut self, out: &mut Vec<Token>, token: TokenCont) {
-        let span = self.last_token_pos..self.point;
+        self.last_line = self.current_line;
+        let span = LineRange::from_points(self.last_line, self.current_line);
         out.push(Token { cont: token, span });
-        self.last_token_pos = self.point;
     }
     pub fn tokenize(mut self, source: PathBuf) -> Result<TokenBlock> {
         let tokens = self.tokenize_block()?;
-        Ok(TokenBlock {
-            source,
-            tokens,
-            line_breaks: self.line_breaks,
-        })
+        Ok(TokenBlock { source, tokens })
     }
 
     // just read a '{'
@@ -88,16 +84,17 @@ impl Context {
         while let Some(ch) = self.next() {
             state = match (state, ch) {
                 (Nothing, '}') => {
-                    self.last_token_pos = self.point;
+                    self.last_line = self.current_line;
                     self.push_token(&mut out, EndOfBlock);
                     return Ok(out);
                 }
                 (Nothing, '{') => {
                     // keep start of block's span = to where { is
                     // but use end of block span = to where } is
-                    let last_token_pos = self.last_token_pos;
+                    let last_token_line = self.last_line;
                     let block = self.tokenize_block()?;
-                    self.last_token_pos = last_token_pos;
+                    // whyyyyy??
+                    self.last_line = last_token_line;
                     self.push_token(&mut out, Block(block));
                     Nothing
                 }
@@ -301,16 +298,10 @@ impl Context {
                 }
 
                 (Nothing, '#') => OnComment,
-                (OnComment, '\n') => {
-                    self.last_token_pos = self.point;
-                    Nothing
-                }
+                (OnComment, '\n') => Nothing,
                 (OnComment, _) => OnComment,
 
-                (Nothing, matches!(space)) => {
-                    self.last_token_pos += 1;
-                    Nothing
-                }
+                (Nothing, matches!(space)) => Nothing,
 
                 (s, c) => {
                     return Err(StckError::CantTokenizerChar(s, *c));
@@ -329,7 +320,6 @@ impl Context {
                 }
                 s => return Err(StckError::UnexpectedEOF(s)),
             }
-            self.last_token_pos = self.point;
             self.push_token(&mut out, EndOfBlock);
             Ok(out)
         } else {
@@ -344,7 +334,7 @@ impl Context {
     fn next(&mut self) -> Option<&char> {
         let ch = self.chars.get(self.point)?;
         if ch == &'\n' {
-            self.line_breaks.add(self.point);
+            self.current_line += 1;
         }
         self.point += 1;
         Some(ch)
@@ -359,9 +349,9 @@ impl Context {
         let chars: Vec<char> = code.chars().collect();
         Self {
             point: 0,
-            line_breaks: LineSpan::new(),
             chars,
-            last_token_pos: 0,
+            last_line: 1,
+            current_line: 1,
         }
     }
 }

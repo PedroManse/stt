@@ -7,8 +7,7 @@ pub mod prelude;
 
 // Avaliabe internally
 pub(crate) use error::{
-    ErrCtx, ErrorSource, LineRange, LineSpan, RuntimeError, RuntimeErrorCtx, RuntimeErrorKind,
-    StckError,
+    ErrCtx, ErrorSource, LineRange, RuntimeError, RuntimeErrorCtx, RuntimeErrorKind, StckError,
 };
 pub(crate) use internals::*;
 pub(crate) use types::*;
