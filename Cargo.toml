@@ -3,13 +3,14 @@ name = "stck"
 version = "0.3.0"
 edition = "2024"
 authors = ["Manse <pedromanse@duck.com>"]
-default-run = "stck"
+default-run = "interpreter"
 license-file = "LICENSE.TXT"
 keywords = ["embedded", "programming", "language", "stack"]
 categories = ["command-line-utilities", "compilers"]
 exclude = ["result/", ".*", "ci.sh", "*.nix", "target", "CHANGELOG.md", "stck.vim"]
 
 [dependencies]
+clap = { version = "4.5.40", features = ["derive"], optional = true }
 colored = "3.0.0"
 thiserror = "2.0.12"
 
@@ -17,6 +18,10 @@ thiserror = "2.0.12"
 name = "stck"
 path = "src/lib.rs"
 
+[features]
+interpreter = [ "dep:clap" ]
+
 [[bin]]
-name = "stck"
+name = "interpreter"
 path = "src/tools/interpreter.rs"
+required-features = ["interpreter"]
