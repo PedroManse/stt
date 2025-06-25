@@ -98,7 +98,7 @@ impl<'p> Context<'p> {
                 }
 
                 (s, IncludedBlock(code)) => {
-                    let mut inner_ctx = Context::new(code.tokens, self.source);
+                    let mut inner_ctx = Context::new(code.tokens, &code.source);
                     let parsed_code = inner_ctx.parse_block_start(cum_span.start)?;
                     push_expr!(E::IncludedCode(Code {
                         line_breaks: code.line_breaks,

@@ -191,3 +191,31 @@ impl Display for ErrorSource {
         Ok(())
     }
 }
+
+impl Display for parse::State {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Nothing => "Making nothing",
+
+            Self::MakeIfs(..) => "Making ifs, awaiting conditional check or end",
+            Self::MakeIfsCode { .. } => "Making ifs, awaiting code block to execute",
+
+            Self::MakeFnArgs(..) => "Making function, awaiting args",
+            Self::MakeFnNameOrOutArgs(..) => "Making function, awaiting name or output args",
+            Self::MakeFnName(..) => "Making function, awaiting name",
+            Self::MakeFnBlock(..) => "MakeWhile function, awaiting code block to execute",
+
+            Self::MakeSwitch(..) => "Making switch case, awaiting value to match",
+            Self::MakeSwitchCode(..) => "Making switch case, awaiting code block to execute",
+
+            Self::MakeWhile => "Making while loop, awaiting check code block",
+            Self::MakeWhileCode(..) => "MakeWhile while lop, awaiting code block to execute",
+
+            Self::MakeClosureBlockOrOutArgs(..) => {
+                "Making closure, awaiting code block to execute or output args"
+            }
+            Self::MakeClosureBlock(..) => "Making closure, awaiting code block to execute",
+        };
+        write!(f, "{s}")
+    }
+}

@@ -1,6 +1,7 @@
 //! # Error handeling module
 
 use super::*;
+use colored::Colorize;
 use std::collections::BTreeSet;
 use std::collections::hash_map::{Entry, HashMap, OccupiedEntry};
 use std::ops::Range;
@@ -263,7 +264,11 @@ pub enum StckError {
     UnexpectedEOF(token::State),
     #[error("Tokenizer: No impl for {0:?} with {1:?}")]
     CantTokenizerChar(token::State, char),
-    #[error("Parser in file {path}: State {0:?} doesn't accept token {1:?}", path=_2.display())]
+    #[error(
+        "Parser in file {path}: State ({_0:?}): {state} doesn't accept token: {1:?}",
+        path=_2.display().to_string().green(),
+        state=_0.to_string().yellow()
+    )]
     CantParseToken(parse::State, Box<TokenCont>, PathBuf),
     #[error("Unknown keyword: {0}")]
     UnknownKeyword(String),
