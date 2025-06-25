@@ -333,6 +333,7 @@ pub enum FnScope {
 
 #[derive(Clone, Debug)]
 pub(crate) struct FnDef {
+    pub(crate) source: PathBuf,
     pub(crate) scope: FnScope,
     pub(crate) code: Vec<Expr>,
     pub(crate) args: FnArgs,
@@ -345,8 +346,10 @@ impl FnDef {
         code: Vec<Expr>,
         args: FnArgs,
         output_types: Option<TypedOutputs>,
+        source: PathBuf,
     ) -> Self {
         FnDef {
+            source,
             scope,
             code,
             args,
