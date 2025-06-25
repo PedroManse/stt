@@ -1,13 +1,22 @@
+use clap::{Parser, ValueEnum};
+use std::fmt::Display;
+use std::path::PathBuf;
+
 use colored::Colorize;
 use stck::prelude::*;
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
 enum StckMode {
+    /// Normal execution
     Normal,
+    /// Normal execution but dump variables and stack on error
     Debug,
-    SyntaxCheck,
+    /// Check valdity of tokens
     TokenCheck,
-    PrintProccCode,
+    /// Check vailidity of expressions and pre-processor commands
+    SyntaxCheck,
+    /// Dump code after pre-processing
+    PrintCode,
 }
 
 fn print_code(code: &stck::internals::Code, import_stack: usize) {
@@ -23,19 +32,20 @@ fn print_code(code: &stck::internals::Code, import_stack: usize) {
     }
 }
 
-fn execute(mode: StckMode, file_path: String) -> Result<(), Error> {
+fn execute(mode: StckMode, file_path: PathBuf) -> Result<(), Error> {
     use StckMode as M;
     match mode {
         M::Normal => {
             execute_file(file_path)?;
         }
         M::Debug => {
+            // execute and print values and stack on error
             todo!()
         }
         M::SyntaxCheck => {
             get_project_code(file_path)?;
         }
-        M::PrintProccCode => {
+        M::PrintCode => {
             let code = get_project_code(file_path)?;
             print_code(&code, 0);
         }
@@ -46,28 +56,17 @@ fn execute(mode: StckMode, file_path: String) -> Result<(), Error> {
     Ok(())
 }
 
+#[derive(Parser, Debug)]
+struct Cli {
+    file: PathBuf,
+
+    #[arg(short, long, value_name = "Mode", default_value_t=StckMode::Normal)]
+    mode: StckMode,
+}
+
 fn main() {
-    let mut args = std::env::args().skip(1).peekable();
-    let Some(file_path) = args.next() else {
-        eprintln!("Missing file to execute");
-        std::process::exit(1);
-    };
-    let mode = if let Some(arg) = args.peek() {
-        let m = match arg.as_str() {
-            "--debug" => StckMode::Debug,
-            "--token" => StckMode::TokenCheck,
-            "--syntax" => StckMode::SyntaxCheck,
-            "--proc" => StckMode::PrintProccCode,
-            _ => StckMode::Normal,
-        };
-        if m != StckMode::Normal {
-            args.next();
-        }
-        m
-    } else {
-        StckMode::Normal
-    };
-    if let Err(e) = execute(mode, file_path.clone()) {
+    let Cli { file, mode } = Cli::parse();
+    if let Err(e) = execute(mode, file) {
         eprintln!("{e}");
         if let stck::error::Error::RuntimeError(stck::error::RuntimeError::RuntimeCtx(e)) = e {
             let spans: stck::error::ErrorSpans = e.into();
@@ -77,5 +76,18 @@ fn main() {
             }
         }
         std::process::exit(1);
+    }
+}
+
+impl Display for StckMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Debug => "debug",
+            Self::Normal => "normal",
+            Self::TokenCheck => "token-check",
+            Self::SyntaxCheck => "syntax-check",
+            Self::PrintCode => "print-code",
+        };
+        write!(f, "{s}")
     }
 }
