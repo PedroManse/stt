@@ -1,5 +1,6 @@
 // Avaliabe to user
 pub mod api;
+pub mod cache;
 pub mod error;
 pub mod internals;
 pub mod prelude;

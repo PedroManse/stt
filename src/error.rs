@@ -1,9 +1,10 @@
 //! # Error handeling module
 
 use super::*;
+use crate::cache::FileCacher;
 use colored::Colorize;
 use std::collections::BTreeSet;
-use std::collections::hash_map::{Entry, HashMap, OccupiedEntry};
+use std::collections::hash_map::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -53,7 +54,7 @@ impl ErrCtx {
             lines,
         }
     }
-    pub fn get_lines(&self, eh: &mut ErrorHelper) -> Result<String, StckError> {
+    pub fn get_lines(&self, eh: &mut impl FileCacher) -> Result<String, StckError> {
         eh.get_span(&self.source, &self.lines)
             .map_err(StckError::from)
     }
@@ -79,15 +80,17 @@ pub struct ErrorSpans {
 impl ErrorSpans {
     /// # Get code from [error](ErrCtx)
     ///
-    /// Read the source files with [Error Helper](ErrorHelper) and make [Error source](ErrorSource)
+    /// Read the source files with [File cacher](FileCacher) and make [Error source](ErrorSource)
     /// for each [Error context](ErrCtx) entry
-    pub fn try_into_sources(self) -> Result<Vec<ErrorSource>, StckError> {
-        let mut error_helper = ErrorHelper::new();
+    pub fn try_into_sources(
+        self,
+        error_helper: &mut impl FileCacher,
+    ) -> Result<Vec<ErrorSource>, StckError> {
         std::iter::once(self.head)
             .chain(self.stack)
             .map(|a| {
                 Ok(ErrorSource {
-                    lines: a.get_lines(&mut error_helper)?,
+                    lines: a.get_lines(error_helper)?,
                     range: a.lines,
                     source: a.source,
                 })
@@ -137,51 +140,6 @@ impl RuntimeErrorCtx {
 
 impl std::error::Error for RuntimeErrorCtx {}
 
-/// # Caching system for files
-///
-/// Used with [Line range](LineRange) to read specific lines from files on [get span](ErrorHelper::get_span)
-#[derive(Default)]
-pub struct ErrorHelper {
-    files: HashMap<PathBuf, String>,
-}
-
-impl ErrorHelper {
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            files: HashMap::new(),
-        }
-    }
-    fn read_file(
-        &mut self,
-        path: &PathBuf,
-    ) -> Result<OccupiedEntry<'_, PathBuf, String>, std::io::Error> {
-        let entry = self.files.entry(path.clone());
-        let entry = match entry {
-            Entry::Occupied(entry) => entry,
-            Entry::Vacant(entry) => {
-                let cont = std::fs::read_to_string(path)?;
-                entry.insert_entry(cont)
-            }
-        };
-        Ok(entry)
-    }
-    pub fn get_span(
-        &mut self,
-        path: &PathBuf,
-        lines: &LineRange,
-    ) -> Result<String, std::io::Error> {
-        let entry = self.read_file(path)?;
-        let lines: Vec<&str> = entry
-            .get()
-            .split('\n')
-            .skip(lines.before - 1)
-            .take(lines.during + 1)
-            .collect();
-        Ok(lines.join("\n"))
-    }
-}
-
 /// # The lines before and the amount of lines of a span
 ///
 /// Made from a [line span](LineSpan) and the span of interest with [`LineSpan::line_range`]
@@ -189,7 +147,7 @@ impl ErrorHelper {
 /// Will be formated as "`before`" optionally with `:+amount` in the end if the span covers more
 /// than one line. The result `before:+amount` can be used direcly with [bat](https://github.com/sharkdp/bat)
 ///
-/// The [`LineRange`] can be used with an [`ErrorHelper`] to select specific lines to read from
+/// The [`LineRange`] can be used with an [`FileCacher`] to select specific lines to read from
 /// files
 #[derive(Debug, Default)]
 pub struct LineRange {

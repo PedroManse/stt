@@ -1,12 +1,14 @@
 use super::*;
 use crate::{
     api,
+    cache::{CacheHelper, NoCache},
     error::{self, Error},
     internals::{RuntimeContext, RustStckFn, Value},
 };
 
 fn execute_string(cont: &str, test_name: &str) -> Result<RuntimeContext, Error> {
-    let tokens = api::get_tokens_str(cont, test_name)?;
+    let mut file_cacher = CacheHelper::new();
+    let tokens = api::get_tokens_str(cont, test_name, &mut file_cacher)?;
     let code = api::parse_raw_tokens(tokens)?;
     let mut runtime = RuntimeContext::new();
     runtime
@@ -17,12 +19,13 @@ fn execute_string(cont: &str, test_name: &str) -> Result<RuntimeContext, Error> 
 
 #[test]
 fn rust_hook() -> Result<(), Error> {
-    let tokens = api::get_tokens_str("\"7 3 -\n\" eval\n", "test rust hook")?;
+    let mut file_cacher = CacheHelper::new();
+    let tokens = api::get_tokens_str("\"7 3 -\n\" eval\n", "test rust hook", &mut file_cacher)?;
     let code = api::parse_raw_tokens(tokens)?;
     let mut runtime = RuntimeContext::new();
     let hook = RustStckFn::new("eval".to_string(), |ctx, source| {
         let st = ctx.stack.pop_this(Value::get_str).unwrap().unwrap();
-        let tokens = api::get_tokens_str(&st, format!("Eval at {source:?}")).unwrap();
+        let tokens = api::get_tokens_str(&st, format!("Eval at {source:?}"), &mut NoCache).unwrap();
         let code = api::parse_raw_tokens(tokens).unwrap();
         ctx.execute_entire_code(&code).unwrap();
     });
