@@ -19,7 +19,7 @@ pub trait FileCacher {
             .as_ref()
             .split('\n')
             .skip(lines.start - 1)
-            .take(lines.delta())
+            .take(lines.delta().max(1))
             .collect();
         Ok(lines.join("\n"))
     }
