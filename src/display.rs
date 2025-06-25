@@ -205,14 +205,16 @@ impl Display for parse::State {
             Self::MakeFnName(..) => "Making function, awaiting name",
             Self::MakeFnBlock(..) => "MakeWhile function, awaiting code block to execute",
 
-            Self::MakeSwitch(..) =>     "Making switch case, awaiting value to match",
+            Self::MakeSwitch(..) => "Making switch case, awaiting value to match",
             Self::MakeSwitchCode(..) => "Making switch case, awaiting code block to execute",
 
             Self::MakeWhile => "Making while loop, awaiting check code block",
             Self::MakeWhileCode(..) => "MakeWhile while lop, awaiting code block to execute",
 
-            Self::MakeClosureBlockOrOutArgs(..) => "Making closure, awaiting code block to execute or output args",
-            Self::MakeClosureBlock(..) => "Making closure, awaiting code block to execute"
+            Self::MakeClosureBlockOrOutArgs(..) => {
+                "Making closure, awaiting code block to execute or output args"
+            }
+            Self::MakeClosureBlock(..) => "Making closure, awaiting code block to execute",
         };
         write!(f, "{s}")
     }
