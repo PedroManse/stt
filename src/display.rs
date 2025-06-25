@@ -170,7 +170,7 @@ impl Display for LineRange {
         if self.end - self.start <= 1 {
             write!(f, "{}", self.start)
         } else {
-            write!(f, "{}:+{}", self.start, self.end - self.start)
+            write!(f, "{}:+{}", self.start, self.delta())
         }
     }
 }
