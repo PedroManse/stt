@@ -16,7 +16,7 @@ type SResult<T> = std::result::Result<T, crate::error::Error>;
 
 /// # Parse tokens from file
 /// ```rust
-/// let tokens = stck::api::get_tokens("examples/test.stck", &mut stck::cache::NoCache);
+/// let tokens = stck::api::get_tokens("examples/test.stck", &mut stck::cache::Isolated::new());
 /// eprintln!("{:?}", tokens);
 /// ```
 pub fn get_tokens(path: impl AsRef<Path>, file_cache: &mut impl FileCacher) -> SResult<TokenBlock> {
@@ -29,7 +29,7 @@ pub fn get_tokens(path: impl AsRef<Path>, file_cache: &mut impl FileCacher) -> S
 /// ```rust
 /// // "source" of the string mut be annotated
 /// // Tokenizer still needs a `\n` in the end of every string (issue #43)
-/// let token_block = stck::api::get_tokens_str("\"hello\\n\" print\n", "From raw string", &mut stck::cache::NoCache).unwrap();
+/// let token_block = stck::api::get_tokens_str("\"hello\\n\" print\n", "From raw string", &mut stck::cache::Isolated::new()).unwrap();
 /// assert_eq!(token_block.token_count(), 2);
 /// ```
 pub fn get_tokens_str(
@@ -43,7 +43,7 @@ pub fn get_tokens_str(
 
 /// # Parse code from file
 /// ```rust
-/// let code = stck::api::get_project_code("examples/test.stck", &mut stck::cache::NoCache);
+/// let code = stck::api::get_project_code("examples/test.stck", &mut stck::cache::Isolated::new());
 /// eprintln!("{:?}", code);
 /// ```
 pub fn get_project_code(path: impl AsRef<Path>, file_cache: &mut impl FileCacher) -> SResult<Code> {
@@ -63,7 +63,7 @@ pub fn get_project_code(path: impl AsRef<Path>, file_cache: &mut impl FileCacher
 
 /// # Parse expressions from tokens
 /// ```rust
-/// let token_block = stck::api::get_tokens_str("\"hello\\n\" print\n", "From raw string", &mut stck::cache::NoCache).unwrap();
+/// let token_block = stck::api::get_tokens_str("\"hello\\n\" print\n", "From raw string", &mut stck::cache::Isolated::new()).unwrap();
 /// # assert_eq!(token_block.token_count(), 2);
 /// let code = stck::api::parse_raw_tokens(token_block).unwrap();
 /// assert_eq!(code.expr_count(), 2);
@@ -86,7 +86,7 @@ pub fn parse_raw_tokens(
 
 /// # Execute code from file
 /// ```rust
-/// stck::api::execute_file("examples/test.stck", &mut stck::cache::NoCache);
+/// stck::api::execute_file("examples/test.stck", &mut stck::cache::Isolated::new());
 /// ```
 pub fn execute_file(path: impl AsRef<Path>, file_cache: &mut impl FileCacher) -> SResult<()> {
     let expr_block = get_project_code(path, file_cache)?;
@@ -96,7 +96,7 @@ pub fn execute_file(path: impl AsRef<Path>, file_cache: &mut impl FileCacher) ->
 
 /// # Execute code from expressions
 /// ```rust
-/// let token_block = stck::api::get_tokens_str("5 2 -\n", "From raw string", &mut stck::cache::NoCache).unwrap();
+/// let token_block = stck::api::get_tokens_str("5 2 -\n", "From raw string", &mut stck::cache::Isolated::new()).unwrap();
 /// # assert_eq!(token_block.token_count(), 3);
 /// let code = stck::api::parse_raw_tokens(token_block).unwrap();
 /// # assert_eq!(code.expr_count(), 3);
