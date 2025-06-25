@@ -12,8 +12,7 @@ macro_rules! mkt {
 #[test]
 fn read_tokens() -> Result<(), error::Error> {
     use TokenCont as C;
-    let text = "
-(fn) [ a b c ] fn-name {
+    let text = "(fn) [ a b c ] fn-name {
     a b c + +
 }
 1 2 3 fn-name
@@ -34,20 +33,20 @@ fn read_tokens() -> Result<(), error::Error> {
         ),
         mkt!(1..1(C::Ident("fn-name".to_string()))),
         mkt!(
-            2..2(C::Block(vec![
+            1..3(C::Block(vec![
                 mkt!(2..2(C::Ident("a".to_string()))),
                 mkt!(2..2(C::Ident("b".to_string()))),
                 mkt!(2..2(C::Ident("c".to_string()))),
                 mkt!(2..2(C::Ident("+".to_string()))),
                 mkt!(2..2(C::Ident("+".to_string()))),
-                mkt!(2..2(C::EndOfBlock)),
+                mkt!(3..3(C::EndOfBlock)),
             ]))
         ),
-        mkt!(3..3(C::Number(1))),
-        mkt!(3..3(C::Number(2))),
-        mkt!(3..3(C::Number(3))),
-        mkt!(3..3(C::Ident("fn-name".to_string()))),
-        mkt!(3..3(C::EndOfBlock)),
+        mkt!(4..4(C::Number(1))),
+        mkt!(4..4(C::Number(2))),
+        mkt!(4..4(C::Number(3))),
+        mkt!(4..4(C::Ident("fn-name".to_string()))),
+        mkt!(4..4(C::EndOfBlock)),
     ];
 
     for index in 0..block.token_count() {
