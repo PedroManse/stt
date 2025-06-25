@@ -1,3 +1,4 @@
+use crate::cache::FileCacher;
 use crate::error::Error;
 use crate::*;
 use std::collections::HashSet;
@@ -33,15 +34,20 @@ impl<'p> Context<'p> {
 }
 
 impl<'p> Context<'p> {
-    pub fn parse_clean(&'p self, code: Vec<Token>) -> Result<Vec<Token>, Error> {
+    pub fn parse_clean(
+        &'p self,
+        code: Vec<Token>,
+        file_cache: &mut impl FileCacher,
+    ) -> Result<Vec<Token>, Error> {
         let mut proc_vars: HashSet<String> = HashSet::new();
-        self.parse(code, &mut proc_vars)
+        self.parse(code, &mut proc_vars, file_cache)
     }
 
     pub fn parse<S: std::hash::BuildHasher>(
         &'p self,
         code: Vec<Token>,
         proc_vars: &mut HashSet<String, S>,
+        file_cache: &mut impl FileCacher,
     ) -> Result<Vec<Token>, Error> {
         // TODO would have to keep track of removed span from pragma lines
         let mut if_stack: Vec<ProcStatus> = vec![];
@@ -55,9 +61,13 @@ impl<'p> Context<'p> {
                         .ok()
                         .ok_or(StckError::CantReadFile(include_path.clone()))?;
                     let included_tokens = if metadata.is_dir() {
-                        api::get_tokens_with_procvars(include_path.join("stck.stck"), proc_vars)
+                        api::get_tokens_with_procvars(
+                            include_path.join("stck.stck"),
+                            proc_vars,
+                            file_cache,
+                        )
                     } else {
-                        api::get_tokens_with_procvars(include_path, proc_vars)
+                        api::get_tokens_with_procvars(include_path, proc_vars, file_cache)
                     }?;
                     let included_tokens = TokenCont::IncludedBlock(included_tokens);
                     let included_tokens = Token {

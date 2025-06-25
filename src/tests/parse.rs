@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crate::KeywordKind;
+use crate::cache::CacheHelper;
 
 use super::*;
 
@@ -11,11 +12,12 @@ fn parse_tokens() -> Result<(), crate::error::Error> {
         ExprCont::{FnCall, Immediate, Keyword},
     };
     let text_name = "parse_tokens test";
+    let mut file_cacher = CacheHelper::new();
     let text = "
 (fn) [ typed<num> in_puts ] [ sum<num> ] fn-name {
     inputs typed 0 - -
 }";
-    let token_block = crate::api::get_tokens_str(text, text_name)?;
+    let token_block = crate::api::get_tokens_str(text, text_name, &mut file_cacher)?;
     let expr = crate::api::parse_raw_tokens(token_block)?;
     test_eq!(got: expr.source, expected: PathBuf::from(text_name));
     test_eq!(got: expr.expr_count(), expected: 1);

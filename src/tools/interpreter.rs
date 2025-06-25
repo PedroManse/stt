@@ -1,4 +1,5 @@
 use clap::{Parser, ValueEnum};
+use stck::cache::{CacheHelper, FileCacher};
 use std::fmt::Display;
 use std::path::PathBuf;
 
@@ -32,25 +33,29 @@ fn print_code(code: &stck::internals::Code, import_stack: usize) {
     }
 }
 
-fn execute(mode: StckMode, file_path: PathBuf) -> Result<(), Error> {
+fn execute(
+    mode: StckMode,
+    file_path: PathBuf,
+    file_cache: &mut impl FileCacher,
+) -> Result<(), Error> {
     use StckMode as M;
     match mode {
         M::Normal => {
-            execute_file(file_path)?;
+            execute_file(file_path, file_cache)?;
         }
         M::Debug => {
             // execute and print values and stack on error
             todo!()
         }
         M::SyntaxCheck => {
-            get_project_code(file_path)?;
+            get_project_code(file_path, file_cache)?;
         }
         M::PrintCode => {
-            let code = get_project_code(file_path)?;
+            let code = get_project_code(file_path, file_cache)?;
             print_code(&code, 0);
         }
         M::TokenCheck => {
-            get_tokens(file_path)?;
+            get_tokens(file_path, file_cache)?;
         }
     }
     Ok(())
@@ -66,11 +71,12 @@ struct Cli {
 
 fn main() {
     let Cli { file, mode } = Cli::parse();
-    if let Err(e) = execute(mode, file) {
+    let mut file_cacher = CacheHelper::new();
+    if let Err(e) = execute(mode, file, &mut file_cacher) {
         eprintln!("{e}");
         if let stck::error::Error::RuntimeError(stck::error::RuntimeError::RuntimeCtx(e)) = e {
             let spans: stck::error::ErrorSpans = e.into();
-            let sources = spans.try_into_sources().unwrap();
+            let sources = spans.try_into_sources(&mut file_cacher).unwrap();
             for source in sources {
                 println!("{source}");
             }

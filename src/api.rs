@@ -8,6 +8,7 @@
 //! Each step executes the previous one aswell to forbid jump pipeline steps
 //!
 
+use crate::cache::FileCacher;
 use crate::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -15,38 +16,42 @@ type SResult<T> = std::result::Result<T, crate::error::Error>;
 
 /// # Parse tokens from file
 /// ```rust
-/// let tokens = stck::api::get_tokens("examples/test.stck");
+/// let tokens = stck::api::get_tokens("examples/test.stck", &mut stck::cache::NoCache);
 /// eprintln!("{:?}", tokens);
 /// ```
-pub fn get_tokens(path: impl AsRef<Path>) -> SResult<TokenBlock> {
+pub fn get_tokens(path: impl AsRef<Path>, file_cache: &mut impl FileCacher) -> SResult<TokenBlock> {
     let file_path = PathBuf::from(path.as_ref());
-    let tokens = get_raw_tokens(&file_path)?;
-    preproc_tokens(tokens, &file_path)
+    let tokens = get_raw_tokens(&file_path, file_cache)?;
+    preproc_tokens(tokens, &file_path, file_cache)
 }
 
 /// # Parse tokens from string and executes the preprocessor
 /// ```rust
 /// // "source" of the string mut be annotated
 /// // Tokenizer still needs a `\n` in the end of every string (issue #43)
-/// let token_block = stck::api::get_tokens_str("\"hello\\n\" print\n", "From raw string").unwrap();
+/// let token_block = stck::api::get_tokens_str("\"hello\\n\" print\n", "From raw string", &mut stck::cache::NoCache).unwrap();
 /// assert_eq!(token_block.token_count(), 2);
 /// ```
-pub fn get_tokens_str(cont: &str, content_name: impl AsRef<Path>) -> SResult<TokenBlock> {
+pub fn get_tokens_str(
+    cont: &str,
+    content_name: impl AsRef<Path>,
+    file_cache: &mut impl FileCacher,
+) -> SResult<TokenBlock> {
     let tokens = token::Context::new(cont).tokenize(content_name.as_ref().to_path_buf())?;
-    preproc_tokens(tokens, content_name.as_ref())
+    preproc_tokens(tokens, content_name.as_ref(), file_cache)
 }
 
 /// # Parse code from file
 /// ```rust
-/// let code = stck::api::get_project_code("examples/test.stck");
+/// let code = stck::api::get_project_code("examples/test.stck", &mut stck::cache::NoCache);
 /// eprintln!("{:?}", code);
 /// ```
-pub fn get_project_code(path: impl AsRef<Path>) -> SResult<Code> {
+pub fn get_project_code(path: impl AsRef<Path>, file_cache: &mut impl FileCacher) -> SResult<Code> {
     let TokenBlock {
         tokens,
         source,
         line_breaks,
-    } = get_tokens(path)?;
+    } = get_tokens(path, file_cache)?;
     let mut parser = parse::Context::new(tokens, &source);
     let exprs = parser.parse_block()?;
     Ok(Code {
@@ -58,7 +63,7 @@ pub fn get_project_code(path: impl AsRef<Path>) -> SResult<Code> {
 
 /// # Parse expressions from tokens
 /// ```rust
-/// let token_block = stck::api::get_tokens_str("\"hello\\n\" print\n", "From raw string").unwrap();
+/// let token_block = stck::api::get_tokens_str("\"hello\\n\" print\n", "From raw string", &mut stck::cache::NoCache).unwrap();
 /// # assert_eq!(token_block.token_count(), 2);
 /// let code = stck::api::parse_raw_tokens(token_block).unwrap();
 /// assert_eq!(code.expr_count(), 2);
@@ -81,17 +86,17 @@ pub fn parse_raw_tokens(
 
 /// # Execute code from file
 /// ```rust
-/// stck::api::execute_file("examples/test.stck");
+/// stck::api::execute_file("examples/test.stck", &mut stck::cache::NoCache);
 /// ```
-pub fn execute_file(path: impl AsRef<Path>) -> SResult<()> {
-    let expr_block = get_project_code(path)?;
+pub fn execute_file(path: impl AsRef<Path>, file_cache: &mut impl FileCacher) -> SResult<()> {
+    let expr_block = get_project_code(path, file_cache)?;
     execute_code(&expr_block)?;
     Ok(())
 }
 
 /// # Execute code from expressions
 /// ```rust
-/// let token_block = stck::api::get_tokens_str("5 2 -\n", "From raw string").unwrap();
+/// let token_block = stck::api::get_tokens_str("5 2 -\n", "From raw string", &mut stck::cache::NoCache).unwrap();
 /// # assert_eq!(token_block.token_count(), 3);
 /// let code = stck::api::parse_raw_tokens(token_block).unwrap();
 /// # assert_eq!(code.expr_count(), 3);
@@ -102,17 +107,12 @@ pub fn execute_raw_code(code: &Code) -> SResult<runtime::Context> {
     execute_code(code)
 }
 
-fn read_file(file_path: impl AsRef<Path>) -> SResult<String> {
-    match std::fs::read_to_string(file_path.as_ref()) {
-        Ok(cont) => Ok(cont),
-        Err(_) => Err(StckError::CantReadFile(file_path.as_ref().to_path_buf()).into()),
-    }
-}
-
 // steps for token.rs:
-fn get_raw_tokens(file_path: &Path) -> SResult<TokenBlock> {
-    let cont = read_file(file_path)?;
-    token::Context::new(&cont)
+fn get_raw_tokens(file_path: &Path, file_cache: &mut impl FileCacher) -> SResult<TokenBlock> {
+    let cont = file_cache
+        .read_file(file_path)
+        .map_err(|_| StckError::CantReadFile(file_path.to_path_buf()))?;
+    token::Context::new(cont.as_ref())
         .tokenize(file_path.to_path_buf())
         .map_err(error::Error::from)
 }
@@ -120,10 +120,11 @@ fn get_raw_tokens(file_path: &Path) -> SResult<TokenBlock> {
 pub fn get_tokens_with_procvars<S: std::hash::BuildHasher>(
     path: impl AsRef<Path>,
     proc_vars: &mut HashSet<String, S>,
+    file_cache: &mut impl FileCacher,
 ) -> SResult<TokenBlock> {
     let file_path = PathBuf::from(path.as_ref());
-    let tokens = get_raw_tokens(&file_path)?;
-    preproc_tokens_with_vars(tokens, &file_path, proc_vars)
+    let tokens = get_raw_tokens(&file_path, file_cache)?;
+    preproc_tokens_with_vars(tokens, &file_path, proc_vars, file_cache)
 }
 
 // steps for preproc.rs:
@@ -134,10 +135,11 @@ fn preproc_tokens(
         line_breaks,
     }: TokenBlock,
     file_path: &Path,
+    file_cache: &mut impl FileCacher,
 ) -> SResult<TokenBlock> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
-    let tokens = preprocessor.parse_clean(tokens)?;
+    let tokens = preprocessor.parse_clean(tokens, file_cache)?;
     Ok(TokenBlock {
         line_breaks,
         source,
@@ -153,10 +155,11 @@ fn preproc_tokens_with_vars<S: std::hash::BuildHasher>(
     }: TokenBlock,
     file_path: &Path,
     vars: &mut HashSet<String, S>,
+    file_cache: &mut impl FileCacher,
 ) -> SResult<TokenBlock> {
     let cwd = PathBuf::from(".");
     let preprocessor = preproc::Context::new(file_path.parent().unwrap_or(cwd.as_path()));
-    let tokens = preprocessor.parse(tokens, vars)?;
+    let tokens = preprocessor.parse(tokens, vars, file_cache)?;
     Ok(TokenBlock {
         line_breaks,
         source,
