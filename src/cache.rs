@@ -99,3 +99,41 @@ impl FileCacher for MockFileCacher {
         self.0.read_file(path)
     }
 }
+
+#[derive(Default)]
+pub struct Isolated {
+    allowed: HashMap<PathBuf, String>,
+}
+
+impl Isolated {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn add_file_cached(&mut self, path: PathBuf) -> Result<(), std::io::Error> {
+        let entry = self.allowed.entry(path);
+        if let Entry::Vacant(entry) = entry {
+            let cont = std::fs::read_to_string(entry.key())?;
+            entry.insert_entry(cont);
+        }
+        Ok(())
+    }
+    pub fn force_add_file(&mut self, path: PathBuf) -> Result<(), std::io::Error> {
+        let cont = std::fs::read_to_string(&path)?;
+        self.allowed.insert(path, cont);
+        Ok(())
+    }
+}
+
+impl FileCacher for Isolated {
+    type FileRecord<'s> = &'s String;
+    fn read_file(
+        &mut self,
+        path: impl AsRef<Path>,
+    ) -> Result<Self::FileRecord<'_>, std::io::Error> {
+        self.allowed.get(path.as_ref()).ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Can't read file with Isolated cache system",
+        ))
+    }
+}
