@@ -66,7 +66,7 @@ macro_rules! matches {
 impl Context {
     fn push_token(&mut self, out: &mut Vec<Token>, token: TokenCont) {
         self.last_line = self.current_line;
-        let span = LineRange::from_points(self.last_line, self.current_line);
+        let span = LineRange::from_points(self.last_line, self.current_line+1);
         out.push(Token { cont: token, span });
     }
     pub fn tokenize(mut self, source: PathBuf) -> Result<TokenBlock> {

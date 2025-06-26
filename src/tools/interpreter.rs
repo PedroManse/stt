@@ -22,9 +22,9 @@ enum StckMode {
 fn print_code(code: &stck::internals::Code, import_stack: usize) {
     for expr in code {
         if import_stack != 0 {
-            println!("{} {}", ">".repeat(import_stack).blue(), expr.cont);
+            println!("{} {} @ {}", ">".repeat(import_stack).blue(), expr.cont, expr.span);
         } else {
-            println!("{}", expr.cont);
+            println!("{} @ {}", expr.cont, expr.span);
         }
         if let stck::internals::ExprCont::IncludedCode(code) = &expr.cont {
             print_code(code, import_stack + 1);

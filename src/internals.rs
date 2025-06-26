@@ -578,7 +578,7 @@ pub struct SwitchCase {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Expr {
-    pub(crate) span: LineRange,
+    pub span: LineRange,
     pub cont: ExprCont,
 }
 

@@ -35,7 +35,7 @@ pub enum State {
 
 impl<'p> Context<'p> {
     pub fn parse_block(&mut self) -> Result<Vec<Expr>, StckError> {
-        self.parse_block_start(0)
+        self.parse_block_start(1)
     }
 
     fn parse_block_start(&mut self, span_start: usize) -> Result<Vec<Expr>, StckError> {
@@ -44,7 +44,7 @@ impl<'p> Context<'p> {
         use TokenCont::*;
         let mut state = Nothing;
         let mut out = vec![];
-        let mut cum_span = LineRange::from_points(span_start, span_start);
+        let mut cum_span = LineRange::from_points(span_start, span_start+1);
 
         while let Some(token) = self.next() {
             let Token { cont, span } = token;
@@ -55,7 +55,7 @@ impl<'p> Context<'p> {
                         cont: $expr,
                         span: cum_span,
                     });
-                    cum_span = LineRange::from_points(span.end, span.end);
+                    cum_span = LineRange::from_points(span.end, span.end+1);
                 };
             }
             state = match (state, cont) {
@@ -99,7 +99,7 @@ impl<'p> Context<'p> {
 
                 (s, IncludedBlock(code)) => {
                     let mut inner_ctx = Context::new(code.tokens, &code.source);
-                    let parsed_code = inner_ctx.parse_block_start(cum_span.start)?;
+                    let parsed_code = inner_ctx.parse_block()?;
                     push_expr!(E::IncludedCode(Code {
                         source: code.source,
                         exprs: parsed_code,
