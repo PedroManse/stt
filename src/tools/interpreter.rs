@@ -1,6 +1,5 @@
 use clap::{Parser, ValueEnum};
 use stck::cache::{CacheHelper, FileCacher};
-use std::fmt::Display;
 use std::path::PathBuf;
 
 use colored::Colorize;
@@ -65,7 +64,7 @@ fn execute(
 struct Cli {
     file: PathBuf,
 
-    #[arg(short, long, value_name = "Mode", default_value_t=StckMode::Normal)]
+    #[arg(short, long, value_name = "Mode", default_value="normal")]
     mode: StckMode,
 }
 
@@ -82,18 +81,5 @@ fn main() {
             }
         }
         std::process::exit(1);
-    }
-}
-
-impl Display for StckMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Self::Debug => "debug",
-            Self::Normal => "normal",
-            Self::TokenCheck => "token-check",
-            Self::SyntaxCheck => "syntax-check",
-            Self::PrintCode => "print-code",
-        };
-        write!(f, "{s}")
     }
 }
