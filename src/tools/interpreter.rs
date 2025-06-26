@@ -22,7 +22,12 @@ enum StckMode {
 fn print_code(code: &stck::internals::Code, import_stack: usize) {
     for expr in code {
         if import_stack != 0 {
-            println!("{} {} @ {}", ">".repeat(import_stack).blue(), expr.cont, expr.span);
+            println!(
+                "{} {} @ {}",
+                ">".repeat(import_stack).blue(),
+                expr.cont,
+                expr.span
+            );
         } else {
             println!("{} @ {}", expr.cont, expr.span);
         }
@@ -64,7 +69,7 @@ fn execute(
 struct Cli {
     file: PathBuf,
 
-    #[arg(short, long, value_name = "Mode", default_value="normal")]
+    #[arg(short, long, value_name = "Mode", default_value = "normal")]
     mode: StckMode,
 }
 

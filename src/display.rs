@@ -167,7 +167,7 @@ impl Display for RuntimeErrorCtx {
 
 impl Display for LineRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.delta() == 1 {
+        if self.delta() == 0 {
             write!(f, "{}", self.start)
         } else {
             write!(f, "{}:{:+}", self.start, self.delta())

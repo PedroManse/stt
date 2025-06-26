@@ -44,7 +44,7 @@ impl<'p> Context<'p> {
         use TokenCont::*;
         let mut state = Nothing;
         let mut out = vec![];
-        let mut cum_span = LineRange::from_points(span_start, span_start+1);
+        let mut cum_span = LineRange::from_points(span_start, span_start + 1);
 
         while let Some(token) = self.next() {
             let Token { cont, span } = token;
@@ -55,7 +55,7 @@ impl<'p> Context<'p> {
                         cont: $expr,
                         span: cum_span,
                     });
-                    cum_span = LineRange::from_points(span.end, span.end+1);
+                    cum_span = LineRange::from_points(span.end, span.end + 1);
                 };
             }
             state = match (state, cont) {
