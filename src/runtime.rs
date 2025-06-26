@@ -290,6 +290,7 @@ impl Context {
                         code.clone(),
                         args.clone(),
                         out_args.clone().map(TypedOutputs::from),
+                        source.to_path_buf(),
                     ),
                 );
                 ControlFlow::Continue
@@ -310,7 +311,7 @@ impl Context {
             // try_get_arg should not pop from the stack and has higher precedence than user-defined funcs.
             // this was done to avoid confusion if an outer-scoped function was used instead of an argument
             self.stack.push(arg);
-        } else if let Some(rets) = self.try_execute_user_fn(name, source, line_breaks) {
+        } else if let Some(rets) = self.try_execute_user_fn(name, line_breaks) {
             // try_execute_user_fn should handle stack pop
             // and have the lowest precedence, since the traverse the scopes
             self.stack.pushn(rets?);
@@ -355,7 +356,6 @@ impl Context {
     fn try_execute_user_fn(
         &mut self,
         name: &FnName,
-        source: &Path,
         line_breaks: &LineSpan,
     ) -> Option<SResult<Vec<Value>>> {
         let user_fn = self.fns.get(name)?;
@@ -408,7 +408,7 @@ impl Context {
         );
 
         // handle (return) kw and RT errors inside functions
-        if let Err(e) = fn_ctx.execute_code(&user_fn.code, source, line_breaks) {
+        if let Err(e) = fn_ctx.execute_code(&user_fn.code, &user_fn.source, line_breaks) {
             return Some(Err(e.into()));
         }
 
