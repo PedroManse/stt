@@ -1,9 +1,7 @@
 use clap::{Parser, ValueEnum};
-use stck::cache::{CacheHelper, FileCacher};
-use std::path::PathBuf;
-
 use colored::Colorize;
 use stck::prelude::*;
+use std::path::PathBuf;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
 enum StckMode {
@@ -40,7 +38,7 @@ fn print_code(code: &stck::internals::Code, import_stack: usize) {
 fn execute(
     mode: StckMode,
     file_path: PathBuf,
-    file_cache: &mut impl FileCacher,
+    file_cache: &mut impl cache::FileCacher,
 ) -> Result<(), Error> {
     use StckMode as M;
     match mode {
@@ -78,7 +76,7 @@ fn main() {
     let mut file_cacher = CacheHelper::new();
     if let Err(e) = execute(mode, file, &mut file_cacher) {
         eprintln!("{e}");
-        if let stck::error::Error::RuntimeError(stck::error::RuntimeError::RuntimeCtx(e)) = e {
+        if let Error::RuntimeError(error::RuntimeError::RuntimeCtx(e)) = e {
             let spans: stck::error::ErrorSpans = e.into();
             let sources = spans.try_into_sources(&mut file_cacher).unwrap();
             for source in sources {
