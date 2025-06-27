@@ -152,12 +152,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "stck"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0e8e6284cc279cd2ea8a5d97146ed8076431bb6d55f40b3a269cfe2b63893f8"
+dependencies = [
+ "colored",
+ "thiserror",
+]
+
+[[package]]
 name = "stck-interpreter"
 version = "0.1.0"
 dependencies = [
  "clap",
  "colored",
- "stck",
+ "stck 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
