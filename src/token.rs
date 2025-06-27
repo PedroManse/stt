@@ -88,7 +88,6 @@ impl Context {
 
         while let Some(ch) = self.next() {
             state = match (state, ch) {
-
                 // code block
                 (Nothing, '{') => {
                     let block_start = self.current_line;
@@ -179,7 +178,6 @@ impl Context {
                     self.unget(); // re-read char with Nothing State
                     Nothing
                 }
-
 
                 // keyword
                 (Nothing, '(') => MakeKeyword(String::new(), self.current_line),
@@ -376,6 +374,9 @@ impl Context {
     // to re-read char with differnt State
     fn unget(&mut self) {
         self.point -= 1;
+        if self.chars.get(self.point) == Some(&'\n') {
+            self.current_line -= 1;
+        }
     }
 
     pub fn new(code: &str) -> Self {
