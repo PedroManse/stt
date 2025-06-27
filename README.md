@@ -1,8 +1,4 @@
-# STCK
-
-###### This describes what the language *should* be, *not necessarily* what it is
-
-Pronounced as "stack", STCK is a simple scripting language made to be embedded in other rust programs.
+# A simple scripting language made to be embedded in other rust programs.
 
 It's also made to be as simple as possible to parse and execute.
 
@@ -65,7 +61,6 @@ or `(switch)` tokens that end with tokens that aren't immediates or code blocks.
 These tokens must add their parsed expression to the output and `unget` the last token, to re-parse it with a different state.
 
 ### Execution
-###### the runtime module
 The expression executioner handles every runtime element and the definition of every builtin
 
 The context of execution is preserved after all the code is ran. So it is possible to reuse the `runtime::Context` and even to utilize previously defined functions.
