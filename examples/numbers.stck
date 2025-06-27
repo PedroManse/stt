@@ -1,0 +1,7 @@
+(pragma set debug)
+(include stdlib)
+
+(fn) [] -this-fn {
+	-30 -20 + prt
+}
+-this-fn
