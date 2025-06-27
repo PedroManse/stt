@@ -6,6 +6,9 @@ authors = ["Manse <pedromanse@duck.com>"]
 license = "GLP-3.0"
 keywords = ["programming", "language", "stack", "interpreter"]
 categories = ["command-line-utilities", "compilers"]
+description = "An interpreter for the stck language"
+repository = "https://github.com/PedroManse/stck"
+readme = "./README.md"
 
 [dependencies]
 stck = { path = "../lang" }
