@@ -6,6 +6,9 @@ authors = ["Manse <pedromanse@duck.com>"]
 license-file = "../LICENSE.TXT"
 keywords = ["embedded", "programming", "language", "stack"]
 categories = ["command-line-utilities", "compilers"]
+description = "An embeddable interpreted language written fully in rust"
+readme = "../README.md"
+repository = "https://github.com/PedroManse/stck"
 
 [dependencies]
 colored = "3.0.0"
