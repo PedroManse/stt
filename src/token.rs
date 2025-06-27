@@ -22,6 +22,7 @@ pub enum State {
     MakeIdent(String),
     MakeString(String, usize),
     MakeStringEsc(String, usize), // found \ on string
+    Minus(String),
     MakeNumber(String),
     MakeKeyword(String, usize),
     MakeFnArgs(Vec<FnArgDef>, String, usize),
@@ -42,7 +43,7 @@ macro_rules! matches {
         'a'..='z' | 'A'..='Z' | '_' | '-' | '&'
     };
     (ident) => {
-        (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'')
+        (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'' | '-')
     };
     (arg_type) => {
         (matches!(letter) | matches!(space) | '?' | '*')
@@ -51,7 +52,7 @@ macro_rules! matches {
         'a'..='z' | 'A'..='Z'
     };
     (start_ident) => {
-        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':' | '~' | '@'
+        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':' | '~' | '@'
     };
     (word_edge) => {
         '(' | ')' | '{' | '}' | '[' | ']'
@@ -87,21 +88,20 @@ impl Context {
 
         while let Some(ch) = self.next() {
             state = match (state, ch) {
-                (Nothing, '}') => {
-                    self.push_token(&mut out, EndOfBlock);
-                    return Ok(out);
-                }
+
+                // code block
                 (Nothing, '{') => {
                     let block_start = self.current_line;
                     let block = self.tokenize_block()?;
                     self.push_multiline_token(&mut out, Block(block), block_start);
                     Nothing
                 }
-                (Nothing, c @ matches!(start_ident)) => MakeIdent(String::from(*c)),
-                (Nothing, '"') => MakeString(String::new(), self.current_line),
-                (Nothing, c @ matches!(digit)) => MakeNumber(String::from(*c)),
-                (Nothing, '(') => MakeKeyword(String::new(), self.current_line),
-                (Nothing, '[') => MakeFnArgs(Vec::new(), String::new(), self.current_line),
+                (Nothing, '}') => {
+                    self.push_token(&mut out, EndOfBlock);
+                    return Ok(out);
+                }
+
+                // char
                 (Nothing, '\'') => MakeChar,
                 (MakeChar, c) => MakeCharEnd(*c),
                 (MakeCharEnd('\\'), c @ ('\\' | '\'')) => MakeCharEndEsc(*c),
@@ -115,6 +115,19 @@ impl Context {
                     Nothing
                 }
 
+                // minus (either number or identifier)
+                (Nothing, c @ '-') => Minus(String::from(*c)),
+                (Minus(mut buf), c @ matches!(digit)) => {
+                    buf.push(*c);
+                    MakeNumber(buf)
+                }
+                (Minus(buf), _) => {
+                    self.unget();
+                    MakeIdent(buf)
+                }
+
+                // identifier
+                (Nothing, c @ matches!(start_ident)) => MakeIdent(String::from(*c)),
                 (MakeIdent(mut buf), c @ matches!(ident)) => {
                     buf.push(*c);
                     MakeIdent(buf)
@@ -129,6 +142,8 @@ impl Context {
                     Nothing
                 }
 
+                // string
+                (Nothing, '"') => MakeString(String::new(), self.current_line),
                 (MakeString(buf, line_start), '"') => {
                     self.push_multiline_token(&mut out, Str(buf), line_start);
                     Nothing
@@ -147,6 +162,8 @@ impl Context {
                     MakeString(buf, line_start)
                 }
 
+                // number
+                (Nothing, c @ matches!(digit)) => MakeNumber(String::from(*c)),
                 (MakeNumber(mut buf), c @ matches!(digit)) => {
                     buf.push(*c);
                     MakeNumber(buf)
@@ -163,6 +180,9 @@ impl Context {
                     Nothing
                 }
 
+
+                // keyword
+                (Nothing, '(') => MakeKeyword(String::new(), self.current_line),
                 (MakeKeyword(buf, line_start), ')') => {
                     let kw = match buf.as_str().trim() {
                         "!" => RawKeyword::BubbleError,
@@ -208,6 +228,8 @@ impl Context {
                     MakeKeyword(buf, line_start)
                 }
 
+                // arg list
+                (Nothing, '[') => MakeFnArgs(Vec::new(), String::new(), self.current_line),
                 (MakeFnArgs(mut xs, buf, line_start), matches!(space)) => {
                     if !buf.is_empty() {
                         xs.push(FnArgDef::new_untyped(buf));
@@ -304,6 +326,7 @@ impl Context {
                     Nothing
                 }
 
+                // comment
                 (Nothing, '#') => OnComment,
                 (OnComment, '\n') => Nothing,
                 (OnComment, _) => OnComment,
