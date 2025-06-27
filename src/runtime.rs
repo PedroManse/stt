@@ -87,16 +87,9 @@ impl Context {
         }
     }
 
-    pub fn execute_entire_code(
-        &mut self,
-        Code {
-            source,
-            exprs,
-            line_breaks,
-        }: &Code,
-    ) -> CResult<ControlFlow> {
+    pub fn execute_entire_code(&mut self, Code { source, exprs }: &Code) -> CResult<ControlFlow> {
         for expr in exprs {
-            match self.execute_expr(expr, source, line_breaks)? {
+            match self.execute_expr(expr, source)? {
                 ControlFlow::Continue => {}
                 c => return Ok(c),
             }
@@ -104,14 +97,9 @@ impl Context {
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_code(
-        &mut self,
-        code: &[Expr],
-        source: &Path,
-        line_breaks: &LineSpan,
-    ) -> CResult<ControlFlow> {
+    fn execute_code(&mut self, code: &[Expr], source: &Path) -> CResult<ControlFlow> {
         for expr in code {
-            match self.execute_expr(expr, source, line_breaks)? {
+            match self.execute_expr(expr, source)? {
                 ControlFlow::Continue => {}
                 c => return Ok(c),
             }
@@ -119,15 +107,10 @@ impl Context {
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_check(
-        &mut self,
-        code: &[Expr],
-        source: &Path,
-        line_breaks: &LineSpan,
-    ) -> SResult<bool> {
+    fn execute_check(&mut self, code: &[Expr], source: &Path) -> SResult<bool> {
         let old_stack_size = self.stack.len();
         for expr in code {
-            self.execute_expr(expr, source, line_breaks)?;
+            self.execute_expr(expr, source)?;
         }
         let new_stack_size = self.stack.len();
         let new_should_stack_size = old_stack_size + 1;
@@ -147,34 +130,21 @@ impl Context {
         }
     }
 
-    fn execute_expr(
-        &mut self,
-        expr: &Expr,
-        source: &Path,
-        line_breaks: &LineSpan,
-    ) -> CResult<ControlFlow> {
-        match self.execute_expr_internal(expr, source, line_breaks) {
+    fn execute_expr(&mut self, expr: &Expr, source: &Path) -> CResult<ControlFlow> {
+        match self.execute_expr_internal(expr, source) {
             Ok(c) => Ok(c),
-            Err(RuntimeError::RuntimeRaw(e)) => Err(RuntimeErrorCtx::new(
-                ErrCtx::new(source, expr, line_breaks),
-                e,
-            )),
-            Err(RuntimeError::RuntimeCtx(c)) => {
-                Err(c.append_stack(ErrCtx::new(source, expr, line_breaks)))
+            Err(RuntimeError::RuntimeRaw(e)) => {
+                Err(RuntimeErrorCtx::new(ErrCtx::new(source, expr), e))
             }
+            Err(RuntimeError::RuntimeCtx(c)) => Err(c.append_stack(ErrCtx::new(source, expr))),
         }
     }
 
-    fn execute_expr_internal(
-        &mut self,
-        expr: &Expr,
-        source: &Path,
-        line_breaks: &LineSpan,
-    ) -> SResult<ControlFlow> {
+    fn execute_expr_internal(&mut self, expr: &Expr, source: &Path) -> SResult<ControlFlow> {
         match &expr.cont {
-            ExprCont::FnCall(name) => self.execute_fn(name, source, line_breaks)?,
+            ExprCont::FnCall(name) => self.execute_fn(name, source)?,
             ExprCont::Keyword(kw) => {
-                return self.execute_kw(kw, source, line_breaks);
+                return self.execute_kw(kw, source);
             }
             ExprCont::Immediate(Value::Closure(cl)) => {
                 let cl = cl.clone();
@@ -189,23 +159,14 @@ impl Context {
                 self.stack.push(Value::Closure(cl));
             }
             ExprCont::Immediate(v) => self.stack.push(v.clone()),
-            ExprCont::IncludedCode(Code {
-                source,
-                exprs,
-                line_breaks,
-            }) => {
-                self.execute_code(exprs, source, line_breaks)?;
+            ExprCont::IncludedCode(Code { source, exprs }) => {
+                self.execute_code(exprs, source)?;
             }
         }
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_kw(
-        &mut self,
-        kw: &KeywordKind,
-        source: &Path,
-        line_breaks: &LineSpan,
-    ) -> SResult<ControlFlow> {
+    fn execute_kw(&mut self, kw: &KeywordKind, source: &Path) -> SResult<ControlFlow> {
         Ok(match kw {
             KeywordKind::DefinedGeneric(trc) => {
                 self.trc.add_generic(trc.clone());
@@ -247,28 +208,28 @@ impl Context {
                 for case in cases {
                     if case.test == cmp {
                         return self
-                            .execute_code(&case.code, source, line_breaks)
+                            .execute_code(&case.code, source)
                             .map_err(error::RuntimeError::from);
                     }
                 }
                 match default {
-                    Some(code) => self.execute_code(code, source, line_breaks)?,
+                    Some(code) => self.execute_code(code, source)?,
                     None => ControlFlow::Continue,
                 }
             }
             KeywordKind::Ifs { branches } => {
                 for branch in branches {
-                    if self.execute_check(&branch.check, source, line_breaks)? {
+                    if self.execute_check(&branch.check, source)? {
                         return self
-                            .execute_code(&branch.code, source, line_breaks)
+                            .execute_code(&branch.code, source)
                             .map_err(error::RuntimeError::from);
                     }
                 }
                 ControlFlow::Continue
             }
             KeywordKind::While { check, code } => {
-                while self.execute_check(check, source, line_breaks)? {
-                    match self.execute_code(code, source, line_breaks)? {
+                while self.execute_check(check, source)? {
+                    match self.execute_code(code, source)? {
                         ControlFlow::Break => break,
                         ControlFlow::Return => return Ok(ControlFlow::Return),
                         ControlFlow::Continue => {}
@@ -298,10 +259,10 @@ impl Context {
         })
     }
 
-    fn execute_fn(&mut self, name: &FnName, source: &Path, line_breaks: &LineSpan) -> SResult<()> {
+    fn execute_fn(&mut self, name: &FnName, source: &Path) -> SResult<()> {
         // builtin fn should handle stack pop and push
         // and are always given precedence
-        match self.try_execute_builtin(name.as_str(), source, line_breaks) {
+        match self.try_execute_builtin(name.as_str(), source) {
             Ok(()) => return Ok(()),
             Err(error::RuntimeError::RuntimeRaw(Rtk::NoSuchBuiltin)) => {}
             Err(e) => return Err(e),
@@ -311,7 +272,7 @@ impl Context {
             // try_get_arg should not pop from the stack and has higher precedence than user-defined funcs.
             // this was done to avoid confusion if an outer-scoped function was used instead of an argument
             self.stack.push(arg);
-        } else if let Some(rets) = self.try_execute_user_fn(name, line_breaks) {
+        } else if let Some(rets) = self.try_execute_user_fn(name) {
             // try_execute_user_fn should handle stack pop
             // and have the lowest precedence, since the traverse the scopes
             self.stack.pushn(rets?);
@@ -326,7 +287,6 @@ impl Context {
         &mut self,
         closure: FullClosure,
         source: &Path,
-        line_breaks: &LineSpan,
     ) -> SResult<Vec<Value>> {
         let mut cl_ctx = Context::frame_closure(
             self.fns.clone(),
@@ -335,7 +295,7 @@ impl Context {
             self.rust_fns.clone(),
             self.trc.clone(),
         );
-        cl_ctx.execute_code(&closure.code, source, line_breaks)?;
+        cl_ctx.execute_code(&closure.code, source)?;
         let output = cl_ctx.take_stack().into_vec();
         // TODO: use TRC instance from closure
         let mut trc: TypeResolutionContext = self.trc.clone().into();
@@ -353,11 +313,7 @@ impl Context {
         Ok(output)
     }
 
-    fn try_execute_user_fn(
-        &mut self,
-        name: &FnName,
-        line_breaks: &LineSpan,
-    ) -> Option<SResult<Vec<Value>>> {
+    fn try_execute_user_fn(&mut self, name: &FnName) -> Option<SResult<Vec<Value>>> {
         let user_fn = self.fns.get(name)?;
         let mut trc: TypeResolutionContext = self.trc.clone().into();
 
@@ -408,7 +364,7 @@ impl Context {
         );
 
         // handle (return) kw and RT errors inside functions
-        if let Err(e) = fn_ctx.execute_code(&user_fn.code, &user_fn.source, line_breaks) {
+        if let Err(e) = fn_ctx.execute_code(&user_fn.code, &user_fn.source) {
             return Some(Err(e.into()));
         }
 
@@ -449,12 +405,7 @@ impl Context {
         Some(())
     }
 
-    fn try_execute_builtin(
-        &mut self,
-        fn_name: &str,
-        source: &Path,
-        line_breaks: &LineSpan,
-    ) -> SResult<()> {
+    fn try_execute_builtin(&mut self, fn_name: &str, source: &Path) -> SResult<()> {
         match fn_name {
             // seq system
             "print" => {
@@ -575,7 +526,7 @@ impl Context {
                         self.stack.push_this(cl);
                     }
                     ClosureCurry::Full(cl) => {
-                        let result = self.try_execute_user_closure(cl, source, line_breaks)?;
+                        let result = self.try_execute_user_closure(cl, source)?;
                         self.stack.pushn(result);
                     }
                 }

@@ -7,25 +7,19 @@ use super::*;
 pub use runtime::Context as RuntimeContext;
 use std::cell::OnceCell;
 use std::collections::HashMap;
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Code {
-    pub(crate) line_breaks: LineSpan,
     pub(crate) source: PathBuf,
     pub(crate) exprs: Vec<Expr>,
 }
 
 impl Code {
     #[must_use]
-    pub fn new(source: PathBuf, exprs: Vec<Expr>, line_breaks: LineSpan) -> Self {
-        Code {
-            line_breaks,
-            source,
-            exprs,
-        }
+    pub fn new(source: PathBuf, exprs: Vec<Expr>) -> Self {
+        Code { source, exprs }
     }
     #[must_use]
     pub fn expr_count(&self) -> usize {
@@ -130,7 +124,7 @@ impl ClosurePartialArgs {
             parent: OnceCell::new(),
         }
     }
-    pub fn parse(arg_list: Vec<FnArgDef>, span: Range<usize>) -> Result<Self, StckError> {
+    pub fn parse(arg_list: Vec<FnArgDef>, span: LineRange) -> Result<Self, StckError> {
         if arg_list.is_empty() {
             Err(StckError::CantInstanceClosureZeroArgs { span })
         } else {
@@ -584,7 +578,7 @@ pub struct SwitchCase {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Expr {
-    pub(crate) span: Range<usize>,
+    pub span: LineRange,
     pub cont: ExprCont,
 }
 
@@ -623,7 +617,7 @@ pub enum RawKeyword {
 #[derive(Debug)]
 pub struct Token {
     pub(crate) cont: TokenCont,
-    pub(crate) span: Range<usize>,
+    pub(crate) span: LineRange,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -648,7 +642,6 @@ pub enum TokenCont {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct TokenBlock {
-    pub(crate) line_breaks: LineSpan,
     pub(crate) source: PathBuf,
     pub(crate) tokens: Vec<Token>,
 }

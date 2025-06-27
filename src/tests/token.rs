@@ -3,7 +3,7 @@ use crate::*;
 macro_rules! mkt {
     ($from:literal .. $to:literal $cont:expr) => {
         Token {
-            span: $from..$to,
+            span: LineRange::from_points($from, $to),
             cont: $cont,
         }
     };
@@ -12,9 +12,8 @@ macro_rules! mkt {
 #[test]
 fn read_tokens() -> Result<(), error::Error> {
     use TokenCont as C;
-    let text = "
-(fn) [ a b c ] fn-name {
-    a b c + +
+    let text = "(fn) [ typed<num> in_puts a ] [ sum<num> ] fn-name {
+    inputs typed a + +
 }
 1 2 3 fn-name
 ";
@@ -22,41 +21,51 @@ fn read_tokens() -> Result<(), error::Error> {
     let block = ctx.tokenize("read_tokens test".into())?;
 
     let expected = [
-        mkt!(1..5(C::Keyword(RawKeyword::Fn(FnScope::Local)))),
+        mkt!(1..1(C::Keyword(RawKeyword::Fn(FnScope::Local)))),
         mkt!(
-            6..15(C::FnArgs(
-                ["a", "b", "c"]
-                    .into_iter()
-                    .map(String::from)
-                    .map(|s| FnArgDef::new(s, None))
-                    .collect()
-            ))
-        ),
-        mkt!(16..24(C::Ident("fn-name".to_string()))),
-        mkt!(
-            24..41(C::Block(vec![
-                mkt!(29..32(C::Ident("a".to_string()))),
-                mkt!(32..34(C::Ident("b".to_string()))),
-                mkt!(34..36(C::Ident("c".to_string()))),
-                mkt!(36..38(C::Ident("+".to_string()))),
-                mkt!(38..40(C::Ident("+".to_string()))),
-                mkt!(41..41(C::EndOfBlock)),
+            1..1(C::FnArgs(vec![
+                FnArgDef {
+                    name: "typed".to_string(),
+                    type_check: Some(TypeTester::Num)
+                },
+                FnArgDef {
+                    name: "in_puts".to_string(),
+                    type_check: None
+                },
+                FnArgDef {
+                    name: "a".to_string(),
+                    type_check: None
+                }
             ]))
         ),
-        mkt!(42..44(C::Number(1))),
-        mkt!(44..46(C::Number(2))),
-        mkt!(46..48(C::Number(3))),
-        mkt!(48..56(C::Ident("fn-name".to_string()))),
-        mkt!(56..56(C::EndOfBlock)),
+        mkt!(
+            1..1(C::FnArgs(vec![FnArgDef {
+                name: "sum".to_string(),
+                type_check: Some(TypeTester::Num)
+            },]))
+        ),
+        mkt!(1..1(C::Ident("fn-name".to_string()))),
+        mkt!(
+            1..3(C::Block(vec![
+                mkt!(2..2(C::Ident("inputs".to_string()))),
+                mkt!(2..2(C::Ident("typed".to_string()))),
+                mkt!(2..2(C::Ident("a".to_string()))),
+                mkt!(2..2(C::Ident("+".to_string()))),
+                mkt!(2..2(C::Ident("+".to_string()))),
+                mkt!(3..3(C::EndOfBlock)),
+            ]))
+        ),
+        mkt!(4..4(C::Number(1))),
+        mkt!(4..4(C::Number(2))),
+        mkt!(4..4(C::Number(3))),
+        mkt!(4..4(C::Ident("fn-name".to_string()))),
+        mkt!(4..4(C::EndOfBlock)),
     ];
 
     for index in 0..block.token_count() {
         let got = block.get(index);
         let wanted = expected.get(index);
         test_eq!(got: got, expected: wanted);
-        if let Some(t) = got {
-            eprintln!("text: {}", &text[t.span.clone()]);
-        }
     }
 
     test_eq!(got: block.tokens.len(), expected: expected.len());

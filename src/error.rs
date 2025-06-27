@@ -3,7 +3,6 @@
 use super::*;
 use crate::cache::FileCacher;
 use colored::Colorize;
-use std::collections::BTreeSet;
 use std::collections::hash_map::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -46,12 +45,11 @@ pub struct ErrCtx {
 
 impl ErrCtx {
     #[must_use]
-    pub fn new(source: &Path, expr: &Expr, lines: &LineSpan) -> Self {
-        let lines = lines.line_range(expr.span.clone());
+    pub fn new(source: &Path, expr: &Expr) -> Self {
         Self {
             source: source.to_path_buf(),
             expr: Box::new(expr.clone()),
-            lines,
+            lines: expr.span.clone(),
         }
     }
     pub fn get_lines(&self, eh: &mut impl FileCacher) -> Result<String, StckError> {
@@ -149,55 +147,30 @@ impl std::error::Error for RuntimeErrorCtx {}
 ///
 /// The [`LineRange`] can be used with an [`FileCacher`] to select specific lines to read from
 /// files
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct LineRange {
-    pub(crate) before: usize,
-    pub(crate) during: usize,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+}
+
+impl From<Range<usize>> for LineRange {
+    fn from(value: Range<usize>) -> Self {
+        LineRange {
+            start: value.start,
+            end: value.end,
+        }
+    }
 }
 
 impl LineRange {
-    fn new() -> Self {
+    pub(crate) fn delta(&self) -> usize {
+        self.end - self.start
+    }
+    pub(crate) fn from_points(last: usize, current: usize) -> Self {
         Self {
-            before: 1,
-            during: 0,
+            start: last,
+            end: current,
         }
-    }
-    fn count(&mut self, is_before: bool) {
-        if is_before {
-            self.before += 1;
-        } else {
-            self.during += 1;
-        }
-    }
-}
-
-/// # The list of line breaks from a file
-///
-/// Used to make a [`LineRange`] with [`LineSpan::line_range`]
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone, Default)]
-pub struct LineSpan {
-    feeds: BTreeSet<usize>,
-}
-
-impl LineSpan {
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            feeds: BTreeSet::new(),
-        }
-    }
-    pub fn add(&mut self, point: usize) {
-        self.feeds.insert(point);
-    }
-    /// Makes the [`LineRange`] of a significant `span`
-    #[must_use]
-    pub fn line_range(&self, span: Range<usize>) -> LineRange {
-        let mut range = LineRange::new();
-        for point in self.feeds.iter().take_while(|&p| *p < span.end) {
-            range.count(*point < span.start);
-        }
-        range
     }
 }
 
@@ -212,10 +185,10 @@ pub enum StckError {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
-    #[error("No pragma section to (end if), on span {0:?}")]
-    NoSectionToClose(Range<usize>),
+    #[error("No pragma section to (end if), on span {0}")]
+    NoSectionToClose(LineRange),
     #[error("Can't start pragma (else) section on {1:?} (span {0:?})")]
-    CantElseCurrentSection(Range<usize>, Option<crate::preproc::ProcCommand>),
+    CantElseCurrentSection(LineRange, Option<crate::preproc::ProcCommand>),
     #[error("Invalid pragma command: {0}")]
     InvalidPragma(String),
     #[error("Unexpected end of file while building token {0:?}")]
@@ -232,8 +205,8 @@ pub enum StckError {
     UnknownKeyword(String),
     #[error("Missing char")]
     MissingChar,
-    #[error("Can't make closure with zero arguments, it's code spans these bytes: {span:?}")]
-    CantInstanceClosureZeroArgs { span: Range<usize> },
+    #[error("Can't make closure with zero arguments, it's code spans these bytes: {span}")]
+    CantInstanceClosureZeroArgs { span: LineRange },
     #[error("Parser in file {path}: Can only user param list or '*' as function arguments, not {0}", path=_1.display())]
     WrongParamList(String, PathBuf),
     #[error("Type `{0}` doesn't exist")]

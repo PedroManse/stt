@@ -35,27 +35,29 @@ pub enum State {
 
 impl<'p> Context<'p> {
     pub fn parse_block(&mut self) -> Result<Vec<Expr>, StckError> {
-        self.parse_block_start(0)
-    }
-
-    fn parse_block_start(&mut self, span_start: usize) -> Result<Vec<Expr>, StckError> {
         use ExprCont as E;
         use State::*;
         use TokenCont::*;
         let mut state = Nothing;
         let mut out = vec![];
-        let mut cum_span = span_start..span_start;
+        let mut restart_span = true;
+        let mut cum_span = LineRange::from_points(0, 0);
 
         while let Some(token) = self.next() {
             let Token { cont, span } = token;
             cum_span.end = span.end;
+            if restart_span {
+                restart_span = false;
+                cum_span.start = span.start;
+            }
+
             macro_rules! push_expr {
                 ($expr:expr) => {
                     out.push(Expr {
                         cont: $expr,
-                        span: cum_span,
+                        span: cum_span.clone(),
                     });
-                    cum_span = span.end..span.end;
+                    restart_span = true;
                 };
             }
             state = match (state, cont) {
@@ -99,9 +101,8 @@ impl<'p> Context<'p> {
 
                 (s, IncludedBlock(code)) => {
                     let mut inner_ctx = Context::new(code.tokens, &code.source);
-                    let parsed_code = inner_ctx.parse_block_start(cum_span.start)?;
+                    let parsed_code = inner_ctx.parse_block()?;
                     push_expr!(E::IncludedCode(Code {
-                        line_breaks: code.line_breaks,
                         source: code.source,
                         exprs: parsed_code,
                     }));
@@ -121,7 +122,7 @@ impl<'p> Context<'p> {
                 }
                 (MakeClosureBlock(args, outs), Block(code)) => {
                     let mut inner_ctx = Context::new(code, self.source);
-                    let code = inner_ctx.parse_block_start(cum_span.start)?;
+                    let code = inner_ctx.parse_block()?;
                     let closure = Closure {
                         code,
                         trc: TypeResolutionBuilder::new().into(),
@@ -138,13 +139,13 @@ impl<'p> Context<'p> {
                 (MakeSwitch(cases), Number(v)) => MakeSwitchCode(cases, Value::Num(v)),
                 (MakeSwitchCode(mut cases, test), Block(code)) => {
                     let mut inner_ctx = Context::new(code, self.source);
-                    let code = inner_ctx.parse_block_start(cum_span.start)?;
+                    let code = inner_ctx.parse_block()?;
                     cases.push(SwitchCase { test, code });
                     MakeSwitch(cases)
                 }
                 (MakeSwitch(cases), Block(code)) => {
                     let mut inner_ctx = Context::new(code, self.source);
-                    let code = inner_ctx.parse_block_start(cum_span.start)?;
+                    let code = inner_ctx.parse_block()?;
                     push_expr!(E::Keyword(KeywordKind::Switch {
                         cases,
                         default: Some(code),
@@ -169,7 +170,7 @@ impl<'p> Context<'p> {
                 (Nothing, Keyword(RawKeyword::Ifs)) => MakeIfs(vec![]),
                 (MakeIfs(branches), Block(code)) => {
                     let mut inner_ctx = Context::new(code, self.source);
-                    let check = inner_ctx.parse_block_start(cum_span.start)?;
+                    let check = inner_ctx.parse_block()?;
                     MakeIfsCode { branches, check }
                 }
                 (
@@ -180,7 +181,7 @@ impl<'p> Context<'p> {
                     Block(code),
                 ) => {
                     let mut inner_ctx = Context::new(code, self.source);
-                    let code = inner_ctx.parse_block_start(cum_span.start)?;
+                    let code = inner_ctx.parse_block()?;
                     branches.push(CondBranch { check, code });
                     MakeIfs(branches)
                 }
@@ -215,7 +216,7 @@ impl<'p> Context<'p> {
                 }
                 (MakeFnBlock(scope, args, name, out_args), Block(code)) => {
                     let mut inner_ctx = Context::new(code, self.source);
-                    let code = inner_ctx.parse_block_start(span.start)?;
+                    let code = inner_ctx.parse_block()?;
                     let fndef = E::Keyword(KeywordKind::FnDef {
                         name,
                         scope,
@@ -230,12 +231,12 @@ impl<'p> Context<'p> {
                 (Nothing, Keyword(RawKeyword::While)) => MakeWhile,
                 (MakeWhile, Block(check)) => {
                     let mut inner_ctx = Context::new(check, self.source);
-                    let check = inner_ctx.parse_block_start(cum_span.start)?;
+                    let check = inner_ctx.parse_block()?;
                     MakeWhileCode(check)
                 }
                 (MakeWhileCode(check), Block(code)) => {
                     let mut inner_ctx = Context::new(code, self.source);
-                    let code = inner_ctx.parse_block_start(cum_span.start)?;
+                    let code = inner_ctx.parse_block()?;
                     push_expr!(E::Keyword(KeywordKind::While { check, code }));
                     Nothing
                 }

@@ -1,10 +1,7 @@
 use clap::{Parser, ValueEnum};
-use stck::cache::{CacheHelper, FileCacher};
-use std::fmt::Display;
-use std::path::PathBuf;
-
 use colored::Colorize;
 use stck::prelude::*;
+use std::path::PathBuf;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
 enum StckMode {
@@ -23,9 +20,14 @@ enum StckMode {
 fn print_code(code: &stck::internals::Code, import_stack: usize) {
     for expr in code {
         if import_stack != 0 {
-            println!("{} {}", ">".repeat(import_stack).blue(), expr.cont);
+            println!(
+                "{} {} @ {}",
+                ">".repeat(import_stack).blue(),
+                expr.cont,
+                expr.span
+            );
         } else {
-            println!("{}", expr.cont);
+            println!("{} @ {}", expr.cont, expr.span);
         }
         if let stck::internals::ExprCont::IncludedCode(code) = &expr.cont {
             print_code(code, import_stack + 1);
@@ -36,7 +38,7 @@ fn print_code(code: &stck::internals::Code, import_stack: usize) {
 fn execute(
     mode: StckMode,
     file_path: PathBuf,
-    file_cache: &mut impl FileCacher,
+    file_cache: &mut impl cache::FileCacher,
 ) -> Result<(), Error> {
     use StckMode as M;
     match mode {
@@ -65,7 +67,7 @@ fn execute(
 struct Cli {
     file: PathBuf,
 
-    #[arg(short, long, value_name = "Mode", default_value_t=StckMode::Normal)]
+    #[arg(short, long, value_name = "Mode", default_value = "normal")]
     mode: StckMode,
 }
 
@@ -74,7 +76,7 @@ fn main() {
     let mut file_cacher = CacheHelper::new();
     if let Err(e) = execute(mode, file, &mut file_cacher) {
         eprintln!("{e}");
-        if let stck::error::Error::RuntimeError(stck::error::RuntimeError::RuntimeCtx(e)) = e {
+        if let Error::RuntimeError(error::RuntimeError::RuntimeCtx(e)) = e {
             let spans: stck::error::ErrorSpans = e.into();
             let sources = spans.try_into_sources(&mut file_cacher).unwrap();
             for source in sources {
@@ -82,18 +84,5 @@ fn main() {
             }
         }
         std::process::exit(1);
-    }
-}
-
-impl Display for StckMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Self::Debug => "debug",
-            Self::Normal => "normal",
-            Self::TokenCheck => "token-check",
-            Self::SyntaxCheck => "syntax-check",
-            Self::PrintCode => "print-code",
-        };
-        write!(f, "{s}")
     }
 }

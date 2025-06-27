@@ -19,6 +19,7 @@ name = "stck"
 path = "src/lib.rs"
 
 [features]
+default = [ "interpreter" ]
 interpreter = [ "dep:clap" ]
 
 [[bin]]

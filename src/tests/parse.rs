@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::KeywordKind;
+use crate::LineRange;
 
 #[test]
 fn parse_tokens() -> Result<(), crate::error::Error> {
@@ -20,32 +21,10 @@ fn parse_tokens() -> Result<(), crate::error::Error> {
     test_eq!(got: expr.source, expected: PathBuf::from(text_name));
     test_eq!(got: expr.expr_count(), expected: 1);
     let expr_expected: Vec<crate::Expr> = vec![Expr {
-        span: 0..76,
+        span: LineRange::from_points(2, 4),
         cont: Keyword(KeywordKind::FnDef {
             name: "fn-name".to_string(),
             scope: crate::FnScope::Local,
-            code: vec![
-                Expr {
-                    span: 50..63,
-                    cont: FnCall("inputs".to_string()),
-                },
-                Expr {
-                    span: 63..69,
-                    cont: FnCall("typed".to_string()),
-                },
-                Expr {
-                    span: 69..71,
-                    cont: Immediate(crate::Value::Num(0)),
-                },
-                Expr {
-                    span: 71..73,
-                    cont: FnCall("-".to_string()),
-                },
-                Expr {
-                    span: 73..75,
-                    cont: FnCall("-".to_string()),
-                },
-            ],
             args: crate::FnArgs::Args(vec![
                 crate::FnArgDef {
                     name: "typed".to_string(),
@@ -56,6 +35,28 @@ fn parse_tokens() -> Result<(), crate::error::Error> {
                     type_check: None,
                 },
             ]),
+            code: vec![
+                Expr {
+                    span: LineRange::from_points(3, 3),
+                    cont: FnCall("inputs".to_string()),
+                },
+                Expr {
+                    span: LineRange::from_points(3, 3),
+                    cont: FnCall("typed".to_string()),
+                },
+                Expr {
+                    span: LineRange::from_points(3, 3),
+                    cont: Immediate(crate::Value::Num(0)),
+                },
+                Expr {
+                    span: LineRange::from_points(3, 3),
+                    cont: FnCall("-".to_string()),
+                },
+                Expr {
+                    span: LineRange::from_points(3, 3),
+                    cont: FnCall("-".to_string()),
+                },
+            ],
             out_args: Some(vec![crate::FnArgDef {
                 name: "sum".to_string(),
                 type_check: Some(crate::TypeTester::Num),
