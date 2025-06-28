@@ -15,10 +15,10 @@ struct Date {
     year: isize,
 }
 
-fn parse_date(cont: String) -> Result<Date, SError> {
-    let rg = regex::Regex::from_str(r#"(?<day>\d{1,2})-(?<month>\d{1,2})-(?<year>\d{1,4})"#)?;
+fn parse_date(cont: &str) -> Result<Date, SError> {
+    let rg = regex::Regex::from_str(r"(?<day>\d{1,2})-(?<month>\d{1,2})-(?<year>\d{1,4})")?;
     let caps = rg
-        .captures(&cont)
+        .captures(cont)
         .ok_or(SError::WrongFormat(cont.to_string()))?;
     let day = caps["day"].parse()?;
     let month = caps["month"].parse()?;
@@ -26,7 +26,7 @@ fn parse_date(cont: String) -> Result<Date, SError> {
     Ok(Date { day, month, year })
 }
 
-fn parse_file(dir_path: &Path, f: DirEntry, cache: &mut CacheHelper) -> Result<Event, SError> {
+fn parse_file(dir_path: &Path, f: &DirEntry, cache: &mut CacheHelper) -> Result<Event, SError> {
     let file_name = f.file_name();
     let name = file_name.to_string_lossy();
     let name = match name.strip_suffix(".stck") {
@@ -69,11 +69,11 @@ fn execute() -> Result<(), SError> {
     let events_dir = std::fs::read_dir(&events_dir_name)?;
     let args: Vec<_> = std::env::args()
         .skip(1)
-        .map(parse_date)
+        .map(|s| parse_date(&s))
         .collect::<Result<_, _>>()?;
     let mut cacher = CacheHelper::new();
     let events: Vec<_> = events_dir
-        .map(|e| parse_file(&events_dir_name, e?, &mut cacher))
+        .map(|e| parse_file(&events_dir_name, &e?, &mut cacher))
         .collect::<Result<_, _>>()?;
 
     let mut events_to_show: HashSet<String> = HashSet::new();
