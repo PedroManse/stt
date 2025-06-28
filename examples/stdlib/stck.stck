@@ -1,5 +1,5 @@
-(pragma if not STDLIB_STT)
-(pragma set STDLIB_STT)
+(pragma if not STDLIB_STCK)
+(pragma set STDLIB_STCK)
 
 (TRC* Nil)
 
