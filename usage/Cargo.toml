@@ -1,0 +1,13 @@
+[package]
+name = "stck-examples"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+regex = "1.11.1"
+stck = "0.3.0"
+thiserror = "2.0.12"
+
+[[bin]]
+name = "calendar"
+path = "src/calendar/main.rs"

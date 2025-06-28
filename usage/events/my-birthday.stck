@@ -1,0 +1,9 @@
+(fn) [ year<num> month<num> day<num> ] [ <bool> ] main {
+	month 11 =
+	day 19 =
+		= 0 0 = =
+}
+main
+
+# could be just:
+# drop 11 = 19 = and
