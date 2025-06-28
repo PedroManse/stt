@@ -263,8 +263,8 @@ impl Context {
         // builtin fn should handle stack pop and push
         // and are always given precedence
         match self.try_execute_builtin(name.as_str(), source) {
-            Ok(()) => return Ok(()),
-            Err(error::RuntimeError::RuntimeRaw(Rtk::NoSuchBuiltin)) => {}
+            Ok(Some(())) => return Ok(()),
+            Ok(None) => {}
             Err(e) => return Err(e),
         }
 
@@ -405,7 +405,7 @@ impl Context {
         Some(())
     }
 
-    fn try_execute_builtin(&mut self, fn_name: &str, source: &Path) -> SResult<()> {
+    fn try_execute_builtin(&mut self, fn_name: &str, source: &Path) -> SResult<Option<()>> {
         match fn_name {
             // seq system
             "print" => {
@@ -788,9 +788,9 @@ impl Context {
             "debug$generics" => eprintln!("{:?}", self.trc),
 
             _ => {
-                return Err(Rtk::NoSuchBuiltin.into());
+                return Ok(None);
             }
         }
-        Ok(())
+        Ok(Some(()))
     }
 }

@@ -288,10 +288,6 @@ pub enum RuntimeErrorKind {
         got: Box<Value>,
         expected: &'static str,
     },
-    #[error(
-        "This error should never be elevated to users, if this happens to you, please report it"
-    )]
-    NoSuchBuiltin,
     #[error("The variable {0} is not defined")]
     NoSuchVariable(String),
     #[error(
