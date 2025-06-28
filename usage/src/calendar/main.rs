@@ -1,4 +1,4 @@
-use stck::*;
+use stck::prelude::*;
 use std::collections::HashSet;
 use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 struct Event {
     name: String,
-    test: stck::Code,
+    test: Code,
 }
 
 struct Date {
@@ -26,14 +26,14 @@ fn parse_date(cont: String) -> Result<Date, SError> {
     Ok(Date { day, month, year })
 }
 
-fn parse_file(dir_path: &Path, f: DirEntry) -> Result<Event, SError> {
+fn parse_file(dir_path: &Path, f: DirEntry, cache: &mut CacheHelper) -> Result<Event, SError> {
     let file_name = f.file_name();
     let name = file_name.to_string_lossy();
     let name = match name.strip_suffix(".stck") {
         Some(a) => a.to_string(),
         None => name.to_string(),
     };
-    let tokens = api::get_tokens(dir_path.join(file_name))?;
+    let tokens = get_tokens(dir_path.join(file_name), cache)?;
     let test = api::parse_raw_tokens(tokens)?;
     Ok(Event {
         name: name.to_string(),
@@ -46,21 +46,20 @@ enum SError {
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]
-    EnvVar(#[from] std::env::VarError),
+    StckRuntime(#[from] error::RuntimeErrorCtx),
     #[error(transparent)]
-    StckRuntime(#[from] stck::error::StckErrorCase),
-    #[error(transparent)]
-    StckParse(#[from] stck::error::StckError),
+    StckError(#[from] error::Error),
     #[error(transparent)]
     Regex(#[from] regex::Error),
-    #[error("Wrongly formatted date: `{0}`, should be dd-mm-yyyy")]
-    WrongFormat(String),
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
-    #[error("Program {0} didn't return any")]
+
+    #[error("Wrongly formatted date: `{0}`, should be dd-mm-yyyy")]
+    WrongFormat(String),
+    #[error("Program {0} didn't return anything")]
     DidntReturn(String),
     #[error("Program {0} returned: {1:?} instead of a boolean")]
-    WrongReturn(String, stck::Value),
+    WrongReturn(String, stck::internals::Value),
 }
 
 fn execute() -> Result<(), SError> {
@@ -72,13 +71,14 @@ fn execute() -> Result<(), SError> {
         .skip(1)
         .map(parse_date)
         .collect::<Result<_, _>>()?;
+    let mut cacher = CacheHelper::new();
     let events: Vec<_> = events_dir
-        .map(|e| parse_file(&events_dir_name, e?))
+        .map(|e| parse_file(&events_dir_name, e?, &mut cacher))
         .collect::<Result<_, _>>()?;
 
     let mut events_to_show: HashSet<String> = HashSet::new();
 
-    let mut ctx = stck::Context::new();
+    let mut ctx = RuntimeContext::new();
     for arg in args {
         for e in &events {
             ctx.stack.push_this(arg.year);
@@ -87,7 +87,7 @@ fn execute() -> Result<(), SError> {
             ctx.execute_entire_code(&e.test)?;
             let show_event = ctx
                 .stack
-                .pop_this(stck::Value::get_bool)
+                .pop_this(stck::internals::Value::get_bool)
                 .ok_or(SError::DidntReturn(e.name.clone()))?
                 .map_err(|v| SError::WrongReturn(e.name.clone(), v))?;
             if show_event {
