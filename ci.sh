@@ -1,10 +1,19 @@
 #! /usr/bin/env bash
+set -e
 
-if [ "$1" = "--allow-dirty" ] || [ "$2" = "--allow-dirty" ] ; then allow_dirty="--allow-dirty" ; fi
-if [ "$1" = "--fix" ] || [ "$2" = "--fix" ] ; then fix="--fix" ; fi
-set -ex
+if [ -n "$FIX" ] && [ "$FIX" != "0" ] ; then
+	fix="--fix"
+fi
+
+if [ -n "$DIRTY" ] && [ "$DIRTY" != "0" ] ; then
+	allow_dirty="--allow-dirty"
+fi
+
 
 ci() {
+	pushd $1
+	set -x
+
 	cargo build
 	cargo fmt
 	cargo clippy $fix $allow_dirty --all-targets --all-features -- \
@@ -21,11 +30,20 @@ ci() {
 		-Aclippy::cast_sign_loss \
 		-Aclippy::cast_possible_wrap \
 		-Aclippy::cast_possible_truncation
-	# should remove the last 4
 	cargo test
+
+	set +x
+	popd
 }
 
-ci
-cd lang; ci
-cd ../interpreter; ci
-cd ../usage; ci
+if [ "$#" != 0 ] ; then
+	for target in "$@" ; do
+		ci $target
+	done
+else
+	ci .
+	ci lang
+	ci interpreter
+	ci usage
+fi
+
