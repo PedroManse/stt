@@ -196,9 +196,9 @@ pub enum StckError {
     #[error("Tokenizer: No impl for {0:?} with {1:?}")]
     CantTokenizerChar(token::State, char),
     #[error(
-        "Parser in file {path}: State ({_0:?}): {state} doesn't accept token: {1:?}",
-        path=_2.display().to_string().green(),
-        state=_0.to_string().yellow()
+        "Parser in file {path}: State ({0:?}): {state} doesn't accept token: {1:?}",
+        path=.2.display().to_string().green(),
+        state=.0.to_string().yellow()
     )]
     CantParseToken(parse::State, Box<TokenCont>, PathBuf),
     #[error("Unknown keyword: {0}")]
@@ -207,7 +207,7 @@ pub enum StckError {
     MissingChar,
     #[error("Can't make closure with zero arguments, it's code spans these bytes: {span}")]
     CantInstanceClosureZeroArgs { span: LineRange },
-    #[error("Parser in file {path}: Can only user param list or '*' as function arguments, not {0}", path=_1.display())]
+    #[error("Parser in file {path}: Can only user param list or '*' as function arguments, not {0}", path=.1.display())]
     WrongParamList(String, PathBuf),
     #[error("Type `{0}` doesn't exist")]
     UnknownType(String),
@@ -244,7 +244,7 @@ pub enum RuntimeErrorKind {
     MissingValue(String, char),
     #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
     WrongValueType(String, Value, char),
-    #[error("Expected type: {0} got value {1:?}: {ty}", ty=TypeTester::from(_1.as_ref()))]
+    #[error("Expected type: {0} got value {1:?}: {ty}", ty=TypeTester::from(.1.as_ref()))]
     Type(TypeTester, Box<Value>),
     #[error("Expected type: {0} got {1}")]
     TypeType(TypeTester, TypeTester),
