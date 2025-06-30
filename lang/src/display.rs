@@ -248,7 +248,7 @@ impl Display for Value {
                 write!(f, ">")
             }
             Value::Map(m) => f.debug_map().entries(m).finish(),
-            Value::Closure(c) => write!(f, "Closure <{}> -> <{}> @ {:p}", "...", "...", c),
+            Value::Closure(c) => write!(f, "Closure <...> -> <...> @ {c:p}"),
         }
     }
 }

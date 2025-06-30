@@ -287,7 +287,7 @@ impl Stack {
     pub fn as_slice(&self) -> &[Value] {
         &self.0
     }
-    pub fn into_vec(self) -> Vec<Value> {
+    #[must_use] pub fn into_vec(self) -> Vec<Value> {
         self.0
     }
     #[must_use]

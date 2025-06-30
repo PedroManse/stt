@@ -47,7 +47,7 @@ fn execute(
             let code = get_project_code(file_path, file_cache)?;
             exec_ctx
                 .execute_entire_code(&code)
-                .map_err(|e| stck::error::RuntimeError::from(e))?;
+                .map_err(stck::error::RuntimeError::from)?;
         }
         M::SyntaxCheck => {
             get_project_code(file_path, file_cache)?;
@@ -90,7 +90,7 @@ fn main() {
             let vars = ctx.get_vars().clone();
             println!("===[ Stack ]===");
             for (n, v) in ctx.get_stack().iter().rev().enumerate() {
-                println!("#{}: {}", n, v);
+                println!("#{n}: {v}");
             }
             println!("---------------");
             println!("Vars: {vars:?}");
