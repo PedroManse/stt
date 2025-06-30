@@ -138,7 +138,6 @@ fn execute_code(code: &Code) -> SResult<runtime::Context> {
     let mut executioner = runtime::Context::new();
     executioner
         .execute_entire_code(code)
-        .map_err(error::RuntimeError::from)
         .map_err(error::Error::from)?;
     Ok(executioner)
 }
