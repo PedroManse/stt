@@ -11,7 +11,7 @@ repository = "https://github.com/PedroManse/stck"
 readme = "./README.md"
 
 [dependencies]
-stck = "0.3.2"
+stck = "0.3.3"
 clap = { version = "4.5.40", features = ["derive"] }
 colored = "3.0.0"
 
