@@ -237,7 +237,7 @@ impl Display for Value {
             },
             Value::Array(a) => {
                 write!(f, "{}<", "Array".bright_yellow())?;
-                let last_idx = a.len()-1;
+                let last_idx = a.len() - 1;
                 for (idx, v) in a.iter().enumerate() {
                     if idx == last_idx {
                         write!(f, "{v}")?;

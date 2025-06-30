@@ -45,7 +45,8 @@ fn execute(
     match mode {
         M::Normal | M::Debug => {
             let code = get_project_code(file_path, file_cache)?;
-            exec_ctx.execute_entire_code(&code)
+            exec_ctx
+                .execute_entire_code(&code)
                 .map_err(|e| stck::error::RuntimeError::from(e))?;
         }
         M::SyntaxCheck => {
