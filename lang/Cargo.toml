@@ -1,6 +1,6 @@
 [package]
 name = "stck"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 authors = ["Manse <pedromanse@duck.com>"]
 license = "GPL-3.0"
