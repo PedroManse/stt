@@ -189,7 +189,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "stck"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "colored",
  "thiserror",
@@ -197,9 +197,9 @@ dependencies = [
 
 [[package]]
 name = "stck"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b9c30de386587541dabe1b335407ca523ec9ffac82855ff4fa31ce512dc509e"
+checksum = "98eda44a4f6eaf0b01e62e05c218af9719c3f65f733e802f29af162bf10080cc"
 dependencies = [
  "colored",
  "thiserror",
@@ -212,7 +212,7 @@ dependencies = [
  "clap",
  "colored",
  "regex",
- "stck 0.3.1",
+ "stck 0.3.2",
  "thiserror",
 ]
 
@@ -222,7 +222,7 @@ version = "0.1.1"
 dependencies = [
  "clap",
  "colored",
- "stck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stck 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

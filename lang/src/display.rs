@@ -219,3 +219,36 @@ impl Display for parse::State {
         write!(f, "{s}")
     }
 }
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Result(r) => match r.as_ref() {
+                Result::Ok(t) => write!(f, "{}<{}>", "Ok".bright_yellow(), t),
+                Result::Err(e) => write!(f, "{}<{}>", "Error".bright_yellow(), e),
+            },
+            Value::Str(s) => write!(f, "\"{}\"", s.green()),
+            Value::Num(n) => write!(f, "{}", n.to_string().bright_cyan()),
+            Value::Char(c) => write!(f, "'{}'", c.to_string().green()),
+            Value::Bool(b) => write!(f, "{}", b.to_string().purple()),
+            Value::Option(o) => match o.as_ref() {
+                Option::None => write!(f, "{}", "None".bright_yellow()),
+                Option::Some(t) => write!(f, "{}<{t}>", "Some".bright_yellow()),
+            },
+            Value::Array(a) => {
+                write!(f, "{}<", "Array".bright_yellow())?;
+                let last_idx = a.len() - 1;
+                for (idx, v) in a.iter().enumerate() {
+                    if idx == last_idx {
+                        write!(f, "{v}")?;
+                    } else {
+                        write!(f, "{v} ")?;
+                    }
+                }
+                write!(f, ">")
+            }
+            Value::Map(m) => f.debug_map().entries(m).finish(),
+            Value::Closure(c) => write!(f, "Closure <...> -> <...> @ {c:p}"),
+        }
+    }
+}
