@@ -1,3 +1,4 @@
+use stck::error::RuntimeErrorCtx;
 use stck::prelude::*;
 use std::collections::HashSet;
 use std::fs::DirEntry;
@@ -46,8 +47,6 @@ enum SError {
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]
-    StckRuntime(#[from] error::RuntimeErrorCtx),
-    #[error(transparent)]
     StckError(#[from] error::Error),
     #[error(transparent)]
     Regex(#[from] regex::Error),
@@ -60,6 +59,12 @@ enum SError {
     DidntReturn(String),
     #[error("Program {0} returned: {1:?} instead of a boolean")]
     WrongReturn(String, stck::internals::Value),
+}
+
+impl From<RuntimeErrorCtx> for SError {
+    fn from(value: RuntimeErrorCtx) -> Self {
+        SError::from(error::Error::from(value))
+    }
 }
 
 fn execute() -> Result<(), SError> {

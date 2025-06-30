@@ -30,6 +30,18 @@ pub enum Error {
     RuntimeError(#[from] RuntimeError),
 }
 
+impl From<RuntimeErrorKind> for Error {
+    fn from(value: RuntimeErrorKind) -> Self {
+        RuntimeError::RuntimeRaw(value).into()
+    }
+}
+
+impl From<RuntimeErrorCtx> for Error {
+    fn from(value: RuntimeErrorCtx) -> Self {
+        RuntimeError::RuntimeCtx(value).into()
+    }
+}
+
 /// # The context of a runtime error
 ///
 /// Error Context, informing the source file's path, the expression

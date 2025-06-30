@@ -5,9 +5,15 @@ edition = "2024"
 
 [dependencies]
 regex = "1.11.1"
-stck = "0.3.0"
+stck = { path = "../lang" }
 thiserror = "2.0.12"
+clap = { version = "4.5.40", features = ["derive"] }
+colored = "3.0.0"
 
 [[bin]]
 name = "calendar"
 path = "src/calendar/main.rs"
+
+[[bin]]
+name = "interpreter"
+path = "src/interpreter/main.rs"
