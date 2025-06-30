@@ -45,9 +45,7 @@ fn execute(
     match mode {
         M::Normal | M::Debug => {
             let code = get_project_code(file_path, file_cache)?;
-            exec_ctx
-                .execute_entire_code(&code)
-                .map_err(stck::error::RuntimeError::from)?;
+            exec_ctx.execute_entire_code(&code)?;
         }
         M::SyntaxCheck => {
             get_project_code(file_path, file_cache)?;
@@ -78,7 +76,7 @@ fn main() {
 
     if let Err(e) = execute(mode, file, &mut file_cacher, &mut ctx) {
         eprintln!("\n{e}");
-        if let Error::RuntimeError(error::RuntimeError::RuntimeCtx(e)) = e {
+        if let Error::RuntimeError(e) = e {
             let spans: stck::error::ErrorSpans = e.into();
             let sources = spans.try_into_sources(&mut file_cacher).unwrap();
             for source in sources {
