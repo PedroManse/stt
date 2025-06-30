@@ -7,10 +7,17 @@ use std::boxed::Box;
 use std::collections::HashMap;
 use std::path::Path;
 
+#[derive(thiserror::Error, Debug)]
+enum RuntimeError {
+    #[error(transparent)]
+    RuntimeCtx(#[from] RuntimeErrorCtx),
+    #[error(transparent)]
+    RuntimeRaw(#[from] RuntimeErrorKind),
+}
+
 type Rtk = crate::error::RuntimeErrorKind;
-type KResult<T> = std::result::Result<T, Rtk>;
 type CResult<T> = std::result::Result<T, error::RuntimeErrorCtx>;
-type SResult<T> = std::result::Result<T, error::RuntimeError>;
+type MixedResult<T> = std::result::Result<T, RuntimeError>;
 
 #[derive(Default, Debug)]
 pub struct Context {
@@ -112,7 +119,7 @@ impl Context {
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_check(&mut self, code: &[Expr], source: &Path) -> SResult<bool> {
+    fn execute_check(&mut self, code: &[Expr], source: &Path) -> MixedResult<bool> {
         let old_stack_size = self.stack.len();
         for expr in code {
             self.execute_expr(expr, source)?;
@@ -145,7 +152,7 @@ impl Context {
         }
     }
 
-    fn execute_expr_internal(&mut self, expr: &Expr, source: &Path) -> SResult<ControlFlow> {
+    fn execute_expr_internal(&mut self, expr: &Expr, source: &Path) -> MixedResult<ControlFlow> {
         match &expr.cont {
             ExprCont::FnCall(name) => self.execute_fn(name, source)?,
             ExprCont::Keyword(kw) => {
@@ -171,7 +178,7 @@ impl Context {
         Ok(ControlFlow::Continue)
     }
 
-    fn execute_kw(&mut self, kw: &KeywordKind, source: &Path) -> SResult<ControlFlow> {
+    fn execute_kw(&mut self, kw: &KeywordKind, source: &Path) -> MixedResult<ControlFlow> {
         Ok(match kw {
             KeywordKind::DefinedGeneric(trc) => {
                 self.trc.add_generic(trc.clone());
@@ -214,7 +221,7 @@ impl Context {
                     if case.test == cmp {
                         return self
                             .execute_code(&case.code, source)
-                            .map_err(error::RuntimeError::from);
+                            .map_err(RuntimeError::from);
                     }
                 }
                 match default {
@@ -227,7 +234,7 @@ impl Context {
                     if self.execute_check(&branch.check, source)? {
                         return self
                             .execute_code(&branch.code, source)
-                            .map_err(error::RuntimeError::from);
+                            .map_err(RuntimeError::from);
                     }
                 }
                 ControlFlow::Continue
@@ -264,7 +271,7 @@ impl Context {
         })
     }
 
-    fn execute_fn(&mut self, name: &FnName, source: &Path) -> SResult<()> {
+    fn execute_fn(&mut self, name: &FnName, source: &Path) -> MixedResult<()> {
         // builtin fn should handle stack pop and push
         // and are always given precedence
         match self.try_execute_builtin(name.as_str(), source) {
@@ -292,7 +299,7 @@ impl Context {
         &mut self,
         closure: FullClosure,
         source: &Path,
-    ) -> SResult<Vec<Value>> {
+    ) -> MixedResult<Vec<Value>> {
         let mut cl_ctx = Context::frame_closure(
             self.fns.clone(),
             self.vars.clone(),
@@ -318,7 +325,7 @@ impl Context {
         Ok(output)
     }
 
-    fn try_execute_user_fn(&mut self, name: &FnName) -> Option<SResult<Vec<Value>>> {
+    fn try_execute_user_fn(&mut self, name: &FnName) -> Option<MixedResult<Vec<Value>>> {
         let user_fn = self.fns.get(name)?;
         let mut trc: TypeResolutionContext = self.trc.clone().into();
 
@@ -351,7 +358,7 @@ impl Context {
                             Ok((cap.get_name().to_string(), ins))
                         }
                     })
-                    .collect::<KResult<_>>();
+                    .collect::<Result<_, error::RuntimeErrorKind>>();
                 let arg_map = match arg_map {
                     Err(e) => return Some(Err(e.into())),
                     Ok(a) => a,
@@ -410,7 +417,7 @@ impl Context {
         Some(())
     }
 
-    fn try_execute_builtin(&mut self, fn_name: &str, source: &Path) -> SResult<Option<()>> {
+    fn try_execute_builtin(&mut self, fn_name: &str, source: &Path) -> MixedResult<Option<()>> {
         match fn_name {
             // seq system
             "print" => {

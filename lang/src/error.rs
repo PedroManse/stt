@@ -7,39 +7,12 @@ use std::collections::hash_map::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-/// # A runtime error, possibly with a context
-///
-/// Either an [error with context](RuntimeErrorCtx) or [without](RuntimeErrorKind).
-/// However, using the [simple api](crate::api), should always give you a context-full erorr
-///
-/// This error implements [Display](std::fmt::Display) through [Error kind](RuntimeErrorKind) and
-/// [Error Context](RuntimeErrorCtx)
-#[derive(thiserror::Error, Debug)]
-pub enum RuntimeError {
-    #[error(transparent)]
-    RuntimeCtx(#[from] RuntimeErrorCtx),
-    #[error(transparent)]
-    RuntimeRaw(#[from] RuntimeErrorKind),
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Anoter(#[from] StckError),
     #[error(transparent)]
-    RuntimeError(#[from] RuntimeError),
-}
-
-impl From<RuntimeErrorKind> for Error {
-    fn from(value: RuntimeErrorKind) -> Self {
-        RuntimeError::RuntimeRaw(value).into()
-    }
-}
-
-impl From<RuntimeErrorCtx> for Error {
-    fn from(value: RuntimeErrorCtx) -> Self {
-        RuntimeError::RuntimeCtx(value).into()
-    }
+    RuntimeError(#[from] RuntimeErrorCtx),
 }
 
 /// # The context of a runtime error
