@@ -45,6 +45,11 @@ impl Context {
     }
 
     #[must_use]
+    pub fn get_vars(&self) -> &HashMap<String, Value> {
+        &self.vars
+    }
+
+    #[must_use]
     pub fn take_stack(self) -> Stack {
         self.stack
     }

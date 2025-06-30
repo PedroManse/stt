@@ -240,11 +240,11 @@ pub enum RuntimeErrorKind {
         got: Vec<Value>,
         needs: Vec<String>,
     },
-    #[error("Found error while executing `!` on a Result: {error:?}")]
+    #[error("Found {} while executing `!` on a Result: {error}", "Error".bright_yellow())]
     UnwrapResultBuiltinFailed { error: Value },
     #[error("Found missing value while exeuting `!` on an Option")]
     UnwrapOptionBuiltinFailed,
-    #[error("Can't compare {this:?} with {that:?}")]
+    #[error("Can't compare {this} with {that}")]
     Compare { this: Value, that: Value },
     #[error("Switch case with no value")]
     SwitchCaseWithNoValue,
@@ -254,9 +254,9 @@ pub enum RuntimeErrorKind {
     UnknownStringFormat(String, char),
     #[error("`%%` ({0}) Can't capture any value, the stack is empty")]
     MissingValue(String, char),
-    #[error("`%%` ({0}) The provided value, {1:?}, can't be formatted with `{2}`")]
+    #[error("`%%` ({0}) The provided value, {1}, can't be formatted with `{2}`")]
     WrongValueType(String, Value, char),
-    #[error("Expected type: {0} got value {1:?}: {ty}", ty=TypeTester::from(.1.as_ref()))]
+    #[error("Expected type: {0} got value {1}: {ty}", ty=TypeTester::from(.1.as_ref()))]
     Type(TypeTester, Box<Value>),
     #[error("Expected type: {0} got {1}")]
     TypeType(TypeTester, TypeTester),
@@ -276,7 +276,7 @@ pub enum RuntimeErrorKind {
         new_stack_size: usize,
         new_should_stack_size: usize,
     },
-    #[error("check blocks must recieve one boolean, recieved {got:?}")]
+    #[error("check blocks must recieve one boolean, recieved {got}")]
     WrongTypeOnCheck { got: Value },
     #[error("Function {for_fn} accepts [{args}]. But {this_arg} is missing")]
     MissingValueForBuiltin {
@@ -291,7 +291,7 @@ pub enum RuntimeErrorKind {
         missing: isize,
     },
     #[error(
-        "Function {for_fn} accepts {args}. But [{this_arg}] must be a {expected} and got {got:?}"
+        "Function {for_fn} accepts {args}. But [{this_arg}] must be a {expected} and got {got}"
     )]
     WrongTypeForBuiltin {
         for_fn: String,
