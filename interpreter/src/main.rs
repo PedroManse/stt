@@ -39,15 +39,14 @@ fn execute(
     mode: StckMode,
     file_path: PathBuf,
     file_cache: &mut impl cache::FileCacher,
+    exec_ctx: &mut RuntimeContext,
 ) -> Result<(), Error> {
     use StckMode as M;
     match mode {
-        M::Normal => {
-            execute_file(file_path, file_cache)?;
-        }
-        M::Debug => {
-            // execute and print values and stack on error
-            todo!()
+        M::Normal | M::Debug => {
+            let code = get_project_code(file_path, file_cache)?;
+            exec_ctx.execute_entire_code(&code)
+                .map_err(|e| stck::error::RuntimeError::from(e))?;
         }
         M::SyntaxCheck => {
             get_project_code(file_path, file_cache)?;
@@ -74,14 +73,26 @@ struct Cli {
 fn main() {
     let Cli { file, mode } = Cli::parse();
     let mut file_cacher = CacheHelper::new();
-    if let Err(e) = execute(mode, file, &mut file_cacher) {
-        eprintln!("{e}");
+    let mut ctx = RuntimeContext::new();
+
+    if let Err(e) = execute(mode, file, &mut file_cacher, &mut ctx) {
+        eprintln!("\n{e}");
         if let Error::RuntimeError(error::RuntimeError::RuntimeCtx(e)) = e {
             let spans: stck::error::ErrorSpans = e.into();
             let sources = spans.try_into_sources(&mut file_cacher).unwrap();
             for source in sources {
                 println!("{source}");
             }
+        }
+
+        if mode == StckMode::Debug {
+            let vars = ctx.get_vars().clone();
+            println!("===[ Stack ]===");
+            for (n, v) in ctx.get_stack().iter().rev().enumerate() {
+                println!("#{}: {}", n, v);
+            }
+            println!("---------------");
+            println!("Vars: {vars:?}");
         }
         std::process::exit(1);
     }
