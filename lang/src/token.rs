@@ -178,6 +178,12 @@ impl Context {
                     self.unget(); // re-read char with Nothing State
                     Nothing
                 }
+                (MakeNumber(buf), ',') => {
+                    let num = buf.parse()?;
+                    self.push_token(&mut out, Number(num));
+                    self.push_token(&mut out, Ident(",".to_string()));
+                    Nothing
+                }
 
                 // keyword
                 (Nothing, '(') => MakeKeyword(String::new(), self.current_line),
