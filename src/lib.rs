@@ -4,6 +4,7 @@ pub mod cache;
 pub mod error;
 pub mod internals;
 pub mod prelude;
+pub use error::Error;
 
 // Avaliabe internally
 pub(crate) use error::{
