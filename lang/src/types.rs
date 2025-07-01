@@ -201,6 +201,7 @@ impl FromStr for TypeTester {
             "char" => Self::Char,
             "string" | "str" => Self::Str,
             "num" => Self::Num,
+            "float" => Self::Float,
             "bool" => Self::Bool,
             "list" | "array" => Self::ArrayAny,
             "map" => Self::MapAny,
@@ -313,6 +314,7 @@ impl TypeResolutionContext {
     fn check_internal(&mut self, t: &TypeTester, v: &Value) -> Result<(), ()> {
         match (t, v) {
             (TypeTester::Any, _) => Ok(()),
+            (TypeTester::Float, Value::Float(_)) => Ok(()),
             (TypeTester::Char, Value::Char(_)) => Ok(()),
             (TypeTester::Str, Value::Str(_)) => Ok(()),
             (TypeTester::Num, Value::Num(_)) => Ok(()),
