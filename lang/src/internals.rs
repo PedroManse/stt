@@ -7,25 +7,19 @@ use super::*;
 pub use runtime::Context as RuntimeContext;
 use std::cell::OnceCell;
 use std::collections::HashMap;
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Code {
-    pub(crate) line_breaks: LineSpan,
     pub(crate) source: PathBuf,
     pub(crate) exprs: Vec<Expr>,
 }
 
 impl Code {
     #[must_use]
-    pub fn new(source: PathBuf, exprs: Vec<Expr>, line_breaks: LineSpan) -> Self {
-        Code {
-            line_breaks,
-            source,
-            exprs,
-        }
+    pub fn new(source: PathBuf, exprs: Vec<Expr>) -> Self {
+        Code { source, exprs }
     }
     #[must_use]
     pub fn expr_count(&self) -> usize {
@@ -130,7 +124,7 @@ impl ClosurePartialArgs {
             parent: OnceCell::new(),
         }
     }
-    pub fn parse(arg_list: Vec<FnArgDef>, span: Range<usize>) -> Result<Self, StckError> {
+    pub fn parse(arg_list: Vec<FnArgDef>, span: LineRange) -> Result<Self, StckError> {
         if arg_list.is_empty() {
             Err(StckError::CantInstanceClosureZeroArgs { span })
         } else {
@@ -293,7 +287,8 @@ impl Stack {
     pub fn as_slice(&self) -> &[Value] {
         &self.0
     }
-    pub(crate) fn into_vec(self) -> Vec<Value> {
+    #[must_use]
+    pub fn into_vec(self) -> Vec<Value> {
         self.0
     }
     #[must_use]
@@ -333,6 +328,7 @@ pub enum FnScope {
 
 #[derive(Clone, Debug)]
 pub(crate) struct FnDef {
+    pub(crate) source: PathBuf,
     pub(crate) scope: FnScope,
     pub(crate) code: Vec<Expr>,
     pub(crate) args: FnArgs,
@@ -345,8 +341,10 @@ impl FnDef {
         code: Vec<Expr>,
         args: FnArgs,
         output_types: Option<TypedOutputs>,
+        source: PathBuf,
     ) -> Self {
         FnDef {
+            source,
             scope,
             code,
             args,
@@ -384,9 +382,16 @@ pub enum Value {
     Result(Box<Result<Value, Value>>),
     Option(Option<Box<Value>>),
     Closure(Box<Closure>),
+    Float(f64),
 }
 
 impl Value {
+    pub fn get_float(self) -> Result<f64, Value> {
+        match self {
+            Value::Float(n) => Ok(n),
+            e => Err(e),
+        }
+    }
     pub fn get_option(self) -> Result<Option<Box<Value>>, Value> {
         match self {
             Value::Option(x) => Ok(x),
@@ -436,6 +441,12 @@ impl Value {
         }
     }
 
+    pub fn get_ref_float(&self) -> Result<&f64, &Value> {
+        match self {
+            Value::Float(n) => Ok(n),
+            o => Err(o),
+        }
+    }
     pub fn get_ref_option(&self) -> Result<&Option<Box<Value>>, &Value> {
         match self {
             Value::Option(x) => Ok(x),
@@ -483,6 +494,12 @@ impl Value {
             Value::Map(x) => Ok(x),
             o => Err(o),
         }
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Value::Float(value)
     }
 }
 
@@ -581,7 +598,7 @@ pub struct SwitchCase {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Clone, Debug)]
 pub struct Expr {
-    pub(crate) span: Range<usize>,
+    pub span: LineRange,
     pub cont: ExprCont,
 }
 
@@ -620,12 +637,13 @@ pub enum RawKeyword {
 #[derive(Debug)]
 pub struct Token {
     pub(crate) cont: TokenCont,
-    pub(crate) span: Range<usize>,
+    pub(crate) span: LineRange,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub enum TokenCont {
+    Float(f64),
     Char(char),
     Ident(String),
     Str(String),
@@ -645,7 +663,6 @@ pub enum TokenCont {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct TokenBlock {
-    pub(crate) line_breaks: LineSpan,
     pub(crate) source: PathBuf,
     pub(crate) tokens: Vec<Token>,
 }

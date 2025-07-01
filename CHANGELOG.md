@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+* Split into lang and interpreter crates
+* Introduced negative numbers as immediates
+* File caching
+* Store source in function
+* Store line instead of span on `exprs`
+
 ## 0.3.0
 * Added interpreter as binary, made crate into lib (#50)
 * Renamed STT to Stck

@@ -56,6 +56,7 @@ impl Display for TypeTester {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use TypeTester::*;
         match self {
+            Float => write!(f, "float"),
             Any => write!(f, "?"),
             Char => write!(f, "char"),
             Str => write!(f, "str"),
@@ -157,9 +158,11 @@ impl Display for RuntimeErrorCtx {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} doing {}", "Error".red(), self.ctx)?;
         writeln!(f, "{}", self.kind)?;
-        writeln!(f, "{} {}", "!".on_bright_red(), self.ctx)?;
-        for ctx in &self.stack {
-            writeln!(f, "{} {}", ">".bright_blue(), ctx)?;
+        if !self.stack.is_empty() {
+            writeln!(f, "{} {}", "!".on_bright_red(), self.ctx)?;
+            for ctx in &self.stack {
+                writeln!(f, "{} {}", ">".bright_blue(), ctx)?;
+            }
         }
         Ok(())
     }
@@ -167,10 +170,10 @@ impl Display for RuntimeErrorCtx {
 
 impl Display for LineRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.during <= 1 {
-            write!(f, "{}", self.before)
+        if self.delta() == 0 {
+            write!(f, "{}", self.start)
         } else {
-            write!(f, "{}:+{}", self.before, self.during)
+            write!(f, "{}:{:+}", self.start, self.delta())
         }
     }
 }
@@ -189,5 +192,67 @@ impl Display for ErrorSource {
         writeln!(f, "{}", self.lines)?;
         writeln!(f, "{}", "-".repeat(title_len).dimmed())?;
         Ok(())
+    }
+}
+
+impl Display for parse::State {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Nothing => "Making nothing",
+
+            Self::MakeIfs(..) => "Making ifs, awaiting conditional check or end",
+            Self::MakeIfsCode { .. } => "Making ifs, awaiting code block to execute",
+
+            Self::MakeFnArgs(..) => "Making function, awaiting args",
+            Self::MakeFnNameOrOutArgs(..) => "Making function, awaiting name or output args",
+            Self::MakeFnName(..) => "Making function, awaiting name",
+            Self::MakeFnBlock(..) => "MakeWhile function, awaiting code block to execute",
+
+            Self::MakeSwitch(..) => "Making switch case, awaiting value to match",
+            Self::MakeSwitchCode(..) => "Making switch case, awaiting code block to execute",
+
+            Self::MakeWhile => "Making while loop, awaiting check code block",
+            Self::MakeWhileCode(..) => "MakeWhile while lop, awaiting code block to execute",
+
+            Self::MakeClosureBlockOrOutArgs(..) => {
+                "Making closure, awaiting code block to execute or output args"
+            }
+            Self::MakeClosureBlock(..) => "Making closure, awaiting code block to execute",
+        };
+        write!(f, "{s}")
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Result(r) => match r.as_ref() {
+                Result::Ok(t) => write!(f, "{}<{}>", "Ok".bright_yellow(), t),
+                Result::Err(e) => write!(f, "{}<{}>", "Error".bright_yellow(), e),
+            },
+            Value::Str(s) => write!(f, "\"{}\"", s.green()),
+            Value::Num(n) => write!(f, "{}", n.to_string().bright_cyan()),
+            Value::Float(n) => write!(f, "{}", n.to_string().bright_cyan()),
+            Value::Char(c) => write!(f, "'{}'", c.to_string().green()),
+            Value::Bool(b) => write!(f, "{}", b.to_string().purple()),
+            Value::Option(o) => match o.as_ref() {
+                Option::None => write!(f, "{}", "None".bright_yellow()),
+                Option::Some(t) => write!(f, "{}<{t}>", "Some".bright_yellow()),
+            },
+            Value::Array(a) => {
+                write!(f, "{}<", "Array".bright_yellow())?;
+                let last_idx = a.len() - 1;
+                for (idx, v) in a.iter().enumerate() {
+                    if idx == last_idx {
+                        write!(f, "{v}")?;
+                    } else {
+                        write!(f, "{v} ")?;
+                    }
+                }
+                write!(f, ">")
+            }
+            Value::Map(m) => f.debug_map().entries(m).finish(),
+            Value::Closure(c) => write!(f, "Closure <...> -> <...> @ {c:p}"),
+        }
     }
 }

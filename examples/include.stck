@@ -1,0 +1,3 @@
+(include included.stck)
+(include included.stck)
+will-panic

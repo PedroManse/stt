@@ -2,16 +2,16 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::{
-    DefinedGenericBuilder, FnArgDef, FnScope, LineSpan, RawKeyword, StckError, Token, TokenBlock,
+    DefinedGenericBuilder, FnArgDef, FnScope, LineRange, RawKeyword, StckError, Token, TokenBlock,
     TokenCont,
 };
 
 type Result<T> = std::result::Result<T, StckError>;
 
 pub struct Context {
-    line_breaks: LineSpan,
+    changed_line: bool,
+    current_line: usize,
     point: usize,
-    last_token_pos: usize,
     chars: Vec<char>,
 }
 
@@ -20,16 +20,19 @@ pub enum State {
     Nothing,
     OnComment,
     MakeIdent(String),
-    MakeString(String),
-    MakeStringEsc(String), // found \ on string
+    MakeString(String, usize),
+    MakeStringEsc(String, usize), // found \ on string
+    Minus(String),
     MakeNumber(String),
-    MakeKeyword(String),
-    MakeFnArgs(Vec<FnArgDef>, String),
+    MakeFloat(String),
+    MakeKeyword(String, usize),
+    MakeFnArgs(Vec<FnArgDef>, String, usize),
     MakeFnArgType {
         args: Vec<FnArgDef>,
         arg_name: String,
         type_buf: String,
         tag_count: usize,
+        line_start: usize,
     },
     MakeChar,
     MakeCharEnd(char),
@@ -41,7 +44,7 @@ macro_rules! matches {
         'a'..='z' | 'A'..='Z' | '_' | '-' | '&'
     };
     (ident) => {
-        (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'')
+        (matches!(start_ident) | matches!(digit) | '/' | '\'' | '-')
     };
     (arg_type) => {
         (matches!(letter) | matches!(space) | '?' | '*')
@@ -50,7 +53,7 @@ macro_rules! matches {
         'a'..='z' | 'A'..='Z'
     };
     (start_ident) => {
-        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '-' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':' | '~' | '@'
+        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':' | '~' | '@' | '.'
     };
     (word_edge) => {
         '(' | ')' | '{' | '}' | '[' | ']'
@@ -65,17 +68,16 @@ macro_rules! matches {
 
 impl Context {
     fn push_token(&mut self, out: &mut Vec<Token>, token: TokenCont) {
-        let span = self.last_token_pos..self.point;
+        let span = LineRange::from_points(self.current_line, self.current_line);
         out.push(Token { cont: token, span });
-        self.last_token_pos = self.point;
+    }
+    fn push_multiline_token(&mut self, out: &mut Vec<Token>, token: TokenCont, line_start: usize) {
+        let span = LineRange::from_points(line_start, self.current_line);
+        out.push(Token { cont: token, span });
     }
     pub fn tokenize(mut self, source: PathBuf) -> Result<TokenBlock> {
         let tokens = self.tokenize_block()?;
-        Ok(TokenBlock {
-            source,
-            tokens,
-            line_breaks: self.line_breaks,
-        })
+        Ok(TokenBlock { source, tokens })
     }
 
     // just read a '{'
@@ -87,25 +89,19 @@ impl Context {
 
         while let Some(ch) = self.next() {
             state = match (state, ch) {
+                // code block
+                (Nothing, '{') => {
+                    let block_start = self.current_line;
+                    let block = self.tokenize_block()?;
+                    self.push_multiline_token(&mut out, Block(block), block_start);
+                    Nothing
+                }
                 (Nothing, '}') => {
-                    self.last_token_pos = self.point;
                     self.push_token(&mut out, EndOfBlock);
                     return Ok(out);
                 }
-                (Nothing, '{') => {
-                    // keep start of block's span = to where { is
-                    // but use end of block span = to where } is
-                    let last_token_pos = self.last_token_pos;
-                    let block = self.tokenize_block()?;
-                    self.last_token_pos = last_token_pos;
-                    self.push_token(&mut out, Block(block));
-                    Nothing
-                }
-                (Nothing, c @ matches!(start_ident)) => MakeIdent(String::from(*c)),
-                (Nothing, '"') => MakeString(String::new()),
-                (Nothing, c @ matches!(digit)) => MakeNumber(String::from(*c)),
-                (Nothing, '(') => MakeKeyword(String::new()),
-                (Nothing, '[') => MakeFnArgs(Vec::new(), String::new()),
+
+                // char
                 (Nothing, '\'') => MakeChar,
                 (MakeChar, c) => MakeCharEnd(*c),
                 (MakeCharEnd('\\'), c @ ('\\' | '\'')) => MakeCharEndEsc(*c),
@@ -119,6 +115,19 @@ impl Context {
                     Nothing
                 }
 
+                // minus (either number or identifier)
+                (Nothing, c @ '-') => Minus(String::from(*c)),
+                (Minus(mut buf), c @ matches!(digit)) => {
+                    buf.push(*c);
+                    MakeNumber(buf)
+                }
+                (Minus(buf), _) => {
+                    self.unget();
+                    MakeIdent(buf)
+                }
+
+                // identifier
+                (Nothing, c @ matches!(start_ident)) => MakeIdent(String::from(*c)),
                 (MakeIdent(mut buf), c @ matches!(ident)) => {
                     buf.push(*c);
                     MakeIdent(buf)
@@ -133,24 +142,28 @@ impl Context {
                     Nothing
                 }
 
-                (MakeString(buf), '"') => {
-                    self.push_token(&mut out, Str(buf));
+                // string
+                (Nothing, '"') => MakeString(String::new(), self.current_line),
+                (MakeString(buf, line_start), '"') => {
+                    self.push_multiline_token(&mut out, Str(buf), line_start);
                     Nothing
                 }
-                (MakeString(buf), '\\') => MakeStringEsc(buf),
-                (MakeString(mut buf), c) => {
+                (MakeString(buf, line_start), '\\') => MakeStringEsc(buf, line_start),
+                (MakeString(mut buf, line_start), c) => {
                     buf.push(*c);
-                    MakeString(buf)
+                    MakeString(buf, line_start)
                 }
-                (MakeStringEsc(mut buf), '\\') => {
+                (MakeStringEsc(mut buf, line_start), '\\') => {
                     buf.push('\\');
-                    MakeString(buf)
+                    MakeString(buf, line_start)
                 }
-                (MakeStringEsc(mut buf), 'n') => {
+                (MakeStringEsc(mut buf, line_start), 'n') => {
                     buf.push('\n');
-                    MakeString(buf)
+                    MakeString(buf, line_start)
                 }
 
+                // number
+                (Nothing, c @ matches!(digit)) => MakeNumber(String::from(*c)),
                 (MakeNumber(mut buf), c @ matches!(digit)) => {
                     buf.push(*c);
                     MakeNumber(buf)
@@ -166,8 +179,37 @@ impl Context {
                     self.unget(); // re-read char with Nothing State
                     Nothing
                 }
+                (MakeNumber(mut buf), c @ '.') => {
+                    buf.push(*c);
+                    MakeFloat(buf)
+                }
+                (MakeNumber(buf), ',') => {
+                    let num = buf.parse()?;
+                    self.push_token(&mut out, Number(num));
+                    self.push_token(&mut out, Ident(",".to_string()));
+                    Nothing
+                }
 
-                (MakeKeyword(buf), ')') => {
+                // Make float
+                (MakeFloat(mut buf), c @ matches!(digit)) => {
+                    buf.push(*c);
+                    MakeFloat(buf)
+                }
+                (MakeFloat(buf), matches!(space)) => {
+                    let num = buf.parse()?;
+                    self.push_token(&mut out, Float(num));
+                    Nothing
+                }
+                (MakeFloat(buf), matches!(word_edge)) => {
+                    let num = buf.parse()?;
+                    self.push_token(&mut out, Float(num));
+                    self.unget(); // re-read char with Nothing State
+                    Nothing
+                }
+
+                // keyword
+                (Nothing, '(') => MakeKeyword(String::new(), self.current_line),
+                (MakeKeyword(buf, line_start), ')') => {
                     let kw = match buf.as_str().trim() {
                         "!" => RawKeyword::BubbleError,
                         "fn" => RawKeyword::Fn(FnScope::Local),
@@ -204,25 +246,28 @@ impl Context {
                                 .ok_or(StckError::UnknownKeyword(otherwise.to_string()))?
                         }
                     };
-                    self.push_token(&mut out, Keyword(kw));
+                    self.push_multiline_token(&mut out, Keyword(kw), line_start);
                     Nothing
                 }
-                (MakeKeyword(mut buf), c) => {
+                (MakeKeyword(mut buf, line_start), c) => {
                     buf.push(*c);
-                    MakeKeyword(buf)
+                    MakeKeyword(buf, line_start)
                 }
 
-                (MakeFnArgs(mut xs, buf), matches!(space)) => {
+                // arg list
+                (Nothing, '[') => MakeFnArgs(Vec::new(), String::new(), self.current_line),
+                (MakeFnArgs(mut xs, buf, line_start), matches!(space)) => {
                     if !buf.is_empty() {
                         xs.push(FnArgDef::new_untyped(buf));
                     }
-                    MakeFnArgs(xs, String::new())
+                    MakeFnArgs(xs, String::new(), line_start)
                 }
-                (MakeFnArgs(args, arg_name), '<') => MakeFnArgType {
+                (MakeFnArgs(args, arg_name, line_start), '<') => MakeFnArgType {
                     args,
                     arg_name,
                     type_buf: String::new(),
                     tag_count: 0,
+                    line_start,
                 },
                 (
                     MakeFnArgType {
@@ -230,6 +275,7 @@ impl Context {
                         arg_name,
                         mut type_buf,
                         tag_count,
+                        line_start,
                     },
                     c @ matches!(arg_type),
                 ) => {
@@ -239,6 +285,7 @@ impl Context {
                         arg_name,
                         type_buf,
                         tag_count,
+                        line_start,
                     }
                 }
                 (
@@ -247,6 +294,7 @@ impl Context {
                         arg_name,
                         mut type_buf,
                         tag_count,
+                        line_start,
                     },
                     c @ '<',
                 ) => {
@@ -256,6 +304,7 @@ impl Context {
                         arg_name,
                         type_buf,
                         tag_count: tag_count + 1,
+                        line_start,
                     }
                 }
                 (
@@ -264,12 +313,13 @@ impl Context {
                         arg_name,
                         type_buf,
                         tag_count: 0,
+                        line_start,
                     },
                     '>',
                 ) => {
                     let x = FnArgDef::new_typed(arg_name, type_buf.trim().parse()?);
                     args.push(x);
-                    MakeFnArgs(args, String::new())
+                    MakeFnArgs(args, String::new(), line_start)
                 }
                 (
                     MakeFnArgType {
@@ -277,6 +327,7 @@ impl Context {
                         arg_name,
                         mut type_buf,
                         tag_count,
+                        line_start,
                     },
                     c @ '>',
                 ) => {
@@ -286,31 +337,26 @@ impl Context {
                         arg_name,
                         type_buf,
                         tag_count: tag_count - 1,
+                        line_start,
                     }
                 }
-                (MakeFnArgs(xs, mut buf), c @ matches!(arg_ident)) => {
+                (MakeFnArgs(xs, mut buf, line_start), c @ matches!(arg_ident)) => {
                     buf.push(*c);
-                    MakeFnArgs(xs, buf)
+                    MakeFnArgs(xs, buf, line_start)
                 }
-                (MakeFnArgs(mut xs, buf), ']') => {
+                (MakeFnArgs(mut xs, buf, line_start), ']') => {
                     if !buf.is_empty() {
                         xs.push(FnArgDef::new_untyped(buf));
                     }
-                    self.push_token(&mut out, FnArgs(xs));
+                    self.push_multiline_token(&mut out, FnArgs(xs), line_start);
                     Nothing
                 }
 
+                // comment
                 (Nothing, '#') => OnComment,
-                (OnComment, '\n') => {
-                    self.last_token_pos = self.point;
-                    Nothing
-                }
+                (OnComment, '\n') => Nothing,
                 (OnComment, _) => OnComment,
-
-                (Nothing, matches!(space)) => {
-                    self.last_token_pos += 1;
-                    Nothing
-                }
+                (Nothing, matches!(space)) => Nothing,
 
                 (s, c) => {
                     return Err(StckError::CantTokenizerChar(s, *c));
@@ -329,7 +375,6 @@ impl Context {
                 }
                 s => return Err(StckError::UnexpectedEOF(s)),
             }
-            self.last_token_pos = self.point;
             self.push_token(&mut out, EndOfBlock);
             Ok(out)
         } else {
@@ -343,8 +388,12 @@ impl Context {
 
     fn next(&mut self) -> Option<&char> {
         let ch = self.chars.get(self.point)?;
+        if self.changed_line {
+            self.current_line += 1;
+            self.changed_line = false;
+        }
         if ch == &'\n' {
-            self.line_breaks.add(self.point);
+            self.changed_line = true;
         }
         self.point += 1;
         Some(ch)
@@ -353,15 +402,18 @@ impl Context {
     // to re-read char with differnt State
     fn unget(&mut self) {
         self.point -= 1;
+        if self.chars.get(self.point) == Some(&'\n') {
+            self.current_line -= 1;
+        }
     }
 
     pub fn new(code: &str) -> Self {
         let chars: Vec<char> = code.chars().collect();
         Self {
+            changed_line: false,
             point: 0,
-            line_breaks: LineSpan::new(),
             chars,
-            last_token_pos: 0,
+            current_line: 1,
         }
     }
 }

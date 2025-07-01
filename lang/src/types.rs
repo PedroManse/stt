@@ -125,6 +125,7 @@ impl TypedFnPart {
 }
 
 pub enum TypeTesterEq {
+    Float,
     Generic,
     Any,
     Char,
@@ -174,6 +175,7 @@ impl PartialEq for TypeTesterEq {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeTester {
     Generic(String),
+    Float,
     Any,
     Char,
     Str,
@@ -199,6 +201,7 @@ impl FromStr for TypeTester {
             "char" => Self::Char,
             "string" | "str" => Self::Str,
             "num" => Self::Num,
+            "float" => Self::Float,
             "bool" => Self::Bool,
             "list" | "array" => Self::ArrayAny,
             "map" => Self::MapAny,
@@ -311,6 +314,7 @@ impl TypeResolutionContext {
     fn check_internal(&mut self, t: &TypeTester, v: &Value) -> Result<(), ()> {
         match (t, v) {
             (TypeTester::Any, _) => Ok(()),
+            (TypeTester::Float, Value::Float(_)) => Ok(()),
             (TypeTester::Char, Value::Char(_)) => Ok(()),
             (TypeTester::Str, Value::Str(_)) => Ok(()),
             (TypeTester::Num, Value::Num(_)) => Ok(()),
@@ -434,6 +438,7 @@ impl TypeTester {
     #[must_use]
     pub fn as_eq(&self) -> TypeTesterEq {
         match self {
+            Self::Float => TypeTesterEq::Float,
             Self::Any => TypeTesterEq::Any,
             Self::Char => TypeTesterEq::Char,
             Self::Str => TypeTesterEq::Str,
@@ -492,6 +497,7 @@ impl From<Vec<FnArgDef>> for TypedOutputs {
 impl From<&Value> for TypeTester {
     fn from(value: &internals::Value) -> Self {
         match value {
+            Value::Float(_) => Self::Float,
             Value::Char(_) => Self::Char,
             Value::Str(_) => Self::Str,
             Value::Num(_) => Self::Num,

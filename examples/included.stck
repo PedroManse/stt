@@ -1,0 +1,5 @@
+"hello\n" print
+
+(fn) [] will-panic {
+	"throw" err !
+}

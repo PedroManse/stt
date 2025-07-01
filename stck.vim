@@ -1,113 +1,113 @@
 " true/false
-syn keyword SttBoolean true false
-hi def link SttBoolean Identifier
+syn keyword Boolean true false
+hi def link Boolean Identifier
 
 " get/set
-syn keyword SttVarOp get set
-hi def link SttVarOp Keyword
+syn keyword VarOp get set
+hi def link VarOp Keyword
 
 " (while) (ifs)
-syn match SttOpenParam "(" nextgroup=SttKeyword,SttInclude,SttFnDef,SttPragma
-syn keyword SttKeyword while ifs contained
-syn match SttCloseParam ")" contained
-hi def link     SttKeyword        Keyword
+syn match OpenParam "(" nextgroup=Keyword,Include,FnDef,Pragma
+syn keyword Keyword while ifs contained
+syn match CloseParam ")" contained
+hi def link     Keyword        Keyword
 
 " (pragma)
-syn match SttPragma "pragma " nextgroup=SttPragmaCommand contained
-hi def link     SttPragma        Keyword
-hi def link     SttPragmaCommand        Number
-syn match SttPragmaCommand "\(\(if not\|if\|set\|unset\) [^)]\+\|\(else\|end if\)\)" contained nextgroup=SttCloseParam
+syn match Pragma "pragma " nextgroup=PragmaCommand contained
+hi def link     Pragma        Keyword
+hi def link     PragmaCommand        Number
+syn match PragmaCommand "\(\(if not\|if\|set\|unset\) [^)]\+\|\(else\|end if\)\)" contained nextgroup=CloseParam
 
 " (include)
-syn keyword SttInclude include nextgroup=SttIncludeFilePath contained
-hi def link     SttInclude        Include
+syn keyword Include include nextgroup=IncludeFilePath contained
+hi def link     Include        Include
 
-syn match      SttIncludeFilePath  " [a-zA-Z/]\+\(.stt\)\?" contained nextgroup=SttCloseParam
-hi def link SttIncludeFilePath Comment
+syn match      IncludeFilePath  " [a-zA-Z/]\+\(.stck\)\?" contained nextgroup=CloseParam
+hi def link IncludeFilePath Comment
 
 " Ident
-syn match SttIdentStart "[a-zA-Z+_\-%!?$=*&<>≃,:~@]" nextgroup=SttIdent
-syn match SttIdent "[a-zA-Z+_\-%!?$=*&<>≃,:~@./\']" nextgroup=SttIdent
-"hi def link SttIdentStart Identifier
-"hi def link SttIdent Identifier
+syn match IdentStart "[a-zA-Z+_\-%!?$=*&<>≃,:~@]" nextgroup=Ident
+syn match Ident "[a-zA-Z+_\-%!?$=*&<>≃,:~@./\']" nextgroup=Ident
+"hi def link IdentStart Identifier
+"hi def link Ident Identifier
 
 " char 'c'
-syn match SttCharStart "'" nextgroup=SttCharCont,SttCharSpecial,SttCharWrong
-syn match SttCharCont "[^\\\']" nextgroup=SttCharClose,SttCharError contained
-syn match SttCharSpecial "\\" nextgroup=SttCharSpecialChar,SttCharSpecialCharError contained
-syn match SttCharSpecialChar "\(n\|\\\|'\)" contained nextgroup=SttCharClose,SttCharError
-syn match SttCharSpecialCharError '[^n\\\']' contained nextgroup=SttCharError,SttCharClose
-syn match SttCharClose "'" contained
-syn match SttCharError '[^\']' contained nextgroup=SttCharError,SttCharClose
+syn match CharStart "'" nextgroup=CharCont,CharSpecial,CharWrong
+syn match CharCont "[^\\\']" nextgroup=CharClose,CharError contained
+syn match CharSpecial "\\" nextgroup=CharSpecialChar,CharSpecialCharError contained
+syn match CharSpecialChar "\(n\|\\\|'\)" contained nextgroup=CharClose,CharError
+syn match CharSpecialCharError '[^n\\\']' contained nextgroup=CharError,CharClose
+syn match CharClose "'" contained
+syn match CharError '[^\']' contained nextgroup=CharError,CharClose
 
-hi def link SttCharCont Comment
-hi def link SttCharClose Comment
-hi def link SttCharStart Comment
-hi def link SttCharSpecial Comment
-hi def link SttCharSpecialChar Keyword
-hi def link SttCharSpecialCharError Error
-hi def link SttCharError Error
+hi def link CharCont Comment
+hi def link CharClose Comment
+hi def link CharStart Comment
+hi def link CharSpecial Comment
+hi def link CharSpecialChar Keyword
+hi def link CharSpecialCharError Error
+hi def link CharError Error
 
 " (fn)
-syn keyword SttFnDef fn nextgroup=SttFnDefStart,SttFnDefScope contained
+syn keyword FnDef fn nextgroup=FnDefStart,FnDefScope contained
 " " fn scope
-syn match SttFnDefScope "\(*\|-\)" nextgroup=SttFnDefStart contained
+syn match FnDefScope "\(*\|-\)" nextgroup=FnDefStart contained
 
 " " close param
-syn match SttFnDefStart ") " contained nextgroup=SttFnDefArgsStartEmpty,SttFnDefArgsAllStack,SttFnDefArgsStartArgs
+syn match FnDefStart ") " contained nextgroup=FnDefArgsStartEmpty,FnDefArgsAllStack,FnDefArgsStartArgs
 
 " " allstack as arg
-syn match SttFnDefArgsAllStack "\*" contained
+syn match FnDefArgsAllStack "\*" contained
 
 " " parse [...] args
-" SttFnDefArgsStartArgs doesn't need to be contained because (fn) and closures
+" FnDefArgsStartArgs doesn't need to be contained because (fn) and closures
 " can start this
-syn match SttFnDefArgsStartArgs "\[\(\s\|\\n\)*" nextgroup=SttFnDefArgsArg,SttFnDefArgsEnd
-syn match SttFnDefArgsStartEmpty "\[\s*\]" contained
-syn match SttFnDefArgsArg "\<\w\+" nextgroup=SttFnDefArgsArgType,SttFnDefArgsArg contained
-syn match SttFnDefArgsArgType "<\s*" nextgroup=SFTC,SttFnDefArgsArgTypeInsSimple contained
-syn match SttFnDefArgsArgTypeInsEnd "\s*>\s*" nextgroup=SttFnDefArgsArg,SttFnDefArgsEnd contained
-syn match SttFnDefArgsEnd "\]" contained
+syn match FnDefArgsStartArgs "\[\(\s\|\\n\)*" nextgroup=FnDefArgsArg,FnDefArgsEnd
+syn match FnDefArgsStartEmpty "\[\s*\]" contained
+syn match FnDefArgsArg "\<\w\+" nextgroup=FnDefArgsArgType,FnDefArgsArg contained
+syn match FnDefArgsArgType "<\s*" nextgroup=SFTC,FnDefArgsArgTypeInsSimple contained
+syn match FnDefArgsArgTypeInsEnd "\s*>\s*" nextgroup=FnDefArgsArg,FnDefArgsEnd contained
+syn match FnDefArgsEnd "\]" contained
 
 " " highlight
-hi def link     SttFnDefArgsStartEmpty Delimiter
-hi def link     SttFnDefScope Delimiter
-hi def link     SttFnDef        Keyword
-hi def link     SttFnDefArgs        Keyword
-hi def link     SttFnDefArgsAllStack        Keyword
-hi def link     SttFnDefArgsArg        Keyword
-hi def link     SttFnDefArgsArgType Delimiter
-hi def link     SttFnDefArgsArgTypeInsEnd Delimiter
+hi def link     FnDefArgsStartEmpty Delimiter
+hi def link     FnDefScope Delimiter
+hi def link     FnDef        Keyword
+hi def link     FnDefArgs        Keyword
+hi def link     FnDefArgsAllStack        Keyword
+hi def link     FnDefArgsArg        Keyword
+hi def link     FnDefArgsArgType Delimiter
+hi def link     FnDefArgsArgTypeInsEnd Delimiter
 
 " Typing matches
-syn keyword SttFnDefArgsArgTypeInsSimple char string str num bool nextgroup=SttFnDefArgsArgTypeInsEnd contained
-syn match SFTC "array" nextgroup=SttFnDefArgsArgTypeInsEnd contained
-syn match SFTC "array<\w\+>" nextgroup=SttFnDefArgsArgTypeInsEnd contained
-syn match SFTC "fn" nextgroup=SttFnDefArgsArgTypeInsEnd contained
-syn match SFTC "fn<\w\+>" nextgroup=SttFnDefArgsArgTypeInsEnd contained
-syn match SFTC "fn<\w\+>\s*<\w\+>" nextgroup=SttFnDefArgsArgTypeInsEnd contained
+syn keyword FnDefArgsArgTypeInsSimple char string str num bool nextgroup=FnDefArgsArgTypeInsEnd contained
+syn match SFTC "array" nextgroup=FnDefArgsArgTypeInsEnd contained
+syn match SFTC "array<\w\+>" nextgroup=FnDefArgsArgTypeInsEnd contained
+syn match SFTC "fn" nextgroup=FnDefArgsArgTypeInsEnd contained
+syn match SFTC "fn<\w\+>" nextgroup=FnDefArgsArgTypeInsEnd contained
+syn match SFTC "fn<\w\+>\s*<\w\+>" nextgroup=FnDefArgsArgTypeInsEnd contained
 
 hi def link     SFTC Number
-hi def link     SttFnDefArgsArgTypeInsSimple Number
+hi def link     FnDefArgsArgTypeInsSimple Number
 
 " string
-syn region      SttString            start=+"+ end=+"+
-hi def link     SttString            String
+syn region      String            start=+"+ end=+"+
+hi def link     String            String
 
 " number
-syn match SttNumber "\<\(0\|[1-9][0-9]*\)\>"
-hi def link SttNumber Number
+syn match Number "\<\(0\|[1-9][0-9]*\)\>"
+hi def link Number Number
 
 " method division bla$bla$bla
-syn match SttSubFnName "\>\$\<"
-hi def link SttSubFnName Delimiter
+syn match SubFnName "\>\$\<"
+hi def link SubFnName Delimiter
 
 " panic-able functions or the '!' panic function
-syn match SttMayPanic "!"
-hi def link SttMayPanic Error
+syn match MayPanic "!"
+hi def link MayPanic Error
 
 " comment
-syn match SttComment "#.*"
-hi def link SttComment Comment
+syn match Comment "#.*"
+hi def link Comment Comment
 
 

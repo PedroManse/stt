@@ -1,22 +1,4 @@
-[package]
-name = "stck"
-version = "0.3.0"
-edition = "2024"
-authors = ["Manse <pedromanse@duck.com>"]
-default-run = "stck"
-license-file = "LICENSE.TXT"
-keywords = ["embedded", "programming", "language", "stack"]
-categories = ["command-line-utilities", "compilers"]
-exclude = ["result/", ".*", "ci.sh", "*.nix", "target", "CHANGELOG.md", "stck.vim"]
-
-[dependencies]
-colored = "3.0.0"
-thiserror = "2.0.12"
-
-[lib]
-name = "stck"
-path = "src/lib.rs"
-
-[[bin]]
-name = "stck"
-path = "src/tools/interpreter.rs"
+[workspace]
+resolver = "3"
+members = [ "interpreter", "lang" , "usage"]
+default-members = [ "interpreter" ]

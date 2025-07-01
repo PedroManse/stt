@@ -1,13 +1,13 @@
 // Avaliabe to user
 pub mod api;
+pub mod cache;
 pub mod error;
 pub mod internals;
 pub mod prelude;
 
 // Avaliabe internally
 pub(crate) use error::{
-    ErrCtx, ErrorSource, LineRange, LineSpan, RuntimeError, RuntimeErrorCtx, RuntimeErrorKind,
-    StckError,
+    ErrCtx, ErrorSource, LineRange, RuntimeErrorCtx, RuntimeErrorKind, StckError,
 };
 pub(crate) use internals::*;
 pub(crate) use types::*;
