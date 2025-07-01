@@ -382,9 +382,16 @@ pub enum Value {
     Result(Box<Result<Value, Value>>),
     Option(Option<Box<Value>>),
     Closure(Box<Closure>),
+    Float(f64),
 }
 
 impl Value {
+    pub fn get_float(self) -> Result<f64, Value> {
+        match self {
+            Value::Float(n) => Ok(n),
+            e => Err(e),
+        }
+    }
     pub fn get_option(self) -> Result<Option<Box<Value>>, Value> {
         match self {
             Value::Option(x) => Ok(x),
@@ -434,6 +441,12 @@ impl Value {
         }
     }
 
+    pub fn get_ref_float(&self) -> Result<&f64, &Value> {
+        match self {
+            Value::Float(n) => Ok(n),
+            o => Err(o),
+        }
+    }
     pub fn get_ref_option(&self) -> Result<&Option<Box<Value>>, &Value> {
         match self {
             Value::Option(x) => Ok(x),
@@ -481,6 +494,12 @@ impl Value {
             Value::Map(x) => Ok(x),
             o => Err(o),
         }
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Value::Float(value)
     }
 }
 
@@ -624,6 +643,7 @@ pub struct Token {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub enum TokenCont {
+    Float(f64),
     Char(char),
     Ident(String),
     Str(String),

@@ -56,6 +56,7 @@ impl Display for TypeTester {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use TypeTester::*;
         match self {
+            Float => write!(f, "float"),
             Any => write!(f, "?"),
             Char => write!(f, "char"),
             Str => write!(f, "str"),
@@ -231,6 +232,7 @@ impl Display for Value {
             },
             Value::Str(s) => write!(f, "\"{}\"", s.green()),
             Value::Num(n) => write!(f, "{}", n.to_string().bright_cyan()),
+            Value::Float(n) => write!(f, "{}", n.to_string().bright_cyan()),
             Value::Char(c) => write!(f, "'{}'", c.to_string().green()),
             Value::Bool(b) => write!(f, "{}", b.to_string().purple()),
             Value::Option(o) => match o.as_ref() {

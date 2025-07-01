@@ -1,4 +1,7 @@
 macro_rules! sget {
+    (float) => {
+        (Value::get_float, Value::get_ref_float, "Float")
+    };
     (num) => {
         (Value::get_num, Value::get_ref_num, "Number")
     };

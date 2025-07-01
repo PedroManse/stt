@@ -24,6 +24,7 @@ pub enum State {
     MakeStringEsc(String, usize), // found \ on string
     Minus(String),
     MakeNumber(String),
+    MakeFloat(String),
     MakeKeyword(String, usize),
     MakeFnArgs(Vec<FnArgDef>, String, usize),
     MakeFnArgType {
@@ -43,7 +44,7 @@ macro_rules! matches {
         'a'..='z' | 'A'..='Z' | '_' | '-' | '&'
     };
     (ident) => {
-        (matches!(start_ident) | matches!(digit) | '.' | '/' | '\'' | '-')
+        (matches!(start_ident) | matches!(digit) | '/' | '\'' | '-')
     };
     (arg_type) => {
         (matches!(letter) | matches!(space) | '?' | '*')
@@ -52,7 +53,7 @@ macro_rules! matches {
         'a'..='z' | 'A'..='Z'
     };
     (start_ident) => {
-        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':' | '~' | '@'
+        'a'..='z' | 'A'..='Z' | '+' | '_' | '%' | '!' | '?' | '$' | '=' | '*' | '&' | '<' | '>' | '≃' | ',' | ':' | '~' | '@' | '.'
     };
     (word_edge) => {
         '(' | ')' | '{' | '}' | '[' | ']'
@@ -178,10 +179,31 @@ impl Context {
                     self.unget(); // re-read char with Nothing State
                     Nothing
                 }
+                (MakeNumber(mut buf), c @ '.') => {
+                    buf.push(*c);
+                    MakeFloat(buf)
+                }
                 (MakeNumber(buf), ',') => {
                     let num = buf.parse()?;
                     self.push_token(&mut out, Number(num));
                     self.push_token(&mut out, Ident(",".to_string()));
+                    Nothing
+                }
+
+                // Make float
+                (MakeFloat(mut buf), c @ matches!(digit)) => {
+                    buf.push(*c);
+                    MakeFloat(buf)
+                }
+                (MakeFloat(buf), matches!(space)) => {
+                    let num = buf.parse()?;
+                    self.push_token(&mut out, Float(num));
+                    Nothing
+                }
+                (MakeFloat(buf), matches!(word_edge)) => {
+                    let num = buf.parse()?;
+                    self.push_token(&mut out, Float(num));
+                    self.unget(); // re-read char with Nothing State
                     Nothing
                 }
 
