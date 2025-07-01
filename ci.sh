@@ -42,8 +42,6 @@ if [ "$#" != 0 ] ; then
 	done
 else
 	ci .
-	ci lang
-	ci interpreter
 	ci usage
 fi
 
