@@ -468,6 +468,15 @@ impl Context {
                 )?;
                 self.stack.push_this(lhs - rhs);
             }
+            ".-" => {
+                let rhs = stack_pop!(
+                    (self.stack) -> float as "rhs" for fn_name
+                )?;
+                let lhs = stack_pop!(
+                    (self.stack) -> float as "lhs" for fn_name
+                )?;
+                self.stack.push_this(lhs - rhs);
+            }
             "*" => {
                 let rhs = stack_pop!(
                     (self.stack) -> num as "rhs" for fn_name
@@ -477,11 +486,23 @@ impl Context {
                 )?;
                 self.stack.push_this(lhs * rhs);
             }
+            ".*" => {
+                let rhs = stack_pop!(
+                    (self.stack) -> float as "rhs" for fn_name
+                )?;
+                let lhs = stack_pop!(
+                    (self.stack) -> float as "lhs" for fn_name
+                )?;
+                self.stack.push_this(lhs * rhs);
+            }
             "≃" => {
                 use Value::*;
                 let rhs = stack_pop!((self.stack) -> * as "rhs" for fn_name)?;
                 let lhs = stack_pop!((self.stack) -> * as "lhs" for fn_name)?;
                 let eq = match (lhs, rhs) {
+                    // if the user has a threshold they can check it them selves
+                    #[allow(clippy::float_cmp)]
+                    (Float(l), Float(r)) => Ok(l == r),
                     (Char(l), Char(r)) => Ok(l == r),
                     (Num(l), Num(r)) => Ok(l == r),
                     (Str(l), Str(r)) => Ok(l == r),
@@ -497,6 +518,9 @@ impl Context {
                 let rhs = stack_pop!((self.stack) -> * as "rhs" for fn_name)?;
                 let lhs = stack_pop!((self.stack) -> * as "lhs" for fn_name)?;
                 let eq = match (lhs, rhs) {
+                    // if the user has a threshold they can check it them selves
+                    #[allow(clippy::float_cmp)]
+                    (Float(l), Float(r)) => l == r,
                     (Char(l), Char(r)) => l == r,
                     (Num(l), Num(r)) => l == r,
                     (Str(l), Str(r)) => l == r,
@@ -512,6 +536,7 @@ impl Context {
                 let rhs = stack_pop!((self.stack) -> * as "rhs" for fn_name)?;
                 let lhs = stack_pop!((self.stack) -> * as "lhs" for fn_name)?;
                 let eq = match (lhs, rhs) {
+                    (Float(l), Float(r)) => l > r,
                     (Num(l), Num(r)) => l > r,
                     (Str(l), Str(r)) => l > r,
                     (Bool(l), Bool(r)) => l && !r,
@@ -527,6 +552,15 @@ impl Context {
                 )?;
                 let lhs = stack_pop!(
                     (self.stack) -> num as "lhs" for fn_name
+                )?;
+                self.stack.push_this(lhs % rhs);
+            }
+            "%." => {
+                let rhs = stack_pop!(
+                    (self.stack) -> float as "rhs" for fn_name
+                )?;
+                let lhs = stack_pop!(
+                    (self.stack) -> float as "lhs" for fn_name
                 )?;
                 self.stack.push_this(lhs % rhs);
             }

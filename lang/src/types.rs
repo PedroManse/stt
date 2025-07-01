@@ -125,6 +125,7 @@ impl TypedFnPart {
 }
 
 pub enum TypeTesterEq {
+    Float,
     Generic,
     Any,
     Char,
@@ -174,6 +175,7 @@ impl PartialEq for TypeTesterEq {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeTester {
     Generic(String),
+    Float,
     Any,
     Char,
     Str,
@@ -434,6 +436,7 @@ impl TypeTester {
     #[must_use]
     pub fn as_eq(&self) -> TypeTesterEq {
         match self {
+            Self::Float => TypeTesterEq::Float,
             Self::Any => TypeTesterEq::Any,
             Self::Char => TypeTesterEq::Char,
             Self::Str => TypeTesterEq::Str,
@@ -492,6 +495,7 @@ impl From<Vec<FnArgDef>> for TypedOutputs {
 impl From<&Value> for TypeTester {
     fn from(value: &internals::Value) -> Self {
         match value {
+            Value::Float(_) => Self::Float,
             Value::Char(_) => Self::Char,
             Value::Str(_) => Self::Str,
             Value::Num(_) => Self::Num,

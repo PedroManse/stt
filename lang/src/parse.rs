@@ -74,6 +74,10 @@ impl<'p> Context<'p> {
                     push_expr!(E::Immediate(Value::Num(x)));
                     Nothing
                 }
+                (Nothing, Float(x)) => {
+                    push_expr!(E::Immediate(Value::Float(x)));
+                    Nothing
+                }
                 (Nothing, Char(c)) => {
                     push_expr!(E::Immediate(Value::Char(c)));
                     Nothing

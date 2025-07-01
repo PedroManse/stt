@@ -170,6 +170,8 @@ pub enum StckError {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
+    #[error(transparent)]
+    ParseFloat(#[from] std::num::ParseFloatError),
     #[error("No pragma section to (end if), on span {0}")]
     NoSectionToClose(LineRange),
     #[error("Can't start pragma (else) section on {1:?} (span {0:?})")]
