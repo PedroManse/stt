@@ -47,7 +47,7 @@ enum SError {
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]
-    StckError(#[from] error::Error),
+    StckError(#[from] stck::Error),
     #[error(transparent)]
     Regex(#[from] regex::Error),
     #[error(transparent)]
@@ -63,7 +63,7 @@ enum SError {
 
 impl From<RuntimeErrorCtx> for SError {
     fn from(value: RuntimeErrorCtx) -> Self {
-        SError::from(error::Error::from(value))
+        SError::from(stck::Error::from(value))
     }
 }
 

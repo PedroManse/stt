@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 regex = "1.11.1"
-stck = { path = "../lang" }
+stck = { path = ".." }
 thiserror = "2.0.12"
 clap = { version = "4.5.40", features = ["derive"] }
 colored = "3.0.0"
