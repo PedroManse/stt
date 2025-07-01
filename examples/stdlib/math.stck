@@ -13,3 +13,18 @@
 	}
 	drop
 }
+
+(fn) [a b] .+ { a 0.0 b .- }
+(fn) [a] .++ { a 1 .+ }
+(fn) [a] .-- { a 1 .- }
+(fn) [base<float> pwr<num>] [ <float> ] .pow {
+	1.0
+	pwr
+	(while) { dup 0 > } {
+		flip
+			base .*
+		flip
+			--
+	}
+	drop
+}
