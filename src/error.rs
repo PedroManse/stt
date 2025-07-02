@@ -200,6 +200,10 @@ pub enum StckError {
     UnknownType(String),
     #[error("Can't parse TRC `{0}`, missing name")]
     TRCMissingName(String),
+    #[error("Tried making a protected module without a # prefix")]
+    ProtectedModuleWithoutBang(String),
+    #[error("Hosts can't make modules with the # prefix (sign of protected module)")]
+    UserModuleWithBang(String),
 }
 
 /// # A runtime error
