@@ -228,21 +228,30 @@ impl Context {
                                         path: p.trim().into(),
                                     });
                             let pragma = otherwise
-                                .strip_prefix("pragma ")
-                                .map(|c| RawKeyword::Pragma { command: c.into() });
+                                .strip_prefix("pragma")
+                                .map(str::trim)
+                                .map(String::from)
+                                .map(|command| RawKeyword::Pragma { command });
                             let fn_into_closure = otherwise
                                 .strip_prefix("@")
-                                .map(|f| RawKeyword::FnIntoClosure { fn_name: f.into() });
+                                .map(String::from)
+                                .map(|fn_name| RawKeyword::FnIntoClosure { fn_name });
                             let trc = otherwise
                                 .strip_prefix("TRC")
                                 .map(str::trim)
                                 .map(DefinedGenericBuilder::from_str)
                                 .and_then(Result::ok)
                                 .map(RawKeyword::from);
+                            let require = otherwise
+                                .strip_prefix("require")
+                                .map(str::trim)
+                                .map(String::from)
+                                .map(RawKeyword::Require);
                             include
                                 .or(pragma)
                                 .or(fn_into_closure)
                                 .or(trc)
+                                .or(require)
                                 .ok_or(StckError::UnknownKeyword(otherwise.to_string()))?
                         }
                     };

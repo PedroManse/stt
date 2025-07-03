@@ -305,4 +305,6 @@ pub enum RuntimeErrorKind {
     },
     #[error("No such function or function argument called `{0}`")]
     MissingIdent(String),
+    #[error("Module `{0}` is required but was not loaded")]
+    MissingModule(String),
 }

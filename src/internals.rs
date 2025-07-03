@@ -588,6 +588,7 @@ pub enum KeywordKind {
         default: Option<Vec<Expr>>,
     },
     DefinedGeneric(DefinedGenericBuilder),
+    Require(String),
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -633,6 +634,7 @@ pub enum RawKeyword {
     Pragma { command: String },
     Switch,
     Break,
+    Require(String),
 }
 
 #[cfg_attr(test, derive(PartialEq))]

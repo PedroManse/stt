@@ -221,6 +221,13 @@ impl Context {
 
     fn execute_kw(&mut self, kw: &KeywordKind, source: &Path) -> MixedResult<ControlFlow> {
         Ok(match kw {
+            KeywordKind::Require(module_name) => {
+                return if !self.enabled_modules.contains(module_name) {
+                    Err(RuntimeErrorKind::MissingModule(module_name.to_owned()).into())
+                } else {
+                    Ok(ControlFlow::Continue)
+                };
+            }
             KeywordKind::DefinedGeneric(trc) => {
                 self.trc.add_generic(trc.clone());
                 ControlFlow::Continue
@@ -878,6 +885,7 @@ impl Context {
             "debug$vars" => eprintln!("{:?}", self.vars),
             "debug$args" => eprintln!("{:?}", self.args),
             "debug$fns" => eprintln!("{:?}", self.fns),
+            "debug$modules" => eprintln!("{:?}", self.enabled_modules),
             "debug$generics" => eprintln!("{:?}", self.trc),
 
             _ => {
