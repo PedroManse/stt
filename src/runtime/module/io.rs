@@ -2,7 +2,7 @@ use crate::{
     RuntimeContext, RuntimeErrorKind, StckError, Value,
     runtime::{Hook, module::Module, sget, stack_pop},
 };
-use std::path::Path;
+use std::{io::Write, path::Path};
 
 macro_rules! register {
     ($mod:expr, $name:ident as |$ctx:ident| $fn:block) => {
@@ -32,7 +32,38 @@ pub fn io_module() -> Result<Module, StckError> {
     register!(io_mod, write_file as |ctx| {
         let path = stack_pop!((ctx.stack) -> str as "file path" for "io$read-file")?;
         let content = stack_pop!((ctx.stack) -> str as "file content" for "io$read-file")?;
-        println!("write {content} to {path}");
+        let file = std::fs::File::create(path);
+        let mut file = match file {
+            Ok(o) => o,
+            Err(e) => {
+                ctx.stack.push_this(Err(e.to_string().into()));
+                return Ok(());
+            }
+        };
+        let res = match file.write_all(content.as_bytes()) {
+            Err(e)=> Err((e.to_string()).into()),
+            Ok(()) => Ok((content.len() as isize).into()),
+        };
+        ctx.stack.push_this(res);
+        Ok(())
+    });
+
+    register!(io_mod, append_file as |ctx| {
+        let path = stack_pop!((ctx.stack) -> str as "file path" for "io$read-file")?;
+        let content = stack_pop!((ctx.stack) -> str as "file content" for "io$read-file")?;
+        let file = std::fs::OpenOptions::new().append(true).open(path);
+        let mut file = match file {
+            Ok(o) => o,
+            Err(e) => {
+                ctx.stack.push_this(Err(e.to_string().into()));
+                return Ok(());
+            }
+        };
+        let res = match file.write_all(content.as_bytes()) {
+            Err(e)=> Err((e.to_string()).into()),
+            Ok(()) => Ok((content.len() as isize).into()),
+        };
+        ctx.stack.push_this(res);
         Ok(())
     });
 
