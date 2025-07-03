@@ -327,7 +327,7 @@ impl Context {
             self.stack.push(arg);
         } else if let Some(rets) = self.try_execute_user_fn(name) {
             // try_execute_user_fn should handle stack pop
-            // and have the lowest precedence, since the traverse the scopes
+            // and have the lowest precedence, since they traverse the scopes
             self.stack.pushn(rets?);
         } else if let Some(res) = self.try_execute_rust_hook(name, source) {
             res?;
