@@ -1,10 +1,11 @@
 mod builtins;
+pub mod module;
 mod stack;
 use stack::*;
 
 use crate::*;
 use std::boxed::Box;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 #[derive(thiserror::Error, Debug)]
@@ -19,14 +20,44 @@ type Rtk = crate::error::RuntimeErrorKind;
 type CResult<T> = std::result::Result<T, error::RuntimeErrorCtx>;
 type MixedResult<T> = std::result::Result<T, RuntimeError>;
 
+#[derive(Clone, Debug)]
+pub enum Hook {
+    Raw(fn(&mut runtime::Context, &Path)),
+    WithError(fn(&mut runtime::Context, &Path) -> Result<(), RuntimeErrorKind>),
+}
+
+impl Hook {
+    pub fn call(&self, ctx: &mut runtime::Context, source: &Path) -> Result<(), RuntimeErrorKind> {
+        match self {
+            Hook::Raw(c) => {
+                c(ctx, source);
+                Ok(())
+            }
+            Hook::WithError(c) => c(ctx, source),
+        }
+    }
+}
+
+impl From<fn(&mut runtime::Context, &Path)> for Hook {
+    fn from(value: fn(&mut runtime::Context, &Path)) -> Self {
+        Hook::Raw(value)
+    }
+}
+impl From<fn(&mut runtime::Context, &Path) -> Result<(), RuntimeErrorKind>> for Hook {
+    fn from(value: fn(&mut runtime::Context, &Path) -> Result<(), RuntimeErrorKind>) -> Self {
+        Hook::WithError(value)
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct Context {
     vars: HashMap<String, Value>,
     fns: HashMap<FnName, FnDef>,
     pub stack: Stack,
     args: Option<HashMap<ArgName, FnArg>>,
-    rust_fns: HashMap<FnName, RustStckFn>,
+    rust_fns: HashMap<FnName, Hook>,
     trc: TypeResolutionBuilder,
+    enabled_modules: HashSet<String>,
 }
 
 impl Context {
@@ -39,11 +70,17 @@ impl Context {
             rust_fns: HashMap::new(),
             args: None,
             trc: TypeResolutionBuilder::new(),
+            enabled_modules: HashSet::new(),
         }
     }
 
-    pub fn add_rust_hook(&mut self, rnf: RustStckFn) -> Option<RustStckFn> {
-        self.rust_fns.insert(rnf.get_name().to_owned(), rnf)
+    pub fn add_module(&mut self, module: module::Module) {
+        self.rust_fns.extend(module.funcs);
+        self.enabled_modules.insert(module.name);
+    }
+
+    pub fn add_rust_hook(&mut self, RustStckFn { name, code }: RustStckFn) -> Option<Hook> {
+        self.rust_fns.insert(name, Hook::Raw(code))
     }
 
     #[must_use]
@@ -65,8 +102,9 @@ impl Context {
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
         args_ins: FnArgsInsCap,
-        rust_fns: HashMap<FnName, RustStckFn>,
+        rust_fns: HashMap<FnName, Hook>,
         trc: TypeResolutionBuilder,
+        enabled_modules: HashSet<String>,
     ) -> Self {
         let (stack, args) = match args_ins {
             FnArgsInsCap::AllStack(xs) => (Stack::new_with(xs), None),
@@ -79,6 +117,7 @@ impl Context {
             args,
             rust_fns,
             trc,
+            enabled_modules,
         }
     }
 
@@ -86,10 +125,12 @@ impl Context {
         fns: HashMap<FnName, FnDef>,
         vars: HashMap<String, Value>,
         args: HashMap<ArgName, FnArg>,
-        rust_fns: HashMap<FnName, RustStckFn>,
+        rust_fns: HashMap<FnName, Hook>,
         trc: TypeResolutionBuilder,
+        enabled_modules: HashSet<String>,
     ) -> Self {
         Self {
+            enabled_modules,
             trc,
             rust_fns,
             fns,
@@ -286,9 +327,10 @@ impl Context {
             self.stack.push(arg);
         } else if let Some(rets) = self.try_execute_user_fn(name) {
             // try_execute_user_fn should handle stack pop
-            // and have the lowest precedence, since the traverse the scopes
+            // and have the lowest precedence, since they traverse the scopes
             self.stack.pushn(rets?);
-        } else if let Some(()) = self.try_execute_rust_hook(name, source) {
+        } else if let Some(res) = self.try_execute_rust_hook(name, source) {
+            res?;
         } else {
             return Err(Rtk::MissingIdent(name.clone()).into());
         }
@@ -306,6 +348,7 @@ impl Context {
             closure.request_args,
             self.rust_fns.clone(),
             self.trc.clone(),
+            self.enabled_modules.clone(),
         );
         cl_ctx.execute_code(&closure.code, source)?;
         let output = cl_ctx.take_stack().into_vec();
@@ -373,6 +416,7 @@ impl Context {
             args,
             self.rust_fns.clone(),
             self.trc.clone(),
+            self.enabled_modules.clone(),
         );
 
         // handle (return) kw and RT errors inside functions
@@ -411,10 +455,13 @@ impl Context {
         }
     }
 
-    fn try_execute_rust_hook(&mut self, name: &FnName, source: &Path) -> Option<()> {
+    fn try_execute_rust_hook(
+        &mut self,
+        name: &FnName,
+        source: &Path,
+    ) -> Option<Result<(), RuntimeErrorKind>> {
         let rfn = self.rust_fns.get(name)?.clone();
-        rfn.call(self, source);
-        Some(())
+        Some(rfn.call(self, source))
     }
 
     fn try_execute_builtin(&mut self, fn_name: &str, source: &Path) -> MixedResult<Option<()>> {

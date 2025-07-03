@@ -93,7 +93,7 @@ impl From<RuntimeErrorCtx> for ErrorSpans {
 
 /// # An error with context
 ///
-/// An [error](StckError) with the faulty expression's [context](ErrCtx)
+/// An [error](RuntimeErrorKind) with the faulty expression's [context](ErrCtx)
 /// and the [stack trace](RuntimeErrorCtx::get_call_stack)
 #[derive(Debug)]
 pub struct RuntimeErrorCtx {
@@ -200,6 +200,10 @@ pub enum StckError {
     UnknownType(String),
     #[error("Can't parse TRC `{0}`, missing name")]
     TRCMissingName(String),
+    #[error("Tried making a builtin module without a # prefix")]
+    BuiltinModuleWithoutBang(String),
+    #[error("Hosts can't make modules with the # prefix (sign of builtin module)")]
+    UserModuleWithBang(String),
 }
 
 /// # A runtime error

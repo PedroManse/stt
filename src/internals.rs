@@ -5,6 +5,8 @@
 use super::*;
 
 pub use runtime::Context as RuntimeContext;
+pub use runtime::Hook as StckHook;
+pub use runtime::module;
 use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -698,8 +700,8 @@ impl TokenBlock {
 type RustStckFnRaw = fn(&mut runtime::Context, &Path);
 #[derive(Clone)]
 pub struct RustStckFn {
-    name: String,
-    code: RustStckFnRaw,
+    pub(crate) name: String,
+    pub(crate) code: RustStckFnRaw,
 }
 
 // TODO ::new test if name is valid (for tokenizer)
@@ -707,13 +709,6 @@ impl RustStckFn {
     #[must_use]
     pub fn new(name: String, code: RustStckFnRaw) -> Self {
         RustStckFn { name, code }
-    }
-    #[must_use]
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-    pub fn call(&self, ctx: &mut runtime::Context, source: &Path) {
-        (self.code)(ctx, source);
     }
 }
 
