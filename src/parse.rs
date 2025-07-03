@@ -86,6 +86,10 @@ impl<'p> Context<'p> {
                     push_expr!(E::Keyword(KeywordKind::DefinedGeneric(trc)));
                     Nothing
                 }
+                (Nothing, Keyword(RawKeyword::Require(module_name))) => {
+                    push_expr!(E::Keyword(KeywordKind::Require(module_name)));
+                    Nothing
+                }
                 (Nothing, Keyword(RawKeyword::Break)) => {
                     push_expr!(E::Keyword(KeywordKind::Break));
                     Nothing

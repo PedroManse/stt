@@ -99,6 +99,7 @@ impl Display for ExprCont {
             Self::Keyword(k) => {
                 write!(f, "Keyword: ")?;
                 match k {
+                    KeywordKind::Require(mn) => write!(f, "Require module {mn}"),
                     KeywordKind::DefinedGeneric(g) => write!(f, "Define generic {g:?}"),
                     KeywordKind::Break => write!(f, "Break"),
                     KeywordKind::Return => write!(f, "Return"),
