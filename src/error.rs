@@ -93,7 +93,7 @@ impl From<RuntimeErrorCtx> for ErrorSpans {
 
 /// # An error with context
 ///
-/// An [error](StckError) with the faulty expression's [context](ErrCtx)
+/// An [error](RuntimeErrorKind) with the faulty expression's [context](ErrCtx)
 /// and the [stack trace](RuntimeErrorCtx::get_call_stack)
 #[derive(Debug)]
 pub struct RuntimeErrorCtx {
