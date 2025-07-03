@@ -32,7 +32,7 @@ impl Module {
                 funcs: HashMap::new(),
             })
         } else {
-            Err(StckError::ProtectedModuleWithoutBang(name))
+            Err(StckError::BuiltinModuleWithoutBang(name))
         }
     }
     pub fn add_fn(&mut self, name: impl Into<String>, fnc: Hook) -> Option<Hook> {
