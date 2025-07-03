@@ -1,0 +1,10 @@
+(pragma set debug)
+(include stdlib)
+(require #io)
+
+argv$init
+argv$pop dup io$read_file !
+argv$pop dup rot3 io$write_file ! drop
+"Copied '%s' into '%s'\n" %% print
+
+
